@@ -121,8 +121,8 @@ function Home() {
         After submitting feedback, switch to <strong>admin</strong>, open{" "}
         <strong>Admin triage</strong>, and walk it through the lifecycle. Email
         notifications land in MailHog at{" "}
-        <a href="http://localhost:8026" target="_blank" rel="noreferrer">
-          http://localhost:8026
+        <a href="http://localhost:8226" target="_blank" rel="noreferrer">
+          http://localhost:8226
         </a>
         .
       </p>

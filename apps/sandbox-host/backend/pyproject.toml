@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-rl3-feedback-widget = { path = "../../../packages/feedback-backend", editable = true }
+rl3-feedback-widget = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]

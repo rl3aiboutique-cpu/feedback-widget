@@ -1,6 +1,9 @@
 FROM node:20-alpine AS build
 WORKDIR /work
 
+ARG VITE_API_URL=http://localhost:9200
+ENV VITE_API_URL=${VITE_API_URL}
+
 # Bring the whole monorepo so workspace links resolve. Build context is
 # the repo root (see docker-compose.yml: `context: ../..`).
 COPY pnpm-workspace.yaml package.json /work/
@@ -14,7 +17,6 @@ RUN pnpm --filter feedback-sandbox-host-frontend build
 
 FROM node:20-alpine
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
 RUN npm install -g serve
 COPY --from=build /work/apps/sandbox-host/frontend/dist /app
 EXPOSE 3000

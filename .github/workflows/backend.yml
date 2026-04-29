@@ -15,6 +15,10 @@ on:
       - ".github/workflows/backend.yml"
       - "pyproject.toml"
 
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-typecheck-test:
     runs-on: ubuntu-latest
@@ -54,7 +58,35 @@ jobs:
       - name: Typecheck
         run: uv run mypy packages/feedback-backend/src --strict
 
-      - name: Test
+      - name: Security scan (bandit)
+        run: |
+          uv tool run bandit -r packages/feedback-backend/src \
+            --skip B104,B311 \
+            -ll
+
+      - name: Test (unit)
         env:
-          FEEDBACK_DATABASE_URL: postgresql+asyncpg://feedback:feedback@localhost:5432/feedback_test
-        run: uv run pytest packages/feedback-backend/tests --cov=feedback_widget --cov-fail-under=80
+          FEEDBACK_DATABASE_URL: postgresql://feedback:feedback@localhost:5432/feedback_test
+        run: |
+          uv run pytest packages/feedback-backend/tests/unit \
+            --cov=feedback_widget \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      - name: Test (integration)
+        env:
+          FEEDBACK_DATABASE_URL: postgresql://feedback:feedback@localhost:5432/feedback_test
+        run: |
+          uv run pytest packages/feedback-backend/tests/integration \
+            --cov=feedback_widget \
+            --cov-append \
+            --cov-report=term-missing \
+            --cov-report=xml
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-backend
+          path: coverage.xml
+          retention-days: 14

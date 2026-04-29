@@ -38,8 +38,8 @@ services:
     image: mailhog/mailhog:latest
     container_name: feedback-sandbox-mailhog
     ports:
-      - "1026:1025"
-      - "8026:8025"
+      - "1226:1025"
+      - "8226:8025"
 
   backend:
     build:
@@ -68,25 +68,27 @@ services:
       FEEDBACK_EMAILS_FROM_NAME: "Feedback Sandbox"
       FEEDBACK_NOTIFY_EMAILS: triage@sandbox.local
       FEEDBACK_BRAND_NAME: "Feedback Sandbox"
-      FEEDBACK_ADMIN_DEEP_LINK_BASE: http://localhost:9001
+      FEEDBACK_ADMIN_DEEP_LINK_BASE: http://localhost:9201
       FEEDBACK_REPO_URL: "https://github.com/rl3aiboutique-cpu/feedback-widget"
       FEEDBACK_CSRF_REQUIRED: "false"
       FEEDBACK_MULTI_TENANT_MODE: "false"
       FEEDBACK_RATE_LIMIT_PER_HOUR: "200"
-      SANDBOX_CORS_ORIGIN: http://localhost:9001
+      SANDBOX_CORS_ORIGIN: http://localhost:9201
     ports:
-      - "9000:8000"
+      - "9200:8000"
 
   frontend:
     build:
       context: ../..
       dockerfile: apps/sandbox-host/frontend/Dockerfile
+      args:
+        VITE_API_URL: http://localhost:9200
     container_name: feedback-sandbox-frontend
     depends_on:
       backend:
         condition: service_started
     ports:
-      - "9001:3000"
+      - "9201:3000"
 
 volumes:
   sandbox_pg:

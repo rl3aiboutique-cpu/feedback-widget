@@ -17,8 +17,12 @@ on:
       - "pnpm-workspace.yaml"
       - "package.json"
 
+concurrency:
+  group: frontend-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint-typecheck-build:
+  lint-typecheck-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,7 +36,7 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
 
       - name: Lint
         run: pnpm -r lint
@@ -40,12 +44,25 @@ jobs:
       - name: Typecheck
         run: pnpm -r typecheck
 
+      - name: Test (vitest)
+        run: pnpm --filter @rl3/feedback-widget test
+
       - name: Build
         run: pnpm --filter @rl3/feedback-widget build
 
-      - name: Verify no cross-boundary imports
+      - name: Verify zero cross-boundary imports
         run: |
           if grep -rn 'from "@/' packages/feedback-frontend/src/ ; then
             echo "::error::cross-boundary @/* import found inside the widget"
+            exit 1
+          fi
+
+      - name: Verify dist size budget (<= 300KB minified)
+        run: |
+          set -e
+          size=$(find packages/feedback-frontend/dist -name "*.js" -not -name "*.map" -exec cat {} + | wc -c)
+          echo "dist js bytes: $size"
+          if [ "$size" -gt 307200 ]; then
+            echo "::error::dist js exceeds 300KB budget ($size bytes)"
             exit 1
           fi

@@ -1,3 +1,6 @@
+default_language_version:
+  python: python3.12
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -6,15 +9,31 @@ repos:
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-toml
+      - id: check-merge-conflict
       - id: check-added-large-files
         args: ["--maxkb=512"]
       - id: mixed-line-ending
         args: ["--fix=lf"]
+      - id: detect-private-key
+      - id: check-case-conflict
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.2
     hooks:
       - id: gitleaks
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args: ["--ignore-words-list=crate,fo,nd"]
+        exclude: |
+          (?x)^(
+            .*\.lock|
+            .*\.svg|
+            packages/feedback-frontend/src/client/.*|
+            apps/sandbox-host/.*/dist/.*
+          )$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.7.4
@@ -25,10 +44,35 @@ repos:
       - id: ruff-format
         files: ^(packages/feedback-backend|apps/sandbox-host/backend)/
 
+  - repo: local
+    hooks:
+      - id: mypy-feedback-backend
+        name: mypy --strict (feedback-backend)
+        language: system
+        entry: bash -c 'cd packages/feedback-backend && uv run mypy src/ --strict'
+        pass_filenames: false
+        files: ^packages/feedback-backend/src/.*\.py$
+        require_serial: true
+
   - repo: https://github.com/biomejs/pre-commit
     rev: v0.6.1
     hooks:
       - id: biome-check
         additional_dependencies: ["@biomejs/biome@1.9.4"]
         files: \.(ts|tsx|js|jsx|json)$
-        exclude: ^(.*/node_modules/|.*/dist/|.*/src/client/)
+        exclude: ^(.*/node_modules/|.*/dist/|.*/src/client/index\.ts|pnpm-lock\.yaml)
+
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.1-beta
+    hooks:
+      - id: hadolint-docker
+        args: ["--ignore", "DL3008", "--ignore", "DL3018"]
+
+  - repo: local
+    hooks:
+      - id: no-cross-boundary-imports
+        name: no @/ imports inside the widget src/
+        language: system
+        entry: bash -c 'if grep -rn "from \"@/" packages/feedback-frontend/src/; then echo "::error:: cross-boundary @/ import inside widget"; exit 1; fi'
+        pass_filenames: false
+        files: ^packages/feedback-frontend/src/.*\.(ts|tsx)$

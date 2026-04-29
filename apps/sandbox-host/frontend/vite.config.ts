@@ -13,7 +13,7 @@ export default defineConfig({
   },
   define: {
     "import.meta.env.VITE_API_URL": JSON.stringify(
-      process.env.VITE_API_URL ?? "http://localhost:9000",
+      process.env.VITE_API_URL ?? "http://localhost:9200",
     ),
     "import.meta.env.VITE_FEEDBACK_ENABLED": JSON.stringify("true"),
   },
