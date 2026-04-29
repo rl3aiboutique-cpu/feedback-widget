@@ -95,8 +95,18 @@ export function App() {
         <main style={{ maxWidth: 960, margin: "32px auto", padding: "0 24px" }}>
           {view === "home" && <Home />}
           {view === "admin" && <FeedbackTriagePage />}
-          {view === "accept" && <FeedbackActionPage action="accept" />}
-          {view === "reject" && <FeedbackActionPage action="reject" />}
+          {view === "accept" && (
+            <FeedbackActionPage
+              action="accept"
+              token={new URLSearchParams(window.location.search).get("token")}
+            />
+          )}
+          {view === "reject" && (
+            <FeedbackActionPage
+              action="reject"
+              token={new URLSearchParams(window.location.search).get("token")}
+            />
+          )}
         </main>
 
         {/* Mounted everywhere: the floating button is visible on every route. */}
