@@ -1,0 +1,60 @@
+name: backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/feedback-backend/**"
+      - "apps/sandbox-host/backend/**"
+      - ".github/workflows/backend.yml"
+      - "pyproject.toml"
+  pull_request:
+    paths:
+      - "packages/feedback-backend/**"
+      - "apps/sandbox-host/backend/**"
+      - ".github/workflows/backend.yml"
+      - "pyproject.toml"
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: feedback
+          POSTGRES_PASSWORD: feedback
+          POSTGRES_DB: feedback_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install Python
+        run: uv python install 3.12
+
+      - name: Sync dependencies
+        run: uv sync --all-packages --extra test
+
+      - name: Lint
+        run: |
+          uv run ruff check packages/feedback-backend/src packages/feedback-backend/tests
+          uv run ruff format --check packages/feedback-backend/src packages/feedback-backend/tests
+
+      - name: Typecheck
+        run: uv run mypy packages/feedback-backend/src --strict
+
+      - name: Test
+        env:
+          FEEDBACK_DATABASE_URL: postgresql+asyncpg://feedback:feedback@localhost:5432/feedback_test
+        run: uv run pytest packages/feedback-backend/tests --cov=feedback_widget --cov-fail-under=80

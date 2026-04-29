@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+dist/
+build/
+*.egg
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+pnpm-debug.log*
+*.tsbuildinfo
+dist/
+.turbo/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.envrc
+.direnv/
+
+# Local env files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Build / SDK artefacts (will be regenerated)
+packages/feedback-frontend/src/client/*
+!packages/feedback-frontend/src/client/.gitkeep
+
+# Sandbox runtime
+apps/sandbox-host/**/data/
+apps/sandbox-host/**/.minio-data/
+
+# Evidence / artefacts of e2e runs
+docs/evidence/*.gif
+docs/evidence/*.mp4
+docs/evidence/*.webm
+docs/evidence/screenshots/
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Logs
+*.log
+logs/

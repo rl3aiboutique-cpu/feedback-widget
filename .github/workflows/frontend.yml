@@ -1,0 +1,51 @@
+name: frontend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/feedback-frontend/**"
+      - "apps/sandbox-host/frontend/**"
+      - ".github/workflows/frontend.yml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+  pull_request:
+    paths:
+      - "packages/feedback-frontend/**"
+      - "apps/sandbox-host/frontend/**"
+      - ".github/workflows/frontend.yml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+
+jobs:
+  lint-typecheck-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Build
+        run: pnpm --filter @rl3/feedback-widget build
+
+      - name: Verify no cross-boundary imports
+        run: |
+          if grep -rn 'from "@/' packages/feedback-frontend/src/ ; then
+            echo "::error::cross-boundary @/* import found inside the widget"
+            exit 1
+          fi
