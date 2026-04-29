@@ -18,7 +18,6 @@
  */
 
 import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
 
 import { Button } from "./ui/button"
 import {
@@ -189,7 +188,7 @@ export function FeedbackPanel({
       }
       return await capturePageScreenshot(opts)
     } catch {
-      toast.error(t("feedback.toast_screenshot_failed"))
+      adapter.toast.error(t("feedback.toast_screenshot_failed"))
       return null
     }
   }
@@ -197,7 +196,7 @@ export function FeedbackPanel({
   const onSubmit = async (): Promise<void> => {
     const v = validate()
     if (!v.ok) {
-      toast.error(t("feedback.toast_error_generic"))
+      adapter.toast.error(t("feedback.toast_error_generic"))
       return
     }
     setSubmitting(true)
@@ -270,21 +269,22 @@ export function FeedbackPanel({
       // Prefer the human-readable ticket_code in the success toast; the
       // raw UUID is meaningless to the submitter.
       const ticketLabel = created.ticket_code || created.id.slice(0, 8)
-      toast.success(t("feedback.toast_success", { id: ticketLabel }), {
-        action: {
-          label: t("feedback.toast_success_link"),
-          onClick: () => {
-            if (typeof window !== "undefined") window.open(link, "_blank")
-          },
+      adapter.toast.success(
+        t("feedback.toast_success", { id: ticketLabel }),
+        {
+          url: link,
+          actionLabel: t("feedback.toast_success_link"),
         },
-      })
+      )
       onOpenChange(false)
     } catch (err) {
       if (err instanceof SubmitFeedbackError && err.status === 429) {
         const seconds = err.retryAfter ?? "?"
-        toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }))
+        adapter.toast.error(
+          t("feedback.toast_error_429", { seconds: String(seconds) }),
+        )
       } else {
-        toast.error(t("feedback.toast_error_generic"))
+        adapter.toast.error(t("feedback.toast_error_generic"))
       }
     } finally {
       setSubmitting(false)

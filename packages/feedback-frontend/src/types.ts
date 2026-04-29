@@ -29,9 +29,33 @@ export type FeedbackStatusKey =
   | "rejected_by_user"
 
 export interface CurrentUserSnapshot {
+  /** Stable user identifier — UUID-as-string. */
   id: string
   email: string
   role: string
+  /** Optional human display name; null when the host doesn't track one. */
+  full_name?: string | null
+  /** Optional active tenant; null for single-tenant hosts (sapphira). */
+  tenant_id?: string | null
+}
+
+/**
+ * Toast notifier the host injects via :class:`FeedbackHostBindings`.
+ * When the host doesn't pass one, the widget falls back to a quiet
+ * console-only stub so the package never imports a notifier library.
+ */
+export interface ToastOptions {
+  /** Optional href the host can attach as a click action. */
+  url?: string
+  /** Optional plain-text label for the click action. */
+  actionLabel?: string
+}
+
+export interface ToastApi {
+  success(message: string, options?: ToastOptions): void
+  error(message: string, options?: ToastOptions): void
+  info(message: string, options?: ToastOptions): void
+  warning(message: string, options?: ToastOptions): void
 }
 
 export interface LinkedUserStory {

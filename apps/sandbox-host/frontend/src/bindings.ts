@@ -54,13 +54,10 @@ if (_origFetch && typeof window !== "undefined") {
 }
 
 const useCurrentUser = (): CurrentUserSnapshot | null => {
-  // The sandbox UI renders the role chip and lets the user toggle it
-  // — for the widget's purposes we just hand over the same snapshot
-  // the backend will resolve from the headers.
   const role = getSandboxRole()
   const uid = getSandboxUid()
   return {
-    user_id: uid,
+    id: uid,
     email: `${role}@sandbox.local`,
     tenant_id: null,
     role,
@@ -71,8 +68,10 @@ const useCurrentUser = (): CurrentUserSnapshot | null => {
 export const sandboxBindings: FeedbackHostBindings = {
   useCurrentUser,
   getCsrfToken: async () => "",
-  apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:9000",
+  apiBaseUrl: import.meta.env.VITE_API_URL ?? "http://localhost:9200",
   apiPathPrefix: "/api/v1/feedback",
   getDeepLinkBase: () =>
-    typeof window !== "undefined" ? window.location.origin : "http://localhost:9001",
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "http://localhost:9201",
 }

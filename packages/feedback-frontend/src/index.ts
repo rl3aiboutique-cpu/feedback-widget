@@ -48,6 +48,8 @@ export type {
   FeedbackReadShape,
   FeedbackStatusKey,
   FeedbackTypeKey,
+  ToastApi,
+  ToastOptions,
   Translator,
 } from "./types"
 

@@ -32,8 +32,24 @@ import { DEFAULT_REDACTION_SELECTORS, registerRedactor } from "./redactors"
 import type {
   CurrentUserSnapshot,
   FeedbackReadShape,
+  ToastApi,
   Translator,
 } from "./types"
+
+const _DEFAULT_TOAST: ToastApi = {
+  success: (msg) => {
+    if (typeof window !== "undefined") console.log("[feedback]", msg)
+  },
+  error: (msg) => {
+    if (typeof window !== "undefined") console.error("[feedback]", msg)
+  },
+  info: (msg) => {
+    if (typeof window !== "undefined") console.info("[feedback]", msg)
+  },
+  warning: (msg) => {
+    if (typeof window !== "undefined") console.warn("[feedback]", msg)
+  },
+}
 
 declare const __APP_VERSION__: string | undefined
 declare const __GIT_COMMIT_SHA__: string | undefined
@@ -81,6 +97,14 @@ export interface FeedbackHostBindings {
 
   /** Optional: locale override (defaults to "en"). */
   locale?: "en"
+
+  /**
+   * Optional toast notifier. When omitted the widget falls back to a
+   * console-only stub. Hosts running ``sonner`` /
+   * ``react-hot-toast`` / etc. pass their own to surface widget
+   * messages in the host's notification UI.
+   */
+  toast?: ToastApi
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -167,7 +191,8 @@ async function consumeActionToken(
   return (await resp.json()) as PublicActionResult
 }
 
-async function downloadFeedbackBundle(
+/** Re-exported as a named binding so the admin triage page can import it directly. */
+export async function downloadFeedbackBundleViaBindings(
   bindings: FeedbackHostBindings,
   feedbackId: string,
 ): Promise<{ blob: Blob; filename: string }> {
@@ -443,23 +468,27 @@ export interface FeedbackAdapter {
   getDefaultRedactionSelectors: typeof getDefaultRedactionSelectors
   registerRedactor: typeof registerRedactor
   useTranslation: typeof useTranslation
+  /** Toast notifier — host-injected via bindings or console-only fallback. */
+  toast: ToastApi
 }
 
 export function createAdapter(bindings: FeedbackHostBindings): FeedbackAdapter {
-  return Object.freeze({
+  const adapter: FeedbackAdapter = {
     useCurrentUser,
     appVersion: APP_VERSION,
     gitSha: GIT_COMMIT_SHA,
-    submitFeedback: (payloadJson, screenshot) =>
+    submitFeedback: (payloadJson: string, screenshot: Blob | null) =>
       submitFeedback(bindings, payloadJson, screenshot),
-    consumeActionToken: (token, action) =>
+    consumeActionToken: (token: string, action: "accept" | "reject") =>
       consumeActionToken(bindings, token, action),
-    downloadFeedbackBundle: (feedbackId) =>
-      downloadFeedbackBundle(bindings, feedbackId),
-    getDeepLinkToFeedback: (id) =>
+    downloadFeedbackBundle: (feedbackId: string) =>
+      downloadFeedbackBundleViaBindings(bindings, feedbackId),
+    getDeepLinkToFeedback: (id: string) =>
       getDeepLinkToFeedback(id, bindings.getDeepLinkBase?.()),
     getDefaultRedactionSelectors,
     registerRedactor,
     useTranslation,
-  })
+    toast: bindings.toast ?? _DEFAULT_TOAST,
+  }
+  return Object.freeze(adapter)
 }

@@ -13,7 +13,6 @@
 
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 
 import type { FeedbackRead, FeedbackStatus, FeedbackType } from "../client"
 import { Badge } from "../ui/badge"
@@ -44,7 +43,6 @@ import {
 import { Textarea } from "../ui/textarea"
 
 import {
-  downloadFeedbackBundle,
   useDeleteFeedbackMutation,
   useFeedbackDetailQuery,
   useFeedbackListQuery,
@@ -272,7 +270,7 @@ export function FeedbackTriagePage(): React.ReactElement {
       {/* Detail drawer */}
       <Sheet
         open={!!openId}
-        onOpenChange={(open) => {
+        onOpenChange={(open: boolean) => {
           if (!open) setOpenId(null)
         }}
       >
@@ -320,20 +318,20 @@ export function FeedbackTriagePage(): React.ReactElement {
                 patchStatus.mutate(
                   { id: detail.data!.id, status, triage_note: note },
                   {
-                    onSuccess: () => toast.success("Status updated"),
+                    onSuccess: () => adapter.toast.success("Status updated"),
                     onError: (err) =>
-                      toast.error(`Could not update: ${String(err)}`),
+                      adapter.toast.error(`Could not update: ${String(err)}`),
                   },
                 )
               }}
               onDelete={() => {
                 remove.mutate(detail.data!.id, {
                   onSuccess: () => {
-                    toast.success("Feedback deleted")
+                    adapter.toast.success("Feedback deleted")
                     setOpenId(null)
                   },
                   onError: (err) =>
-                    toast.error(`Could not delete: ${String(err)}`),
+                    adapter.toast.error(`Could not delete: ${String(err)}`),
                 })
               }}
               busy={patchStatus.isPending || remove.isPending}
@@ -356,6 +354,7 @@ function DetailBody({
   onDelete: () => void
   busy: boolean
 }) {
+  const adapter = useFeedbackAdapter()
   const [status, setStatus] = useState<FeedbackStatus>(data.status)
   const [note, setNote] = useState<string>(data.triage_note ?? "")
   const screenshot = data.attachments?.[0]?.presigned_url ?? null
@@ -397,7 +396,7 @@ function DetailBody({
           <h3 className="text-sm font-medium mb-1">Linked user stories</h3>
           <ul className="space-y-2">
             {data.linked_user_stories.map((s, i) => {
-              const story = s as Record<string, unknown>
+              const story = s as unknown as Record<string, unknown>
               return (
                 <li key={i} className="rounded-md border p-2 text-sm">
                   <div className="font-medium">{String(story.story ?? "")}</div>
@@ -487,7 +486,9 @@ function DetailBody({
             data-feedback-id="feedback.triage.download"
             onClick={async () => {
               try {
-                const { blob, filename } = await downloadFeedbackBundle(data.id)
+                const { blob, filename } = await adapter.downloadFeedbackBundle(
+                  data.id,
+                )
                 const url = URL.createObjectURL(blob)
                 const link = document.createElement("a")
                 link.href = url
@@ -496,9 +497,9 @@ function DetailBody({
                 link.click()
                 link.remove()
                 URL.revokeObjectURL(url)
-                toast.success(`Downloaded ${filename}`)
+                adapter.toast.success(`Downloaded ${filename}`)
               } catch (err) {
-                toast.error(`Could not download: ${String(err)}`)
+                adapter.toast.error(`Could not download: ${String(err)}`)
               }
             }}
             disabled={busy}

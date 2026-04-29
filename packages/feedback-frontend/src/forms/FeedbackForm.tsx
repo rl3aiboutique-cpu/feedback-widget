@@ -7,7 +7,6 @@
 
 import { ChevronRight } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import { toast } from "sonner"
 
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
@@ -83,11 +82,11 @@ export function FeedbackForm({
         (v) => v !== "" && v !== null && v !== undefined,
       )
       if (previousType !== null && hadData) {
-        toast.warning(t("feedback.toast_type_change_warning"))
+        adapter.toast.warning(t("feedback.toast_type_change_warning"))
       }
       setPreviousType(values.type)
     }
-  }, [values.type, previousType, t, values.type_fields])
+  }, [values.type, previousType, t, values.type_fields, adapter])
 
   const setField = <K extends keyof FeedbackFormValues>(
     key: K,
