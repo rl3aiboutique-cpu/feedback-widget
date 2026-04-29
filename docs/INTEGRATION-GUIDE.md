@@ -39,3 +39,5 @@ curl $API_BASE/openapi.json | jq '.paths | keys[] | select(startswith("/feedback
 ```
 
 Full battery for sapphira-clinic: [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md).
+CRM migration plan: [`INSTALL-CRM.md`](./INSTALL-CRM.md).
+Architecture decisions: [`adr/000-index.md`](./adr/000-index.md).
