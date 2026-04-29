@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Annotated
 
 from fastapi import (
     APIRouter,
@@ -98,12 +97,18 @@ def build_router(
 
     router = APIRouter(tags=["feedback"])
 
-    # ── Type aliases for endpoint signatures ────────────────────────
-    SessionDep = Annotated[Session, Depends(deps.get_session)]
-    UserDep = Annotated[CurrentUserSnapshot, Depends(deps.get_current_user)]
-    AdminDep = Annotated[CurrentUserSnapshot, Depends(deps.get_current_admin)]
-    StorageDep = Annotated[StorageBackend, Depends(lambda: storage)]
-    SettingsDep = Annotated[FeedbackSettings, Depends(deps.get_settings)]
+    # FastAPI resolves dependencies via parameter *default values* (the
+    # classic `param: T = Depends(callable)` pattern). Using
+    # ``Annotated[T, Depends(...)]`` declared inside this closure does
+    # NOT work — FastAPI's introspection treats the metadata as opaque
+    # and the param shows up as a plain query parameter. Bound the
+    # ``Depends`` objects to module-equivalent locals here and use them
+    # as defaults below.
+    SessionDep = Depends(deps.get_session)
+    UserDep = Depends(deps.get_current_user)
+    AdminDep = Depends(deps.get_current_admin)
+    StorageDep = Depends(lambda: storage)
+    SettingsDep = Depends(deps.get_settings)
 
     # ────────────────────────────────────────────────────────────────
     # Health endpoint — sanity-check from the host & smoke tests
@@ -151,11 +156,11 @@ def build_router(
     async def create_feedback(
         background: BackgroundTasks,
         response: Response,
-        session: SessionDep,
-        current_user: UserDep,
-        s3: StorageDep,
-        cfg: SettingsDep,
-        form: Annotated[FormData, Depends(parse_feedback_form)],
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+        form: FormData = Depends(parse_feedback_form),
     ) -> FeedbackRead:
         """Submit one feedback row + optional screenshot."""
         try:
@@ -295,10 +300,10 @@ def build_router(
 
     @router.get("", response_model=FeedbackListResponse)
     def list_feedback(
-        session: SessionDep,
-        s3: StorageDep,
-        admin: AdminDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
         type_filter: FeedbackType | None = Query(default=None, alias="type"),
         status_filter: FeedbackStatus | None = Query(default=None, alias="status"),
         q: str | None = Query(default=None, max_length=200),
@@ -338,10 +343,10 @@ def build_router(
 
     @router.get("/personas", response_model=list[str])
     def list_personas(
-        session: SessionDep,
-        current_user: UserDep,
-        s3: StorageDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
         limit: int = Query(default=50, ge=1, le=200),
     ) -> list[str]:
         try:
@@ -363,10 +368,10 @@ def build_router(
 
     @router.get("/user-stories")
     def list_user_stories(
-        session: SessionDep,
-        current_user: UserDep,
-        s3: StorageDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
         limit: int = Query(default=100, ge=1, le=500),
     ) -> list[dict[str, str | None]]:
         try:
@@ -388,10 +393,10 @@ def build_router(
 
     @router.get("/mine", response_model=list[FeedbackRead])
     def list_my_feedback(
-        session: SessionDep,
-        current_user: UserDep,
-        s3: StorageDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
         limit: int = Query(default=25, ge=1, le=100),
     ) -> list[FeedbackRead]:
         try:
@@ -419,10 +424,10 @@ def build_router(
     @router.get("/{feedback_id}", response_model=FeedbackRead)
     def get_feedback(
         feedback_id: uuid.UUID,
-        session: SessionDep,
-        s3: StorageDep,
-        admin: AdminDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
     ) -> FeedbackRead:
         try:
             service = FeedbackService(
@@ -454,10 +459,10 @@ def build_router(
     @router.get("/{feedback_id}/download")
     def download_feedback_bundle(
         feedback_id: uuid.UUID,
-        session: SessionDep,
-        s3: StorageDep,
-        admin: AdminDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
     ) -> Response:
         """Return a ZIP archive packaging the ticket for an LLM hand-off."""
         try:
@@ -531,10 +536,10 @@ def build_router(
         feedback_id: uuid.UUID,
         body: FeedbackStatusUpdate,
         background: BackgroundTasks,
-        session: SessionDep,
-        s3: StorageDep,
-        admin: AdminDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
     ) -> FeedbackRead:
         try:
             service = FeedbackService(
@@ -634,10 +639,10 @@ def build_router(
     @router.delete("/{feedback_id}", status_code=status.HTTP_204_NO_CONTENT)
     def delete_feedback(
         feedback_id: uuid.UUID,
-        session: SessionDep,
-        s3: StorageDep,
-        admin: AdminDep,
-        cfg: SettingsDep,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
     ) -> None:
         try:
             service = FeedbackService(
@@ -673,10 +678,10 @@ def build_router(
     )
     def consume_action_token(
         token: uuid.UUID,
-        action: Annotated[str, Query(pattern="^(accept|reject)$")],
-        session: SessionDep,
-        s3: StorageDep,
-        cfg: SettingsDep,
+        action: str = Query(pattern="^(accept|reject)$"),
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
     ) -> _ActionResponse:
         """Apply the user's accept/reject choice via the magic link.
 
