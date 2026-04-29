@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="{{ locale | default('es') }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ subject | default(brand_name) }}</title>
+  </head>
+  <body
+    style="margin:0;padding:0;background-color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;"
+  >
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      style="background-color:#f4f5f7;padding:24px 0;"
+    >
+      <tr>
+        <td align="center">
+          <table
+            role="presentation"
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            style="background-color:#ffffff;border-radius:8px;border:1px solid #e5e7eb;overflow:hidden;max-width:600px;"
+          >
+            <tr>
+              <td
+                style="background-color:{{ brand_color | default('#1E40AF') }};color:#ffffff;padding:18px 24px;font-weight:600;font-size:16px;letter-spacing:0.02em;"
+              >
+                {{ brand_name | default('Feedback') }}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px;font-size:14px;line-height:1.55;color:#1f2937;">
+                {% block body %}{% endblock %}
+              </td>
+            </tr>
+            <tr>
+              <td
+                style="padding:16px 24px;border-top:1px solid #e5e7eb;font-size:12px;color:#6b7280;text-align:center;"
+              >
+                {% block footer %}
+                {{ brand_name | default('Feedback') }} ·
+                <a href="https://rl3.ai" style="color:#6b7280;text-decoration:underline;">RL3 AI Agency</a>
+                {% endblock %}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block body %}
+  <h2 style="margin:0 0 16px 0;font-size:18px;color:#111827;">
+    [{{ type_label }}] {{ feedback.title }}
+  </h2>
+
+  <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;color:#374151;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:16px;">
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;width:140px;">Submitter</td><td style="border-bottom:1px solid #f3f4f6;">{{ submitter_email }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Tenant</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.tenant_id }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Type</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.type.value }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Status</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.status.value }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">URL</td><td style="border-bottom:1px solid #f3f4f6;word-break:break-all;">{{ feedback.url_captured }}</td></tr>
+    {% if feedback.route_name %}
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Route</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.route_name }}</td></tr>
+    {% endif %}
+    {% if feedback.app_version %}
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">App version</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.app_version }}{% if feedback.git_commit_sha %} ({{ feedback.git_commit_sha[:8] }}){% endif %}</td></tr>
+    {% endif %}
+    <tr><td style="color:#6b7280;">Captured at</td><td>{{ feedback.created_at }}</td></tr>
+  </table>
+
+  <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Description</h3>
+  <div style="white-space:pre-wrap;font-size:13px;color:#1f2937;background:#f9fafb;padding:12px;border-radius:6px;border:1px solid #e5e7eb;">{{ feedback.description }}</div>
+
+  {% if feedback.type_fields %}
+    <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Type-specific fields</h3>
+    <table role="presentation" width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;color:#374151;border:1px solid #e5e7eb;border-radius:6px;">
+      {% for key, value in feedback.type_fields.items() %}
+      <tr>
+        <td style="border-bottom:1px solid #f3f4f6;color:#6b7280;width:200px;vertical-align:top;">{{ key }}</td>
+        <td style="border-bottom:1px solid #f3f4f6;white-space:pre-wrap;">{{ value }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if feedback.element_selector %}
+    <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Selected element</h3>
+    <pre style="margin:0;padding:8px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:12px;overflow:auto;">{{ feedback.element_selector }}</pre>
+  {% endif %}
+
+  {% if feedback.persona %}
+    <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Persona</h3>
+    <div style="white-space:pre-wrap;font-size:13px;color:#1f2937;background:#f9fafb;padding:12px;border-radius:6px;border:1px solid #e5e7eb;">{{ feedback.persona }}</div>
+  {% endif %}
+
+  {% if feedback.linked_user_stories %}
+    <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Linked user stories</h3>
+    <ul style="padding-left:20px;font-size:13px;color:#1f2937;">
+      {% for story in feedback.linked_user_stories %}
+        <li style="margin-bottom:6px;">
+          <strong>{{ story.story }}</strong>
+          {% if story.priority %} <span style="color:#6b7280;">[{{ story.priority }}]</span>{% endif %}
+          {% if story.acceptance_criteria %}
+            <div style="white-space:pre-wrap;color:#4b5563;font-size:12px;margin-top:2px;">{{ story.acceptance_criteria }}</div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if presigned_url %}
+    <h3 style="margin:16px 0 6px 0;font-size:14px;color:#111827;">Screenshot</h3>
+    <a href="{{ presigned_url }}" style="display:block;border:1px solid #e5e7eb;border-radius:6px;padding:6px;background:#f9fafb;text-decoration:none;">
+      <img src="{{ presigned_url }}" alt="Screenshot" style="display:block;max-width:560px;width:100%;height:auto;border-radius:4px;" />
+    </a>
+    <div style="font-size:11px;color:#6b7280;margin-top:6px;">
+      Direct link (expires per FEEDBACK_PRESIGNED_TTL_SECONDS): <a href="{{ presigned_url }}" style="color:#1E40AF;word-break:break-all;">{{ presigned_url }}</a>
+    </div>
+  {% endif %}
+
+  {% if deep_link %}
+    <p style="margin:20px 0 0 0;font-size:13px;">
+      <a href="{{ deep_link }}" style="display:inline-block;background:#1E40AF;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:6px;font-weight:600;">Open in {{ brand_name }} admin</a>
+    </p>
+  {% endif %}
+
+  <details style="margin-top:24px;font-size:12px;color:#4b5563;">
+    <summary style="cursor:pointer;font-weight:600;color:#111827;">Technical metadata bundle (redacted)</summary>
+    <pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:6px;overflow:auto;font-size:11px;line-height:1.45;margin-top:8px;">{{ metadata_pretty }}</pre>
+  </details>
+{% endblock %}

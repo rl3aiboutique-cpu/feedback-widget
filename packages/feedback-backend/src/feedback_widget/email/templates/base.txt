@@ -1,0 +1,8 @@
+{{ brand_name | default('Feedback') }}
+{{ '=' * (brand_name | default('Feedback')) | length }}
+
+{% block body %}{% endblock %}
+
+--
+{{ brand_name | default('Feedback') }} · RL3 AI Agency · https://rl3.ai
+{% block footer %}{% endblock %}
