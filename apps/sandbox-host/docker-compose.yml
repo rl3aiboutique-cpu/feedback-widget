@@ -1,0 +1,93 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: feedback-sandbox-postgres
+    environment:
+      POSTGRES_USER: sandbox
+      POSTGRES_PASSWORD: sandbox
+      POSTGRES_DB: sandbox
+    ports:
+      - "5440:5432"
+    volumes:
+      - sandbox_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sandbox -d sandbox"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: feedback-sandbox-minio
+    command: server --console-address ":9001" /data
+    environment:
+      MINIO_ROOT_USER: feedback
+      MINIO_ROOT_PASSWORD: feedback-dev-key
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - sandbox_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: feedback-sandbox-mailhog
+    ports:
+      - "1026:1025"
+      - "8026:8025"
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: apps/sandbox-host/backend/Dockerfile
+    container_name: feedback-sandbox-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      mailhog:
+        condition: service_started
+    environment:
+      FEEDBACK_ENABLED: "true"
+      FEEDBACK_DATABASE_URL: postgresql://sandbox:sandbox@postgres:5432/sandbox
+      FEEDBACK_BUCKET: sandbox-feedback
+      FEEDBACK_S3_ENDPOINT_URL: http://minio:9000
+      FEEDBACK_S3_PUBLIC_ENDPOINT_URL: http://localhost:9100
+      FEEDBACK_S3_ACCESS_KEY: feedback
+      FEEDBACK_S3_SECRET_KEY: feedback-dev-key
+      FEEDBACK_S3_REGION: us-east-1
+      FEEDBACK_SMTP_HOST: mailhog
+      FEEDBACK_SMTP_PORT: "1025"
+      FEEDBACK_EMAILS_FROM_EMAIL: feedback@sandbox.local
+      FEEDBACK_EMAILS_FROM_NAME: "Feedback Sandbox"
+      FEEDBACK_NOTIFY_EMAILS: triage@sandbox.local
+      FEEDBACK_BRAND_NAME: "Feedback Sandbox"
+      FEEDBACK_ADMIN_DEEP_LINK_BASE: http://localhost:9001
+      FEEDBACK_REPO_URL: "https://github.com/rl3aiboutique-cpu/feedback-widget"
+      FEEDBACK_CSRF_REQUIRED: "false"
+      FEEDBACK_MULTI_TENANT_MODE: "false"
+      FEEDBACK_RATE_LIMIT_PER_HOUR: "200"
+      SANDBOX_CORS_ORIGIN: http://localhost:9001
+    ports:
+      - "9000:8000"
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: apps/sandbox-host/frontend/Dockerfile
+    container_name: feedback-sandbox-frontend
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "9001:3000"
+
+volumes:
+  sandbox_pg:
+  sandbox_minio:
