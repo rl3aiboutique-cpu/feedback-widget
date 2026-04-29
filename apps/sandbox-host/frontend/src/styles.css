@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/* Tailwind v4 needs to see the widget's source files so it can compile
+   the utility classes the widget uses. The package ships TS source
+   alongside the dist (per its `files` entry in package.json) — we
+   point the scanner at both. */
+@source "../../../../packages/feedback-frontend/src/**/*.{ts,tsx}";
+@source "../../../node_modules/@rl3/feedback-widget/dist/**/*.{js,mjs}";
+
 /* shadcn CSS variables — required for the @rl3/feedback-widget vendored primitives. */
 @layer base {
   :root {

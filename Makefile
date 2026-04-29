@@ -93,9 +93,18 @@ ci-local: lint typecheck test
 # Release
 # ────────────────────────────────────────────────────────────────────
 
-.PHONY: build-frontend
+.PHONY: build-frontend bump-patch bump-minor bump-major
 build-frontend:
 	pnpm --filter @rl3/feedback-widget build
+
+bump-patch:
+	bash scripts/bump-version.sh patch
+
+bump-minor:
+	bash scripts/bump-version.sh minor
+
+bump-major:
+	bash scripts/bump-version.sh major
 
 # ────────────────────────────────────────────────────────────────────
 # Verification (Phase 5)

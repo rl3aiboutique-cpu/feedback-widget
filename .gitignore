@@ -24,8 +24,12 @@ node_modules/
 .pnpm-store/
 pnpm-debug.log*
 *.tsbuildinfo
-dist/
 .turbo/
+
+# Build artefacts — dist is gitignored EXCEPT for the published package
+# (consumers install from git URL and need the prebuilt artefact).
+dist/
+!packages/feedback-frontend/dist/
 
 # Editor / OS
 .DS_Store
