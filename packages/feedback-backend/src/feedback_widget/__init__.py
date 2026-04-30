@@ -16,10 +16,15 @@ See :func:`register_feedback_router` for the integration entry-point.
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 from feedback_widget.auth import CurrentUserSnapshot, FeedbackAuthAdapter
 from feedback_widget.deps import WidgetDependencies, build_dependencies
+from feedback_widget.integration import (
+    make_sync_engine,
+    mount_feedback_widget_for_async_host,
+)
 from feedback_widget.exceptions import (
     FeedbackError,
     FeedbackNotFoundError,
@@ -41,7 +46,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.1.9"
+__version__ = "0.1.10"
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +70,8 @@ __all__ = [
     "build_router",
     "get_settings",
     "get_storage_backend",
+    "make_sync_engine",
+    "mount_feedback_widget_for_async_host",
     "register_feedback_router",
     "run_migrations",
 ]
@@ -112,17 +119,27 @@ def register_feedback_router(
         return
 
     s3 = storage or get_storage_backend(cfg)
+    failsafe = os.environ.get("FEEDBACK_BUCKET_FAILSAFE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
     try:
         s3.ensure_bucket()
-    except Exception:
-        # Bucket creation may legitimately fail in test environments
-        # without a live S3 endpoint; we log but do not block router
-        # registration. Real uploads will surface the misconfiguration.
-        logger.warning(
-            "feedback_widget: ensure_bucket failed — uploads may fail. "
-            "Set FEEDBACK_S3_ENDPOINT_URL and credentials for production.",
-            exc_info=True,
-        )
+    except Exception as exc:  # noqa: BLE001 — surface to host operator
+        if failsafe:
+            logger.warning(
+                "feedback_widget: ensure_bucket failed (FAILSAFE on, "
+                "router will mount but uploads will 500): %s",
+                exc,
+                exc_info=True,
+            )
+        else:
+            raise RuntimeError(
+                f"feedback_widget: cannot start — ensure_bucket failed for "
+                f"endpoint={cfg.S3_ENDPOINT_URL!r} bucket={cfg.BUCKET!r}: {exc}. "
+                f"Set FEEDBACK_BUCKET_FAILSAFE=1 to bypass during local tests."
+            ) from exc
 
     deps = build_dependencies(auth=auth, engine=engine, settings=cfg)
     router = build_router(deps=deps, settings=cfg, storage=s3)

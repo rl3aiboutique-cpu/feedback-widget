@@ -27,10 +27,20 @@ import {
   useFeedbackListQuery,
   useMyPendingActionCount,
   useUpdateFeedbackStatusMutation
-} from "./chunk-462XMQG2.js";
+} from "./chunk-2ALMQ6BZ.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
+
+// src/hooks/useCanTriageFeedback.ts
+function useCanTriageFeedback() {
+  const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
+  const user = adapter.useCurrentUser();
+  if (!user) return false;
+  const allowed = (bindings.triageRoles && bindings.triageRoles.length > 0 ? bindings.triageRoles : ["MASTER_ADMIN"]).map((r) => r.toUpperCase());
+  return allowed.includes(user.role.toUpperCase());
+}
 
 // src/admin/FeedbackTriagePage.tsx
 import { Download } from "lucide-react";
@@ -645,7 +655,7 @@ function ElementSelector({
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-KEZD7TFC.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-3KIGK4TV.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -870,6 +880,7 @@ export {
   SubmitFeedbackError,
   VERSION,
   createAdapter,
+  useCanTriageFeedback,
   useFeedbackAdapter,
   useFeedbackBindings,
   useFeedbackConfig

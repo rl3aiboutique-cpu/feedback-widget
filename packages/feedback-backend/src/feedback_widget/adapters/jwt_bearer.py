@@ -17,6 +17,7 @@ adapter; this class is intentionally minimal.
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any
 
@@ -49,16 +50,36 @@ class JWTBearerAuth:
         *,
         secret_key: str,
         algorithm: str = "HS256",
-        master_role: str = "MASTER_ADMIN",
+        master_role: str | None = None,
+        master_roles: str | list[str] | None = None,
         sub_claim: str = "sub",
         email_claim: str = "email",
         role_claim: str = "role",
         tenant_claim: str = "tenant_id",
         full_name_claim: str = "full_name",
     ) -> None:
+        if not algorithm or algorithm.lower() == "none":
+            raise ValueError(
+                f"algorithm must be a non-empty HMAC/RSA name (got {algorithm!r}) "
+                "— alg=none is rejected to prevent algorithm-confusion attacks"
+            )
+        # Resolve roles: explicit list > legacy single > env > default.
+        roles: list[str]
+        if master_roles is not None:
+            roles = (
+                [master_roles] if isinstance(master_roles, str) else list(master_roles)
+            )
+        elif master_role is not None:
+            roles = [master_role]
+        else:
+            env_csv = os.environ.get("FEEDBACK_TRIAGE_ROLES", "").strip()
+            if env_csv:
+                roles = [r.strip() for r in env_csv.split(",") if r.strip()]
+            else:
+                roles = ["MASTER_ADMIN"]
+        self._master_roles = frozenset(r.upper() for r in roles)
         self._secret_key = secret_key
         self._algorithm = algorithm
-        self._master_role = master_role
         self._sub_claim = sub_claim
         self._email_claim = email_claim
         self._role_claim = role_claim
@@ -76,8 +97,8 @@ class JWTBearerAuth:
         return self._snapshot_from_payload(payload)
 
     def is_master_admin(self, user: CurrentUserSnapshot) -> bool:
-        """Return True iff the user's role matches the configured master role."""
-        return user.role.upper() == self._master_role.upper()
+        """Return True iff the user's role matches any configured master role."""
+        return user.role.upper() in self._master_roles
 
     @staticmethod
     def _extract_bearer(request: Request) -> str | None:

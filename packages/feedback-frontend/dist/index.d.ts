@@ -4,6 +4,8 @@ import { ReactNode } from 'react';
 /** Package version — keep in sync with package.json. */
 declare const VERSION = "0.1.0";
 
+declare function useCanTriageFeedback(): boolean;
+
 /**
  * Admin triage page — lives INSIDE the widget folder so the host's
  * route file is a thin wrapper. When the widget is extracted to
@@ -281,6 +283,15 @@ interface FeedbackHostBindings {
      * an empty string skips the header.
      */
     authHeader?: () => Promise<string>;
+    /**
+     * Optional CSV/list of roles permitted to triage feedback. The widget
+     * exposes a `useCanTriageFeedback()` hook that reads this and gates
+     * admin-only UI. When unset, the hook compares
+     * `useCurrentUser().role` against `"MASTER_ADMIN"` case-insensitively.
+     * Hosts with multiple admin-shaped roles set this from a build-time
+     * env var (e.g. `VITE_FEEDBACK_TRIAGE_ROLES`).
+     */
+    triageRoles?: readonly string[];
     /** Backend root URL — the SDK appends `/api/v1/feedback` to this. */
     apiBaseUrl: string;
     /** Optional: override the API path prefix (default: `/api/v1/feedback`). */
@@ -366,4 +377,4 @@ declare function useFeedbackAdapter(): FeedbackAdapter;
 declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
-export { type CurrentUserSnapshot, FeedbackActionPage, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, type LinkedUserStory, type PublicActionResult, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CurrentUserSnapshot, FeedbackActionPage, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, type LinkedUserStory, type PublicActionResult, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

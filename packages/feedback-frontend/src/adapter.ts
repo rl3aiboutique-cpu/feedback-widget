@@ -89,6 +89,16 @@ export interface FeedbackHostBindings {
    */
   authHeader?: () => Promise<string>
 
+  /**
+   * Optional CSV/list of roles permitted to triage feedback. The widget
+   * exposes a `useCanTriageFeedback()` hook that reads this and gates
+   * admin-only UI. When unset, the hook compares
+   * `useCurrentUser().role` against `"MASTER_ADMIN"` case-insensitively.
+   * Hosts with multiple admin-shaped roles set this from a build-time
+   * env var (e.g. `VITE_FEEDBACK_TRIAGE_ROLES`).
+   */
+  triageRoles?: readonly string[]
+
   /** Backend root URL — the SDK appends `/api/v1/feedback` to this. */
   apiBaseUrl: string
 
@@ -139,20 +149,37 @@ function _resolveBase(b: FeedbackHostBindings): string {
   return b.apiBaseUrl.replace(/\/$/, "")
 }
 
-/** Build the auth-aware headers for a request. CSRF + optional bearer. */
+/** Build the auth-aware headers for a request. CSRF + optional bearer.
+ * Both binding callbacks are wrapped in try/catch so a host's broken
+ * implementation degrades to "request without that header" rather than
+ * an unhandled rejection that nukes React Query state. */
 async function _buildHeaders(
   bindings: FeedbackHostBindings,
   base: Record<string, string> = {},
 ): Promise<Record<string, string>> {
   const headers: Record<string, string> = { ...base }
-  const csrfToken = await bindings.getCsrfToken()
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken
+  try {
+    const csrfToken = await bindings.getCsrfToken()
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken
+  } catch (err) {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "[feedback] getCsrfToken threw, proceeding without CSRF token",
+        err,
+      )
+    }
   }
   if (bindings.authHeader) {
-    const auth = await bindings.authHeader()
-    if (auth) {
-      headers.Authorization = auth
+    try {
+      const auth = await bindings.authHeader()
+      if (auth) headers.Authorization = auth
+    } catch (err) {
+      if (typeof console !== "undefined") {
+        console.warn(
+          "[feedback] authHeader threw, proceeding without Authorization",
+          err,
+        )
+      }
     }
   }
   return headers

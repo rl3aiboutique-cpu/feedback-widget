@@ -1,178 +1,64 @@
-// src/ui/button.tsx
-import { Slot } from "@radix-ui/react-slot";
-import { cva } from "class-variance-authority";
-
-// src/lib/utils.ts
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
-
-// src/ui/button.tsx
-import { jsx } from "react/jsx-runtime";
-var buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline"
-      },
-      size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10"
-      }
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default"
-    }
-  }
-);
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot : "button";
-  return /* @__PURE__ */ jsx(
-    Comp,
-    {
-      "data-slot": "button",
-      className: cn(buttonVariants({ variant, size, className })),
-      ...props
-    }
-  );
-}
-
-// src/ui/sheet.tsx
-import * as SheetPrimitive from "@radix-ui/react-dialog";
-import { XIcon } from "lucide-react";
-import { jsx as jsx2, jsxs } from "react/jsx-runtime";
-function Sheet({ ...props }) {
-  return /* @__PURE__ */ jsx2(SheetPrimitive.Root, { "data-slot": "sheet", ...props });
-}
-function SheetPortal({
-  ...props
-}) {
-  return /* @__PURE__ */ jsx2(SheetPrimitive.Portal, { "data-slot": "sheet-portal", ...props });
-}
-function SheetOverlay({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx2(
-    SheetPrimitive.Overlay,
-    {
-      "data-slot": "sheet-overlay",
-      className: cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function SheetContent({
-  className,
-  children,
-  side = "right",
-  ...props
-}) {
-  return /* @__PURE__ */ jsxs(SheetPortal, { children: [
-    /* @__PURE__ */ jsx2(SheetOverlay, {}),
-    /* @__PURE__ */ jsxs(
-      SheetPrimitive.Content,
-      {
-        "data-slot": "sheet-content",
-        className: cn(
-          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
-          side === "right" && "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
-          side === "left" && "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
-          side === "top" && "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b",
-          side === "bottom" && "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
-          className
-        ),
-        ...props,
-        children: [
-          children,
-          /* @__PURE__ */ jsxs(SheetPrimitive.Close, { className: "ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none", children: [
-            /* @__PURE__ */ jsx2(XIcon, { className: "size-4" }),
-            /* @__PURE__ */ jsx2("span", { className: "sr-only", children: "Close" })
-          ] })
-        ]
-      }
-    )
-  ] });
-}
-function SheetHeader({ className, ...props }) {
-  return /* @__PURE__ */ jsx2(
-    "div",
-    {
-      "data-slot": "sheet-header",
-      className: cn("flex flex-col gap-1.5 p-4", className),
-      ...props
-    }
-  );
-}
-function SheetFooter({ className, ...props }) {
-  return /* @__PURE__ */ jsx2(
-    "div",
-    {
-      "data-slot": "sheet-footer",
-      className: cn("mt-auto flex flex-col gap-2 p-4", className),
-      ...props
-    }
-  );
-}
-function SheetTitle({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx2(
-    SheetPrimitive.Title,
-    {
-      "data-slot": "sheet-title",
-      className: cn("text-foreground font-semibold", className),
-      ...props
-    }
-  );
-}
-function SheetDescription({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx2(
-    SheetPrimitive.Description,
-    {
-      "data-slot": "sheet-description",
-      className: cn("text-muted-foreground text-sm", className),
-      ...props
-    }
-  );
-}
-
-// src/FeedbackProvider.tsx
-import { createContext, useContext, useMemo as useMemo2 } from "react";
-
 // src/adapter.ts
 import {
   useMutation,
   useQuery,
   useQueryClient
 } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo as useMemo2 } from "react";
+
+// src/FeedbackProvider.tsx
+import { createContext, useContext, useMemo } from "react";
+import { jsx } from "react/jsx-runtime";
+var _ENV_ENABLED = (import.meta.env.VITE_FEEDBACK_ENABLED ?? "true").toString().toLowerCase() !== "false";
+var _ENV_POSITION = import.meta.env.VITE_FEEDBACK_POSITION ?? "bottom_right";
+var _ENV_BRAND = import.meta.env.VITE_FEEDBACK_BRAND_PRIMARY_HEX || "";
+var _ENV_LOCALE = "en";
+var DEFAULT_CONFIG = Object.freeze({
+  enabled: _ENV_ENABLED,
+  position: _ENV_POSITION,
+  brandPrimaryHex: _ENV_BRAND,
+  locale: _ENV_LOCALE
+});
+var FeedbackContext = createContext(null);
+function FeedbackProvider({
+  children,
+  bindings,
+  adapter,
+  config
+}) {
+  if (!bindings || typeof bindings.useCurrentUser !== "function") {
+    throw new Error(
+      "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
+    );
+  }
+  const value = useMemo(
+    () => ({
+      bindings,
+      adapter: adapter ?? createAdapter(bindings),
+      config: { ...DEFAULT_CONFIG, ...config ?? {} }
+    }),
+    [bindings, adapter, config]
+  );
+  return /* @__PURE__ */ jsx(FeedbackContext.Provider, { value, children });
+}
+function useFeedbackContext() {
+  const ctx = useContext(FeedbackContext);
+  if (!ctx) {
+    throw new Error(
+      "useFeedbackContext must be called inside <FeedbackProvider>. Mount the provider at the app root before rendering any widget component."
+    );
+  }
+  return ctx;
+}
+function useFeedbackAdapter() {
+  return useFeedbackContext().adapter;
+}
+function useFeedbackConfig() {
+  return useFeedbackContext().config;
+}
+function useFeedbackBindings() {
+  return useFeedbackContext().bindings;
+}
 
 // src/locales/en.ts
 var en = {
@@ -434,14 +320,28 @@ function _resolveBase(b) {
 }
 async function _buildHeaders(bindings, base = {}) {
   const headers = { ...base };
-  const csrfToken = await bindings.getCsrfToken();
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
+  try {
+    const csrfToken = await bindings.getCsrfToken();
+    if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  } catch (err) {
+    if (typeof console !== "undefined") {
+      console.warn(
+        "[feedback] getCsrfToken threw, proceeding without CSRF token",
+        err
+      );
+    }
   }
   if (bindings.authHeader) {
-    const auth = await bindings.authHeader();
-    if (auth) {
-      headers.Authorization = auth;
+    try {
+      const auth = await bindings.authHeader();
+      if (auth) headers.Authorization = auth;
+    } catch (err) {
+      if (typeof console !== "undefined") {
+        console.warn(
+          "[feedback] authHeader threw, proceeding without Authorization",
+          err
+        );
+      }
     }
   }
   return headers;
@@ -567,7 +467,7 @@ function getDefaultRedactionSelectors() {
 }
 function useTranslation() {
   const config = useFeedbackConfig();
-  return useMemo(
+  return useMemo2(
     () => createTranslator({ locale: config.locale }),
     [config.locale]
   );
@@ -664,57 +564,169 @@ function createAdapter(bindings) {
   return Object.freeze(adapter);
 }
 
-// src/FeedbackProvider.tsx
-import { jsx as jsx3 } from "react/jsx-runtime";
-var _ENV_ENABLED = (import.meta.env.VITE_FEEDBACK_ENABLED ?? "true").toString().toLowerCase() !== "false";
-var _ENV_POSITION = import.meta.env.VITE_FEEDBACK_POSITION ?? "bottom_right";
-var _ENV_BRAND = import.meta.env.VITE_FEEDBACK_BRAND_PRIMARY_HEX || "";
-var _ENV_LOCALE = "en";
-var DEFAULT_CONFIG = Object.freeze({
-  enabled: _ENV_ENABLED,
-  position: _ENV_POSITION,
-  brandPrimaryHex: _ENV_BRAND,
-  locale: _ENV_LOCALE
-});
-var FeedbackContext = createContext(null);
-function FeedbackProvider({
-  children,
-  bindings,
-  adapter,
-  config
+// src/ui/button.tsx
+import { Slot } from "@radix-ui/react-slot";
+import { cva } from "class-variance-authority";
+
+// src/lib/utils.ts
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+// src/ui/button.tsx
+import { jsx as jsx2 } from "react/jsx-runtime";
+var buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline"
+      },
+      size: {
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        icon: "size-9",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10"
+      }
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default"
+    }
+  }
+);
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  ...props
 }) {
-  if (!bindings || typeof bindings.useCurrentUser !== "function") {
-    throw new Error(
-      "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
-    );
-  }
-  const value = useMemo2(
-    () => ({
-      bindings,
-      adapter: adapter ?? createAdapter(bindings),
-      config: { ...DEFAULT_CONFIG, ...config ?? {} }
-    }),
-    [bindings, adapter, config]
+  const Comp = asChild ? Slot : "button";
+  return /* @__PURE__ */ jsx2(
+    Comp,
+    {
+      "data-slot": "button",
+      className: cn(buttonVariants({ variant, size, className })),
+      ...props
+    }
   );
-  return /* @__PURE__ */ jsx3(FeedbackContext.Provider, { value, children });
 }
-function useFeedbackContext() {
-  const ctx = useContext(FeedbackContext);
-  if (!ctx) {
-    throw new Error(
-      "useFeedbackContext must be called inside <FeedbackProvider>. Mount the provider at the app root before rendering any widget component."
-    );
-  }
-  return ctx;
+
+// src/ui/sheet.tsx
+import * as SheetPrimitive from "@radix-ui/react-dialog";
+import { XIcon } from "lucide-react";
+import { jsx as jsx3, jsxs } from "react/jsx-runtime";
+function Sheet({ ...props }) {
+  return /* @__PURE__ */ jsx3(SheetPrimitive.Root, { "data-slot": "sheet", ...props });
 }
-function useFeedbackAdapter() {
-  return useFeedbackContext().adapter;
+function SheetPortal({
+  ...props
+}) {
+  return /* @__PURE__ */ jsx3(SheetPrimitive.Portal, { "data-slot": "sheet-portal", ...props });
 }
-function useFeedbackConfig() {
-  return useFeedbackContext().config;
+function SheetOverlay({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx3(
+    SheetPrimitive.Overlay,
+    {
+      "data-slot": "sheet-overlay",
+      className: cn(
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50",
+        className
+      ),
+      ...props
+    }
+  );
 }
-function useFeedbackBindings() {
-  return useFeedbackContext().bindings;
+function SheetContent({
+  className,
+  children,
+  side = "right",
+  ...props
+}) {
+  return /* @__PURE__ */ jsxs(SheetPortal, { children: [
+    /* @__PURE__ */ jsx3(SheetOverlay, {}),
+    /* @__PURE__ */ jsxs(
+      SheetPrimitive.Content,
+      {
+        "data-slot": "sheet-content",
+        className: cn(
+          "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+          side === "right" && "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
+          side === "left" && "data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
+          side === "top" && "data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top inset-x-0 top-0 h-auto border-b",
+          side === "bottom" && "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
+          className
+        ),
+        ...props,
+        children: [
+          children,
+          /* @__PURE__ */ jsxs(SheetPrimitive.Close, { className: "ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none", children: [
+            /* @__PURE__ */ jsx3(XIcon, { className: "size-4" }),
+            /* @__PURE__ */ jsx3("span", { className: "sr-only", children: "Close" })
+          ] })
+        ]
+      }
+    )
+  ] });
+}
+function SheetHeader({ className, ...props }) {
+  return /* @__PURE__ */ jsx3(
+    "div",
+    {
+      "data-slot": "sheet-header",
+      className: cn("flex flex-col gap-1.5 p-4", className),
+      ...props
+    }
+  );
+}
+function SheetFooter({ className, ...props }) {
+  return /* @__PURE__ */ jsx3(
+    "div",
+    {
+      "data-slot": "sheet-footer",
+      className: cn("mt-auto flex flex-col gap-2 p-4", className),
+      ...props
+    }
+  );
+}
+function SheetTitle({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx3(
+    SheetPrimitive.Title,
+    {
+      "data-slot": "sheet-title",
+      className: cn("text-foreground font-semibold", className),
+      ...props
+    }
+  );
+}
+function SheetDescription({
+  className,
+  ...props
+}) {
+  return /* @__PURE__ */ jsx3(
+    SheetPrimitive.Description,
+    {
+      "data-slot": "sheet-description",
+      className: cn("text-muted-foreground text-sm", className),
+      ...props
+    }
+  );
 }
 
 // src/Rl3Mark.tsx
@@ -1199,6 +1211,19 @@ function Textarea({
 }
 
 export {
+  redactBundle,
+  SubmitFeedbackError,
+  useFeedbackListQuery,
+  useFeedbackDetailQuery,
+  useUpdateFeedbackStatusMutation,
+  useDeleteFeedbackMutation,
+  usePersonasQuery,
+  useUserStoriesQuery,
+  createAdapter,
+  FeedbackProvider,
+  useFeedbackAdapter,
+  useFeedbackConfig,
+  useFeedbackBindings,
   cn,
   Badge,
   Button,
@@ -1215,19 +1240,6 @@ export {
   SheetTitle,
   SheetDescription,
   Textarea,
-  FeedbackProvider,
-  useFeedbackAdapter,
-  useFeedbackConfig,
-  useFeedbackBindings,
-  redactBundle,
-  SubmitFeedbackError,
-  useFeedbackListQuery,
-  useFeedbackDetailQuery,
-  useUpdateFeedbackStatusMutation,
-  useDeleteFeedbackMutation,
-  usePersonasQuery,
-  useUserStoriesQuery,
-  createAdapter,
   Rl3Mark,
   capturePageScreenshot,
   captureElementScreenshot,
@@ -1235,4 +1247,4 @@ export {
   MyTicketsPanel,
   useMyPendingActionCount
 };
-//# sourceMappingURL=chunk-462XMQG2.js.map
+//# sourceMappingURL=chunk-2ALMQ6BZ.js.map

@@ -18,6 +18,7 @@
  */
 
 export { VERSION } from "./version"
+export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback"
 
 export { FeedbackTriagePage } from "./admin/FeedbackTriagePage"
 export {

@@ -136,27 +136,42 @@ def cmd_verify() -> None:
             table.add_row("postgres", "[red]FAIL[/red]", str(exc)[:120])
             failures.append("postgres")
 
-    # S3
+    # S3 — separate ImportError (packaging) from connectivity errors
     try:
         import boto3
-        from botocore.exceptions import BotoCoreError, ClientError
-
+        from botocore.config import Config as BotoCoreConfig
+        from botocore.exceptions import (
+            BotoCoreError,
+            ClientError,
+            EndpointConnectionError,
+        )
+    except ImportError as exc:
+        table.add_row("s3 bucket", "[red]FAIL[/red]", f"boto3 not installed: {exc}")
+        failures.append("s3")
+    else:
         s3 = boto3.client(
             "s3",
             endpoint_url=settings.S3_ENDPOINT_URL,
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
             region_name=settings.S3_REGION,
+            config=BotoCoreConfig(
+                connect_timeout=5, read_timeout=5, retries={"max_attempts": 1}
+            ),
         )
         try:
             s3.head_bucket(Bucket=settings.BUCKET)
-            table.add_row("s3 bucket", "[green]OK[/green]", f"head_bucket {settings.BUCKET}")
+            table.add_row(
+                "s3 bucket", "[green]OK[/green]", f"head_bucket {settings.BUCKET}"
+            )
+        except EndpointConnectionError as exc:
+            table.add_row(
+                "s3 bucket", "[red]FAIL[/red]", f"endpoint unreachable: {exc}"[:120]
+            )
+            failures.append("s3")
         except (BotoCoreError, ClientError) as exc:
             table.add_row("s3 bucket", "[red]FAIL[/red]", str(exc)[:120])
             failures.append("s3")
-    except Exception as exc:  # noqa: BLE001
-        table.add_row("s3 bucket", "[red]FAIL[/red]", str(exc)[:120])
-        failures.append("s3")
 
     # SMTP
     try:

@@ -124,6 +124,38 @@ def test_is_master_admin_matches_role_case_insensitive() -> None:
     assert auth.is_master_admin(snap_other) is False
 
 
+def test_master_roles_accepts_list() -> None:
+    """Hosts with multiple admin-shaped roles pass a list."""
+    auth = JWTBearerAuth(secret_key=SECRET, master_roles=["admin", "manager"])
+    assert auth.is_master_admin(_make_snapshot(role="admin")) is True
+    assert auth.is_master_admin(_make_snapshot(role="manager")) is True
+    assert auth.is_master_admin(_make_snapshot(role="staff")) is False
+
+
+def test_master_roles_reads_env_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When master_roles is not passed, FEEDBACK_TRIAGE_ROLES env is honoured."""
+    monkeypatch.setenv("FEEDBACK_TRIAGE_ROLES", "admin, manager , triager")
+    auth = JWTBearerAuth(secret_key=SECRET)
+    assert auth.is_master_admin(_make_snapshot(role="admin")) is True
+    assert auth.is_master_admin(_make_snapshot(role="triager")) is True
+    assert auth.is_master_admin(_make_snapshot(role="staff")) is False
+
+
+def test_master_roles_legacy_master_role_kwarg_still_works() -> None:
+    """Existing hosts passing master_role='X' (singular) keep working."""
+    auth = JWTBearerAuth(secret_key=SECRET, master_role="OWNER")
+    assert auth.is_master_admin(_make_snapshot(role="owner")) is True
+    assert auth.is_master_admin(_make_snapshot(role="staff")) is False
+
+
+def test_algorithm_none_raises_value_error() -> None:
+    """alg=none / empty algorithm guard prevents algorithm-confusion attacks."""
+    with pytest.raises(ValueError, match="algorithm"):
+        JWTBearerAuth(secret_key=SECRET, algorithm="none")
+    with pytest.raises(ValueError, match="algorithm"):
+        JWTBearerAuth(secret_key=SECRET, algorithm="")
+
+
 def test_implements_feedback_auth_adapter_protocol() -> None:
     """Structural-typing check — JWTBearerAuth should satisfy the Protocol."""
     auth: FeedbackAuthAdapter = JWTBearerAuth(secret_key=SECRET)

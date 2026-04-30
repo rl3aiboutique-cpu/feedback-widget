@@ -23,7 +23,7 @@ import {
   useFeedbackAdapter,
   usePersonasQuery,
   useUserStoriesQuery
-} from "./chunk-462XMQG2.js";
+} from "./chunk-2ALMQ6BZ.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState3 } from "react";
@@ -1483,4 +1483,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-KEZD7TFC.js.map
+//# sourceMappingURL=FeedbackPanel-3KIGK4TV.js.map
