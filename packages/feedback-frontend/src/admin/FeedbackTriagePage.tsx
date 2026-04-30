@@ -92,6 +92,7 @@ function statusVariant(
 }
 
 export function FeedbackTriagePage(): React.ReactElement {
+  const adapter = useFeedbackAdapter()
   const isAdmin = useCanTriageFeedback()
 
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all")

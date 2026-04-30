@@ -34,9 +34,9 @@ var VERSION = "0.1.0";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
-  const adapter2 = useFeedbackAdapter();
+  const adapter = useFeedbackAdapter();
   const bindings = useFeedbackBindings();
-  const user = adapter2.useCurrentUser();
+  const user = adapter.useCurrentUser();
   if (!user) return false;
   const allowed = (bindings.triageRoles && bindings.triageRoles.length > 0 ? bindings.triageRoles : ["MASTER_ADMIN"]).map((r) => r.toUpperCase());
   return allowed.includes(user.role.toUpperCase());
@@ -156,6 +156,7 @@ function statusVariant(s) {
   return "outline";
 }
 function FeedbackTriagePage() {
+  const adapter = useFeedbackAdapter();
   const isAdmin = useCanTriageFeedback();
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState(
@@ -365,7 +366,7 @@ function DetailBody({
   onDelete,
   busy
 }) {
-  const adapter2 = useFeedbackAdapter();
+  const adapter = useFeedbackAdapter();
   const [status, setStatus] = useState(data.status);
   const [note, setNote] = useState(data.triage_note ?? "");
   const screenshot = data.attachments?.[0]?.presigned_url ?? null;
@@ -459,7 +460,7 @@ function DetailBody({
             "data-feedback-id": "feedback.triage.download",
             onClick: async () => {
               try {
-                const { blob, filename } = await adapter2.downloadFeedbackBundle(
+                const { blob, filename } = await adapter.downloadFeedbackBundle(
                   data.id
                 );
                 const url = URL.createObjectURL(blob);
@@ -470,9 +471,9 @@ function DetailBody({
                 link.click();
                 link.remove();
                 URL.revokeObjectURL(url);
-                adapter2.toast.success(`Downloaded ${filename}`);
+                adapter.toast.success(`Downloaded ${filename}`);
               } catch (err) {
-                adapter2.toast.error(`Could not download: ${String(err)}`);
+                adapter.toast.error(`Could not download: ${String(err)}`);
               }
             },
             disabled: busy,
@@ -528,8 +529,8 @@ function ElementSelector({
   onCancel
 }) {
   const [rect, setRect] = useState2(null);
-  const adapter2 = useFeedbackAdapter();
-  const t = adapter2.useTranslation();
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
   const currentRef = useRef(null);
   useEffect(() => {
     if (typeof document === "undefined") return void 0;
@@ -668,8 +669,8 @@ var POSITION_CLASSES = {
 };
 function FeedbackButton() {
   const config = useFeedbackConfig();
-  const adapter2 = useFeedbackAdapter();
-  const t = adapter2.useTranslation();
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
   const [open, setOpen] = useState3(false);
   const [pickerActive, setPickerActive] = useState3(false);
   const [locked, setLocked] = useState3(null);
@@ -776,7 +777,7 @@ function FeedbackActionPage({
   token,
   onSubmitFollowUp
 }) {
-  const adapter2 = useFeedbackAdapter();
+  const adapter = useFeedbackAdapter();
   const [phase, setPhase] = useState4(
     token ? { kind: "loading" } : { kind: "missing_token" }
   );
@@ -785,7 +786,7 @@ function FeedbackActionPage({
     let cancelled = false;
     void (async () => {
       try {
-        const result = await adapter2.consumeActionToken(
+        const result = await adapter.consumeActionToken(
           token,
           action
         );
@@ -799,7 +800,7 @@ function FeedbackActionPage({
     return () => {
       cancelled = true;
     };
-  }, [action, token, adapter2]);
+  }, [action, token, adapter]);
   return /* @__PURE__ */ jsx5("div", { className: "min-h-screen flex items-center justify-center bg-background p-4", children: /* @__PURE__ */ jsxs4("div", { className: "w-full max-w-md rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-4", children: [
     /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
       /* @__PURE__ */ jsx5(Rl3Mark, { className: "h-6 w-6" }),
