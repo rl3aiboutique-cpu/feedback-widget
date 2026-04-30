@@ -136,7 +136,9 @@ def cmd_verify() -> None:
             table.add_row("postgres", "[red]FAIL[/red]", str(exc)[:120])
             failures.append("postgres")
 
-    # S3 — separate ImportError (packaging) from connectivity errors
+    # S3 — separate ImportError (packaging), connectivity, missing bucket,
+    # auth failure. Operators reading the table need to know which knob to
+    # turn (run mc mb? fix the access key? check the endpoint URL?).
     try:
         import boto3
         from botocore.config import Config as BotoCoreConfig
@@ -166,11 +168,37 @@ def cmd_verify() -> None:
             )
         except EndpointConnectionError as exc:
             table.add_row(
-                "s3 bucket", "[red]FAIL[/red]", f"endpoint unreachable: {exc}"[:120]
+                "s3 bucket", "[red]FAIL[/red]", f"endpoint unreachable: {exc}"[:200]
             )
             failures.append("s3")
-        except (BotoCoreError, ClientError) as exc:
-            table.add_row("s3 bucket", "[red]FAIL[/red]", str(exc)[:120])
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code", "Unknown")
+            if code in ("404", "NoSuchBucket"):
+                table.add_row(
+                    "s3 bucket",
+                    "[yellow]MISSING[/yellow]",
+                    f"bucket {settings.BUCKET!r} does not exist — create it manually",
+                )
+                failures.append("s3")
+            elif code in (
+                "403",
+                "AccessDenied",
+                "InvalidAccessKeyId",
+                "SignatureDoesNotMatch",
+            ):
+                table.add_row(
+                    "s3 bucket",
+                    "[red]FAIL[/red]",
+                    f"auth failed (code={code}) — check FEEDBACK_S3_ACCESS_KEY/SECRET",
+                )
+                failures.append("s3")
+            else:
+                table.add_row(
+                    "s3 bucket", "[red]FAIL[/red]", f"{code}: {exc}"[:200]
+                )
+                failures.append("s3")
+        except BotoCoreError as exc:
+            table.add_row("s3 bucket", "[red]FAIL[/red]", str(exc)[:200])
             failures.append("s3")
 
     # SMTP

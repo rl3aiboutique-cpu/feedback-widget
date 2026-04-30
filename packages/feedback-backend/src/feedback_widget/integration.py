@@ -12,12 +12,14 @@ directly — this module is a convenience wrapper, not a replacement.
 
 from __future__ import annotations
 
+import contextlib
 import logging
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import DatabaseError, OperationalError, ProgrammingError
 
 from feedback_widget.adapters.jwt_bearer import JWTBearerAuth
 from feedback_widget.auth import FeedbackAuthAdapter
@@ -53,8 +55,19 @@ def make_sync_engine(
                 conn.execute(text("SELECT 1"))
         except OperationalError as exc:
             raise RuntimeError(
-                f"feedback_widget: cannot connect sync engine to "
-                f"{database_url!r}: {exc}"
+                f"feedback_widget: cannot connect sync engine — DB unreachable "
+                f"or auth failed for {database_url!r}: {exc}"
+            ) from exc
+        except ProgrammingError as exc:
+            raise RuntimeError(
+                f"feedback_widget: connected to DB but probe SELECT 1 failed — "
+                f"likely missing schema / search_path / privilege issue. "
+                f"URL={database_url!r}: {exc}"
+            ) from exc
+        except DatabaseError as exc:
+            raise RuntimeError(
+                f"feedback_widget: connected to DB but probe query raised "
+                f"{type(exc).__name__}. URL={database_url!r}: {exc}"
             ) from exc
     return eng
 
@@ -106,11 +119,25 @@ def mount_feedback_widget_for_async_host(
     engine = make_sync_engine(cfg.DATABASE_URL)
     register_feedback_router(app, auth=auth, engine=engine, settings=cfg, prefix=prefix)
     app.state.feedback_widget_engine = engine
+
+    # Compose the engine.dispose() into the host's lifespan instead of
+    # using the deprecated `app.on_event("shutdown")` — the latter is
+    # silently SKIPPED when the host already provides a `lifespan=`
+    # context manager (FastAPI/Starlette behaviour). Composing
+    # lifespan_context wraps whatever the host already had with our
+    # dispose hook so it ALWAYS fires on graceful shutdown / hot reload.
+    existing_lifespan = app.router.lifespan_context
+
+    @contextlib.asynccontextmanager
+    async def _composed_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        async with existing_lifespan(_app):
+            try:
+                yield
+            finally:
+                engine.dispose()
+                logger.info("feedback_widget: sync engine disposed via lifespan")
+
+    app.router.lifespan_context = _composed_lifespan
     logger.info(
         "feedback_widget: mounted at %s with auto-managed sync engine", prefix
     )
-
-    @app.on_event("shutdown")
-    def _dispose_feedback_engine() -> None:
-        engine.dispose()
-        logger.info("feedback_widget: sync engine disposed on shutdown")

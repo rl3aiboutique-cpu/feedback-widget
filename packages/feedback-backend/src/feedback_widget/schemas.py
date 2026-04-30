@@ -102,17 +102,34 @@ class FeedbackCreatePayload(BaseModel):
     @classmethod
     def _validate_email_shape(cls, v: str | None) -> str | None:
         """Accept any string that has the basic email shape — including
-        .local / .test / other reserved TLDs that EmailStr rejects."""
+        .local / .test / other reserved TLDs that EmailStr rejects.
+
+        Defends against header injection (CR/LF/tab anywhere) and obvious
+        malformations (multiple @, empty parts, dot-at-edge in the domain).
+        Hosts that want strict deliverability validation should layer their
+        own check before sending the magic-link email.
+        """
         if v is None:
             return None
-        # Loose: one @, non-empty user part, non-empty domain part with
-        # at least one dot. Good enough for sending; hosts that need
-        # strict deliverability layer their own check.
         v = v.strip()
-        if "@" not in v:
-            raise ValueError("follow_up_email must contain '@'")
+        # CR/LF/TAB inside the value would be a header-injection vector once
+        # the email is concatenated into the magic-link transition email.
+        # EmailStr (which we're replacing) rejects these via RFC 5321 parsing;
+        # we replicate the security guarantee with an explicit reject.
+        if any(ch in v for ch in ("\r", "\n", "\t", "\0")):
+            raise ValueError("follow_up_email contains invalid control characters")
+        # Reject embedded whitespace (after .strip() removed the edges).
+        if any(ch.isspace() for ch in v):
+            raise ValueError("follow_up_email contains whitespace")
+        # Exactly one @ — split on it.
+        if v.count("@") != 1:
+            raise ValueError("follow_up_email must contain exactly one '@'")
         local, _, domain = v.partition("@")
-        if not local or not domain or "." not in domain:
+        if not local or not domain:
+            raise ValueError("follow_up_email is not a valid email address")
+        # Domain must have at least one dot AND non-empty labels.
+        labels = domain.split(".")
+        if len(labels) < 2 or any(not lbl for lbl in labels):
             raise ValueError("follow_up_email is not a valid email address")
         return v
 

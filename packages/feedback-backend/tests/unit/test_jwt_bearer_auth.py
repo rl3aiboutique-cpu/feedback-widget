@@ -156,6 +156,31 @@ def test_algorithm_none_raises_value_error() -> None:
         JWTBearerAuth(secret_key=SECRET, algorithm="")
 
 
+def test_non_string_email_claim_yields_none_email() -> None:
+    """A dict/int email claim must NOT be stringified into the snapshot.
+
+    Otherwise '{"a": 1}' or '12345' would flow into the magic-link
+    recipient downstream — a covert recipient injection.
+    """
+    auth = JWTBearerAuth(secret_key=SECRET)
+    for malicious in [{"address": "real@x.com"}, 12345, ["a@b.c"], True]:
+        token = _token({"sub": str(USER_UUID), "email": malicious, "role": "MANAGER"})
+        snap = auth.get_current_user(_request(f"Bearer {token}"))
+        assert snap is not None
+        assert snap.email is None, f"non-string email {malicious!r} should yield None"
+
+
+def test_non_string_full_name_yields_none_full_name() -> None:
+    """Same defence for full_name claim."""
+    auth = JWTBearerAuth(secret_key=SECRET)
+    token = _token(
+        {"sub": str(USER_UUID), "email": "u@x.com", "full_name": {"first": "A"}}
+    )
+    snap = auth.get_current_user(_request(f"Bearer {token}"))
+    assert snap is not None
+    assert snap.full_name is None
+
+
 def test_implements_feedback_auth_adapter_protocol() -> None:
     """Structural-typing check — JWTBearerAuth should satisfy the Protocol."""
     auth: FeedbackAuthAdapter = JWTBearerAuth(secret_key=SECRET)

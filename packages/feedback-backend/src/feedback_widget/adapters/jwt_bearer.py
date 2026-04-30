@@ -17,14 +17,18 @@ adapter; this class is intentionally minimal.
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from typing import Any
 
 from fastapi import Request
-from jose import JWTError, jwt
+from jose import jwt
+from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
 
 from feedback_widget.auth import CurrentUserSnapshot
+
+logger = logging.getLogger(__name__)
 
 
 class JWTBearerAuth:
@@ -87,31 +91,68 @@ class JWTBearerAuth:
         self._full_name_claim = full_name_claim
 
     def get_current_user(self, request: Request) -> CurrentUserSnapshot | None:
-        """Extract the bearer token, decode it, and build a snapshot."""
+        """Extract the bearer token, decode it, and build a snapshot.
+
+        Returns None for any rejection mode. Each rejection emits a log
+        line at INFO/DEBUG so the host operator can debug "401 only for
+        some users" via `--log-level info` instead of guessing among
+        expiry / signature / claim shape / scheme.
+        """
         token = self._extract_bearer(request)
         if token is None:
             return None
         payload = self._decode(token)
         if payload is None:
             return None
-        return self._snapshot_from_payload(payload)
+        snap = self._snapshot_from_payload(payload)
+        if snap is None:
+            logger.info(
+                "feedback_widget jwt rejected: reason=invalid_sub_or_email sub=%r email_type=%s",
+                payload.get(self._sub_claim),
+                type(payload.get(self._email_claim)).__name__,
+            )
+        return snap
 
     def is_master_admin(self, user: CurrentUserSnapshot) -> bool:
         """Return True iff the user's role matches any configured master role."""
         return user.role.upper() in self._master_roles
 
-    @staticmethod
-    def _extract_bearer(request: Request) -> str | None:
+    def _extract_bearer(self, request: Request) -> str | None:
         header = request.headers.get("authorization", "")
+        if not header:
+            logger.debug(
+                "feedback_widget jwt rejected: reason=no_header path=%s",
+                request.url.path,
+            )
+            return None
         scheme, _, token = header.partition(" ")
-        if scheme.lower() != "bearer" or not token:
+        if scheme.lower() != "bearer":
+            logger.info(
+                "feedback_widget jwt rejected: reason=wrong_scheme scheme=%r", scheme
+            )
+            return None
+        if not token:
+            logger.info("feedback_widget jwt rejected: reason=empty_token")
             return None
         return token
 
     def _decode(self, token: str) -> dict[str, Any] | None:
         try:
             return jwt.decode(token, self._secret_key, algorithms=[self._algorithm])
-        except JWTError:
+        except ExpiredSignatureError:
+            logger.info(
+                "feedback_widget jwt rejected: reason=expired alg=%s", self._algorithm
+            )
+            return None
+        except JWTClaimsError as exc:
+            logger.info("feedback_widget jwt rejected: reason=claims detail=%s", exc)
+            return None
+        except JWTError as exc:
+            # Catches signature mismatch, malformed token, alg mismatch.
+            logger.info(
+                "feedback_widget jwt rejected: reason=signature_or_format detail=%s",
+                exc,
+            )
             return None
 
     def _snapshot_from_payload(self, payload: dict[str, Any]) -> CurrentUserSnapshot | None:
@@ -135,12 +176,19 @@ class JWTBearerAuth:
             except (ValueError, TypeError):
                 tenant_id = None
 
+        # Only accept STRING email/full_name. A non-string (dict, int)
+        # would coerce to "{'a': 1}" / "12345" and flow into the
+        # magic-link recipient — refuse instead of silently mangling.
         email_raw = payload.get(self._email_claim)
+        email: str | None = email_raw if isinstance(email_raw, str) and email_raw else None
         full_name_raw = payload.get(self._full_name_claim)
+        full_name: str | None = (
+            full_name_raw if isinstance(full_name_raw, str) and full_name_raw else None
+        )
         return CurrentUserSnapshot(
             user_id=user_id,
-            email=str(email_raw) if email_raw else None,
+            email=email,
             tenant_id=tenant_id,
             role=str(payload.get(self._role_claim, "")),
-            full_name=str(full_name_raw) if full_name_raw else None,
+            full_name=full_name,
         )
