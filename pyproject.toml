@@ -10,6 +10,18 @@ members = [
     "apps/sandbox-host/backend",
 ]
 
+[dependency-groups]
+dev = [
+    "ruff>=0.13",
+    "mypy>=1.13",
+    "bandit[toml]>=1.7",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "asgi-lifespan>=2.1",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
