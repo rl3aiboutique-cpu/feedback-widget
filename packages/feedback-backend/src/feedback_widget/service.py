@@ -499,9 +499,7 @@ class FeedbackService:
         if not is_admin and feedback.user_id != current_user_id:
             raise FeedbackNotFoundError(str(feedback_id))
         author_role = (
-            FeedbackCommentAuthorRole.ADMIN
-            if is_admin
-            else FeedbackCommentAuthorRole.SUBMITTER
+            FeedbackCommentAuthorRole.ADMIN if is_admin else FeedbackCommentAuthorRole.SUBMITTER
         )
         comment = FeedbackComment(
             feedback_id=feedback_id,
