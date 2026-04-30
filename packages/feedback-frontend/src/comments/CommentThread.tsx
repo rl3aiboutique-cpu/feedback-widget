@@ -34,6 +34,7 @@ function _fmt(dt: string | null | undefined): string {
 export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactElement {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
+  const currentUser = adapter.useCurrentUser();
   const query = useFeedbackCommentsQuery(feedbackId);
   const post = usePostFeedbackCommentMutation();
   const [draft, setDraft] = useState("");
@@ -68,29 +69,39 @@ export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactEl
         <p className="text-xs italic text-muted-foreground">{t("feedback.comments.empty")}</p>
       ) : (
         <ul className="space-y-2">
-          {query.data?.data.map((c: FeedbackCommentRead) => (
-            <li
-              key={c.id}
-              className={`rounded-md border p-2 text-xs ${
-                c.author_role === "admin"
-                  ? "border-primary/40 bg-primary/5"
-                  : "border-input bg-background"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <Badge
-                  variant={c.author_role === "admin" ? "default" : "outline"}
-                  className="text-[10px]"
-                >
-                  {c.author_role === "admin"
-                    ? t("feedback.comments.admin_label")
-                    : t("feedback.comments.you_label")}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">{_fmt(c.created_at)}</span>
-              </div>
-              <p className="whitespace-pre-wrap">{c.body}</p>
-            </li>
-          ))}
+          {query.data?.data.map((c: FeedbackCommentRead) => {
+            const isMine = currentUser !== null && c.author_user_id === currentUser.id;
+            const label = isMine
+              ? t("feedback.comments.you_label")
+              : c.author_role === "admin"
+                ? t("feedback.comments.admin_label")
+                : t("feedback.comments.submitter_label");
+            return (
+              <li
+                key={c.id}
+                className={`rounded-md border p-2 text-xs ${
+                  isMine
+                    ? "border-input bg-background"
+                    : c.author_role === "admin"
+                      ? "border-primary/40 bg-primary/5"
+                      : "border-input bg-muted/40"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge
+                    variant={
+                      isMine ? "outline" : c.author_role === "admin" ? "default" : "secondary"
+                    }
+                    className="text-[10px]"
+                  >
+                    {label}
+                  </Badge>
+                  <span className="text-[10px] text-muted-foreground">{_fmt(c.created_at)}</span>
+                </div>
+                <p className="whitespace-pre-wrap">{c.body}</p>
+              </li>
+            );
+          })}
         </ul>
       )}
 

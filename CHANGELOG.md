@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-04-30
+
+Frontend-only fix.
+
+### Fixed
+- **CommentThread badge**: own messages now render "You" regardless of
+  the author's role. Previously an admin posting on a ticket they
+  themselves filed saw "Team" on their own message because the badge
+  only looked at `author_role`. Now it compares
+  `author_user_id` to `useCurrentUser().id` first, falling back to
+  the role for messages from the other party. Also added a
+  `Submitter` label for admins viewing the user's side of the thread.
+
 ## [0.2.2] — 2026-04-30
 
 Additive (no destructive change). Chat-style comment thread on every

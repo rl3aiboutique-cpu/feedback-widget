@@ -27,6 +27,7 @@ export const en: Record<string, string> = {
   "feedback.comments.sending": "Sending…",
   "feedback.comments.send_error": "Could not send the message",
   "feedback.comments.admin_label": "Team",
+  "feedback.comments.submitter_label": "Submitter",
   "feedback.comments.you_label": "You",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",

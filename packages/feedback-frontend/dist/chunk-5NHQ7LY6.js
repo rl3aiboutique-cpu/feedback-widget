@@ -80,6 +80,7 @@ var en = {
   "feedback.comments.sending": "Sending\u2026",
   "feedback.comments.send_error": "Could not send the message",
   "feedback.comments.admin_label": "Team",
+  "feedback.comments.submitter_label": "Submitter",
   "feedback.comments.you_label": "You",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
@@ -798,6 +799,7 @@ function _fmt(dt) {
 function CommentThread({ feedbackId }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
+  const currentUser = adapter.useCurrentUser();
   const query = useFeedbackCommentsQuery(feedbackId);
   const post = usePostFeedbackCommentMutation();
   const [draft, setDraft] = useState("");
@@ -818,27 +820,31 @@ function CommentThread({ feedbackId }) {
   };
   return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
     /* @__PURE__ */ jsx7("h4", { className: "font-semibold text-foreground text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.comments.thread_title") }),
-    query.isLoading ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx7("ul", { className: "space-y-2", children: query.data?.data.map((c) => /* @__PURE__ */ jsxs3(
-      "li",
-      {
-        className: `rounded-md border p-2 text-xs ${c.author_role === "admin" ? "border-primary/40 bg-primary/5" : "border-input bg-background"}`,
-        children: [
-          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
-            /* @__PURE__ */ jsx7(
-              Badge,
-              {
-                variant: c.author_role === "admin" ? "default" : "outline",
-                className: "text-[10px]",
-                children: c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.you_label")
-              }
-            ),
-            /* @__PURE__ */ jsx7("span", { className: "text-[10px] text-muted-foreground", children: _fmt(c.created_at) })
-          ] }),
-          /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: c.body })
-        ]
-      },
-      c.id
-    )) }),
+    query.isLoading ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx7("ul", { className: "space-y-2", children: query.data?.data.map((c) => {
+      const isMine = currentUser !== null && c.author_user_id === currentUser.id;
+      const label = isMine ? t("feedback.comments.you_label") : c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.submitter_label");
+      return /* @__PURE__ */ jsxs3(
+        "li",
+        {
+          className: `rounded-md border p-2 text-xs ${isMine ? "border-input bg-background" : c.author_role === "admin" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/40"}`,
+          children: [
+            /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
+              /* @__PURE__ */ jsx7(
+                Badge,
+                {
+                  variant: isMine ? "outline" : c.author_role === "admin" ? "default" : "secondary",
+                  className: "text-[10px]",
+                  children: label
+                }
+              ),
+              /* @__PURE__ */ jsx7("span", { className: "text-[10px] text-muted-foreground", children: _fmt(c.created_at) })
+            ] }),
+            /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: c.body })
+          ]
+        },
+        c.id
+      );
+    }) }),
     /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
       /* @__PURE__ */ jsx7(
         Textarea,
@@ -1352,4 +1358,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-3LMPO3MI.js.map
+//# sourceMappingURL=chunk-5NHQ7LY6.js.map
