@@ -27,9 +27,11 @@ from sqlalchemy.exc import OperationalError
 
 
 def _database_url() -> str:
+    # Use psycopg (v3) explicitly — sqlalchemy defaults to psycopg2 when
+    # the driver is omitted, and psycopg2 is not in our deps.
     return os.environ.get(
         "FEEDBACK_DATABASE_URL",
-        "postgresql://feedback:feedback@localhost:5432/feedback_test",
+        "postgresql+psycopg://feedback:feedback@localhost:5432/feedback_test",
     )
 
 
