@@ -333,7 +333,7 @@ function DetailBody({
         <section>
           <h3 className="text-sm font-medium mb-1">Attachments ({userAttachments.length})</h3>
           <ul className="space-y-1.5">
-            {userAttachments.map((a) => (
+            {userAttachments.map((a: FeedbackAttachmentRead) => (
               <li
                 key={a.id}
                 className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
