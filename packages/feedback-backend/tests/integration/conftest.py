@@ -89,12 +89,14 @@ def _migrate_once(engine: Engine, database_url: str) -> Generator[None, Any, Non
     run_migrations(database_url=database_url)
     yield
     with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS feedback_comment CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback_attachment CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback_widget_alembic_version CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_type CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_status CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_attachment_kind CASCADE"))
+        conn.execute(text("DROP TYPE IF EXISTS feedback_comment_author_role CASCADE"))
 
 
 @pytest.fixture(autouse=True)

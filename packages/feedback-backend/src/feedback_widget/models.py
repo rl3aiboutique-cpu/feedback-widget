@@ -89,6 +89,17 @@ class FeedbackAttachmentKind(StrEnum):
     USER_ATTACHMENT = "user_attachment"
 
 
+class FeedbackCommentAuthorRole(StrEnum):
+    """Who wrote the comment.
+
+    ``submitter`` is the user who filed the original feedback row.
+    ``admin`` is anyone with the host's MASTER_ADMIN gate.
+    """
+
+    SUBMITTER = "submitter"
+    ADMIN = "admin"
+
+
 # ────────────────────────────────────────────────────────────────────
 # Tables
 # ────────────────────────────────────────────────────────────────────
@@ -222,6 +233,48 @@ class FeedbackAttachment(SQLModel, table=True):
     # Image-only metadata; null for non-image kinds.
     width: int | None = Field(default=None)
     height: int | None = Field(default=None)
+
+    created_at: datetime | None = Field(
+        default_factory=_utc_now,
+        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
+    )
+
+
+class FeedbackComment(SQLModel, table=True):
+    """One reply / note on a feedback ticket. (v0.2.2)
+
+    The conversation between submitter and admin lives here. There's no
+    edit / delete in v0.2.2 — just append-only — to keep the table cheap
+    and the audit trail clean. Soft delete + edit follow in a later
+    minor version once we see the moderation patterns we actually need.
+    """
+
+    __tablename__ = "feedback_comment"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    feedback_id: uuid.UUID = Field(
+        sa_column=Column(
+            ForeignKey("feedback.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    # Mirrored from the parent row so the RLS policy applies without a join.
+    tenant_id: uuid.UUID = Field(index=True)
+
+    author_user_id: uuid.UUID = Field(index=True)
+    author_role: FeedbackCommentAuthorRole = Field(
+        sa_column=Column(
+            SAEnum(
+                FeedbackCommentAuthorRole,
+                name="feedback_comment_author_role",
+                create_constraint=True,
+                values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            ),
+            nullable=False,
+        )
+    )
+    body: str  # markdown — server redacts before insert
 
     created_at: datetime | None = Field(
         default_factory=_utc_now,

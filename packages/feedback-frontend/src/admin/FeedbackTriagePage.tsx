@@ -31,6 +31,7 @@ import {
   useFeedbackListQuery,
   useUpdateFeedbackStatusMutation,
 } from "../adapter";
+import { CommentThread } from "../comments/CommentThread";
 import { useCanTriageFeedback } from "../hooks/useCanTriageFeedback";
 
 const TYPE_VALUES: FeedbackType[] = [
@@ -357,6 +358,8 @@ function DetailBody({
           </ul>
         </section>
       ) : null}
+
+      <CommentThread feedbackId={data.id} />
 
       <details className="text-xs">
         <summary className="cursor-pointer font-medium text-foreground">

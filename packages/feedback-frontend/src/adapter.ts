@@ -21,6 +21,9 @@ import { useMemo } from "react";
 
 import { useFeedbackBindings, useFeedbackConfig } from "./FeedbackProvider";
 import type {
+  FeedbackCommentCreatePayload,
+  FeedbackCommentListResponse,
+  FeedbackCommentRead,
   FeedbackListResponse,
   FeedbackRead,
   FeedbackStatus,
@@ -412,6 +415,74 @@ export function useDeleteFeedbackMutation(): UseMutationResult<void, Error, stri
     mutationFn: (id) => _deleteJson(bindings, `/${encodeURIComponent(id)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
+    },
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Comments (v0.2.2)
+// ─────────────────────────────────────────────────────────────────────
+
+async function _postJson<T>(
+  bindings: FeedbackHostBindings,
+  path: string,
+  body: unknown,
+): Promise<T> {
+  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`POST ${path} failed (${resp.status}) ${text}`);
+  }
+  return (await resp.json()) as T;
+}
+
+export function useFeedbackCommentsQuery(
+  feedbackId: string | null,
+): UseQueryResult<FeedbackCommentListResponse, Error> {
+  const bindings = useFeedbackBindings();
+  return useQuery({
+    queryKey: ["feedback", "comments", feedbackId],
+    queryFn: () =>
+      feedbackId
+        ? _getJson<FeedbackCommentListResponse>(
+            bindings,
+            `/${encodeURIComponent(feedbackId)}/comments`,
+          )
+        : (Promise.resolve({
+            data: [],
+            count: 0,
+          }) as Promise<FeedbackCommentListResponse>),
+    enabled: !!feedbackId,
+    refetchInterval: 30_000,
+    staleTime: 15_000,
+  });
+}
+
+export function usePostFeedbackCommentMutation(): UseMutationResult<
+  FeedbackCommentRead,
+  Error,
+  { feedbackId: string; body: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input) =>
+      _postJson<FeedbackCommentRead>(
+        bindings,
+        `/${encodeURIComponent(input.feedbackId)}/comments`,
+        { body: input.body } satisfies FeedbackCommentCreatePayload,
+      ),
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "comments", input.feedbackId],
+      });
     },
   });
 }

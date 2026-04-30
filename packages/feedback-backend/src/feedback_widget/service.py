@@ -31,12 +31,16 @@ from feedback_widget.models import (
     Feedback,
     FeedbackAttachment,
     FeedbackAttachmentKind,
+    FeedbackComment,
+    FeedbackCommentAuthorRole,
     FeedbackStatus,
     FeedbackType,
 )
 from feedback_widget.redaction import redact_bundle, redact_string
 from feedback_widget.schemas import (
     FeedbackAttachmentRead,
+    FeedbackCommentCreatePayload,
+    FeedbackCommentRead,
     FeedbackCreatePayload,
     FeedbackRead,
     FeedbackStatusUpdate,
@@ -448,6 +452,68 @@ class FeedbackService:
                 )
                 continue
 
-        # FK ON DELETE CASCADE removes the attachment rows.
+        # FK ON DELETE CASCADE removes the attachment + comment rows.
         self.session.delete(feedback)
         self.session.flush()
+
+    # ------------------------------------------------------------------
+    # Comments (v0.2.2)
+    # ------------------------------------------------------------------
+
+    def list_comments(
+        self,
+        *,
+        feedback_id: uuid.UUID,
+        is_admin: bool,
+        current_user_id: uuid.UUID,
+    ) -> list[FeedbackComment]:
+        """Return the conversation thread, oldest first.
+
+        The submitter sees comments only for their own ticket; admin
+        sees comments for any ticket in the same tenant. Otherwise
+        FeedbackNotFoundError so callers translate to 404.
+        """
+        feedback = self.get(feedback_id)
+        if not is_admin and feedback.user_id != current_user_id:
+            raise FeedbackNotFoundError(str(feedback_id))
+        stmt = (
+            select(FeedbackComment)
+            .where(FeedbackComment.feedback_id == feedback_id)
+            .order_by(FeedbackComment.created_at.asc())  # type: ignore[union-attr]
+        )
+        if self.tenant_id is not None:
+            stmt = stmt.where(FeedbackComment.tenant_id == self.tenant_id)
+        run_query = self.session.exec
+        return list(run_query(stmt).all())
+
+    def create_comment(
+        self,
+        *,
+        feedback_id: uuid.UUID,
+        is_admin: bool,
+        current_user_id: uuid.UUID,
+        payload: FeedbackCommentCreatePayload,
+    ) -> FeedbackComment:
+        """Append a comment to the conversation thread."""
+        feedback = self.get(feedback_id)
+        if not is_admin and feedback.user_id != current_user_id:
+            raise FeedbackNotFoundError(str(feedback_id))
+        author_role = (
+            FeedbackCommentAuthorRole.ADMIN
+            if is_admin
+            else FeedbackCommentAuthorRole.SUBMITTER
+        )
+        comment = FeedbackComment(
+            feedback_id=feedback_id,
+            tenant_id=feedback.tenant_id,
+            author_user_id=current_user_id,
+            author_role=author_role,
+            body=redact_string(payload.body.strip()),
+        )
+        self.session.add(comment)
+        self.session.flush()
+        return comment
+
+    @staticmethod
+    def comment_to_read(comment: FeedbackComment) -> FeedbackCommentRead:
+        return FeedbackCommentRead.model_validate(comment)

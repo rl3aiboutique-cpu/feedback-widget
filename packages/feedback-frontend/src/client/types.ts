@@ -74,3 +74,23 @@ export interface FeedbackStatusUpdate {
   status: FeedbackStatus
   triage_note?: string | null
 }
+
+export type FeedbackCommentAuthorRole = "submitter" | "admin"
+
+export interface FeedbackCommentRead {
+  id: string
+  feedback_id: string
+  author_user_id: string
+  author_role: FeedbackCommentAuthorRole
+  body: string
+  created_at?: string | null
+}
+
+export interface FeedbackCommentListResponse {
+  data: FeedbackCommentRead[]
+  count: number
+}
+
+export interface FeedbackCommentCreatePayload {
+  body: string
+}

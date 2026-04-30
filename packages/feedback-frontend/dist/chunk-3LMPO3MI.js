@@ -71,6 +71,16 @@ var en = {
   "feedback.mine.attachments": "Attachments ({count})",
   "feedback.mine.open": "Open",
   "feedback.mine.open_in_app": "Open in app \u2192",
+  "feedback.comments.thread_title": "Conversation",
+  "feedback.comments.loading": "Loading messages\u2026",
+  "feedback.comments.error": "Could not load messages.",
+  "feedback.comments.empty": "No messages yet \u2014 be the first to reply.",
+  "feedback.comments.placeholder": "Write a reply\u2026",
+  "feedback.comments.send": "Send",
+  "feedback.comments.sending": "Sending\u2026",
+  "feedback.comments.send_error": "Could not send the message",
+  "feedback.comments.admin_label": "Team",
+  "feedback.comments.you_label": "You",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
   "feedback.panel_description": "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
@@ -449,6 +459,53 @@ function useDeleteFeedbackMutation() {
     }
   });
 }
+async function _postJson(bindings, path, body) {
+  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(`POST ${path} failed (${resp.status}) ${text}`);
+  }
+  return await resp.json();
+}
+function useFeedbackCommentsQuery(feedbackId) {
+  const bindings = useFeedbackBindings();
+  return useQuery({
+    queryKey: ["feedback", "comments", feedbackId],
+    queryFn: () => feedbackId ? _getJson(
+      bindings,
+      `/${encodeURIComponent(feedbackId)}/comments`
+    ) : Promise.resolve({
+      data: [],
+      count: 0
+    }),
+    enabled: !!feedbackId,
+    refetchInterval: 3e4,
+    staleTime: 15e3
+  });
+}
+function usePostFeedbackCommentMutation() {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input) => _postJson(
+      bindings,
+      `/${encodeURIComponent(input.feedbackId)}/comments`,
+      { body: input.body }
+    ),
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "comments", input.feedbackId]
+      });
+    }
+  });
+}
 function createAdapter(bindings) {
   const adapter = {
     useCurrentUser,
@@ -678,6 +735,10 @@ function Rl3Mark({
 
 // src/MyTicketsPanel.tsx
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState as useState2 } from "react";
+
+// src/comments/CommentThread.tsx
+import { Send } from "lucide-react";
 import { useState } from "react";
 
 // src/ui/badge.tsx
@@ -710,8 +771,107 @@ function Badge({
   return /* @__PURE__ */ jsx5(Comp, { "data-slot": "badge", className: cn(badgeVariants({ variant }), className), ...props });
 }
 
+// src/ui/textarea.tsx
+import { jsx as jsx6 } from "react/jsx-runtime";
+function Textarea({ className, ...props }) {
+  return /* @__PURE__ */ jsx6(
+    "textarea",
+    {
+      "data-slot": "textarea",
+      className: cn(
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      ),
+      ...props
+    }
+  );
+}
+
+// src/comments/CommentThread.tsx
+import { jsx as jsx7, jsxs as jsxs3 } from "react/jsx-runtime";
+function _fmt(dt) {
+  if (!dt) return "\u2014";
+  return dt.slice(0, 16).replace("T", " ");
+}
+function CommentThread({ feedbackId }) {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
+  const query = useFeedbackCommentsQuery(feedbackId);
+  const post = usePostFeedbackCommentMutation();
+  const [draft, setDraft] = useState("");
+  const onSend = () => {
+    const body = draft.trim();
+    if (!body) return;
+    post.mutate(
+      { feedbackId, body },
+      {
+        onSuccess: () => {
+          setDraft("");
+        },
+        onError: (err) => {
+          adapter.toast.error(`${t("feedback.comments.send_error")}: ${String(err)}`);
+        }
+      }
+    );
+  };
+  return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
+    /* @__PURE__ */ jsx7("h4", { className: "font-semibold text-foreground text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.comments.thread_title") }),
+    query.isLoading ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx7("ul", { className: "space-y-2", children: query.data?.data.map((c) => /* @__PURE__ */ jsxs3(
+      "li",
+      {
+        className: `rounded-md border p-2 text-xs ${c.author_role === "admin" ? "border-primary/40 bg-primary/5" : "border-input bg-background"}`,
+        children: [
+          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
+            /* @__PURE__ */ jsx7(
+              Badge,
+              {
+                variant: c.author_role === "admin" ? "default" : "outline",
+                className: "text-[10px]",
+                children: c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.you_label")
+              }
+            ),
+            /* @__PURE__ */ jsx7("span", { className: "text-[10px] text-muted-foreground", children: _fmt(c.created_at) })
+          ] }),
+          /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: c.body })
+        ]
+      },
+      c.id
+    )) }),
+    /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
+      /* @__PURE__ */ jsx7(
+        Textarea,
+        {
+          value: draft,
+          onChange: (e) => setDraft(e.target.value),
+          placeholder: t("feedback.comments.placeholder"),
+          rows: 2,
+          maxLength: 5e3,
+          disabled: post.isPending,
+          "data-feedback-id": "feedback.comments.draft"
+        }
+      ),
+      /* @__PURE__ */ jsx7("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs3(
+        Button,
+        {
+          type: "button",
+          size: "sm",
+          onClick: onSend,
+          disabled: post.isPending || draft.trim().length === 0,
+          "data-feedback-id": "feedback.comments.send",
+          children: [
+            /* @__PURE__ */ jsx7(Send, { className: "mr-1 h-3.5 w-3.5" }),
+            post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
+          ]
+        }
+      ) })
+    ] })
+  ] });
+}
+
 // src/MyTicketsPanel.tsx
-import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
+import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
 function statusVariant(s) {
   if (s === "new") return "default";
   if (s === "triaged" || s === "in_progress") return "secondary";
@@ -738,26 +898,26 @@ function MyTicketsPanel({ onSelectTicket }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId, setExpandedId] = useState2(null);
   if (query.isLoading) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
   }
   if (query.isError) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
   }
   const rows = query.data ?? [];
   if (rows.length === 0) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
   }
-  return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
+  return /* @__PURE__ */ jsx8("ul", { className: "space-y-2", children: rows.map((r) => {
     const recentlyResolved = r.status === "done";
     const isOpen = expandedId === r.id;
-    return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
+    return /* @__PURE__ */ jsx8("li", { children: /* @__PURE__ */ jsxs4(
       "div",
       {
         className: `rounded-md border ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}`,
         children: [
-          /* @__PURE__ */ jsxs3(
+          /* @__PURE__ */ jsxs4(
             "button",
             {
               type: "button",
@@ -767,57 +927,57 @@ function MyTicketsPanel({ onSelectTicket }) {
               "aria-controls": `ticket-detail-${r.id}`,
               "data-feedback-id": "feedback.mine.row",
               children: [
-                /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
-                  /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-                  /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-                  /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title }),
-                  isOpen ? /* @__PURE__ */ jsx6(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
+                /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
+                  /* @__PURE__ */ jsx8("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+                  /* @__PURE__ */ jsx8(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                  /* @__PURE__ */ jsx8("span", { className: "truncate flex-1 font-medium", children: r.title }),
+                  isOpen ? /* @__PURE__ */ jsx8(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx8(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
                 ] }),
-                recentlyResolved && !isOpen ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+                recentlyResolved && !isOpen ? /* @__PURE__ */ jsx8("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
               ]
             }
           ),
-          isOpen ? /* @__PURE__ */ jsxs3(
+          isOpen ? /* @__PURE__ */ jsxs4(
             "div",
             {
               id: `ticket-detail-${r.id}`,
               className: "border-t border-input px-3 py-3 space-y-3 text-xs",
               children: [
-                r.created_at ? /* @__PURE__ */ jsx6("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
+                r.created_at ? /* @__PURE__ */ jsx8("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
                   date: r.created_at.slice(0, 16).replace("T", " ")
                 }) }) : null,
-                /* @__PURE__ */ jsxs3("section", { children: [
-                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
-                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx6("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
+                /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx8("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
                 ] }),
-                r.expected_outcome ? /* @__PURE__ */ jsxs3("section", { children: [
-                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
-                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
+                r.expected_outcome ? /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
                 ] }) : null,
-                r.triage_note ? /* @__PURE__ */ jsxs3("section", { className: "rounded bg-muted/50 p-2", children: [
-                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
-                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.triage_note })
+                r.triage_note ? /* @__PURE__ */ jsxs4("section", { className: "rounded bg-muted/50 p-2", children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.triage_note })
                 ] }) : null,
-                r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs3("section", { children: [
-                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
+                r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
                     count: String(r.attachments.length)
                   }) }),
-                  /* @__PURE__ */ jsx6("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
+                  /* @__PURE__ */ jsx8("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
                     const isImage = a.content_type.startsWith("image/");
                     const label = a.filename ?? a.kind;
-                    return /* @__PURE__ */ jsxs3(
+                    return /* @__PURE__ */ jsxs4(
                       "li",
                       {
                         className: "flex items-center gap-2 rounded border border-input bg-background p-1.5",
                         children: [
-                          isImage && a.presigned_url ? /* @__PURE__ */ jsx6(
+                          isImage && a.presigned_url ? /* @__PURE__ */ jsx8(
                             "a",
                             {
                               href: a.presigned_url,
                               target: "_blank",
                               rel: "noreferrer",
                               className: "shrink-0",
-                              children: /* @__PURE__ */ jsx6(
+                              children: /* @__PURE__ */ jsx8(
                                 "img",
                                 {
                                   src: a.presigned_url,
@@ -828,12 +988,12 @@ function MyTicketsPanel({ onSelectTicket }) {
                               )
                             }
                           ) : null,
-                          /* @__PURE__ */ jsx6("span", { className: "flex-1 truncate font-mono", children: label }),
-                          /* @__PURE__ */ jsxs3("span", { className: "text-muted-foreground shrink-0", children: [
+                          /* @__PURE__ */ jsx8("span", { className: "flex-1 truncate font-mono", children: label }),
+                          /* @__PURE__ */ jsxs4("span", { className: "text-muted-foreground shrink-0", children: [
                             (a.byte_size / 1024).toFixed(1),
                             " KB"
                           ] }),
-                          a.presigned_url ? /* @__PURE__ */ jsx6(
+                          a.presigned_url ? /* @__PURE__ */ jsx8(
                             "a",
                             {
                               href: a.presigned_url,
@@ -849,7 +1009,8 @@ function MyTicketsPanel({ onSelectTicket }) {
                     );
                   }) })
                 ] }) : null,
-                onSelectTicket ? /* @__PURE__ */ jsx6(
+                /* @__PURE__ */ jsx8(CommentThread, { feedbackId: r.id }),
+                onSelectTicket ? /* @__PURE__ */ jsx8(
                   "button",
                   {
                     type: "button",
@@ -1018,9 +1179,9 @@ function _xpathOf(el) {
 }
 
 // src/ui/input.tsx
-import { jsx as jsx7 } from "react/jsx-runtime";
+import { jsx as jsx9 } from "react/jsx-runtime";
 function Input({ className, type, ...props }) {
-  return /* @__PURE__ */ jsx7(
+  return /* @__PURE__ */ jsx9(
     "input",
     {
       type,
@@ -1039,12 +1200,12 @@ function Input({ className, type, ...props }) {
 // src/ui/select.tsx
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
+import { jsx as jsx10, jsxs as jsxs5 } from "react/jsx-runtime";
 function Select({ ...props }) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Root, { "data-slot": "select", ...props });
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Root, { "data-slot": "select", ...props });
 }
 function SelectValue({ ...props }) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
 }
 function SelectTrigger({
   className,
@@ -1052,7 +1213,7 @@ function SelectTrigger({
   children,
   ...props
 }) {
-  return /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsxs5(
     SelectPrimitive.Trigger,
     {
       "data-slot": "select-trigger",
@@ -1064,7 +1225,7 @@ function SelectTrigger({
       ...props,
       children: [
         children,
-        /* @__PURE__ */ jsx8(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4 opacity-50" }) })
+        /* @__PURE__ */ jsx10(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx10(ChevronDownIcon, { className: "size-4 opacity-50" }) })
       ]
     }
   );
@@ -1076,7 +1237,7 @@ function SelectContent({
   align = "center",
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs5(
     SelectPrimitive.Content,
     {
       "data-slot": "select-content",
@@ -1089,8 +1250,8 @@ function SelectContent({
       align,
       ...props,
       children: [
-        /* @__PURE__ */ jsx8(SelectScrollUpButton, {}),
-        /* @__PURE__ */ jsx8(
+        /* @__PURE__ */ jsx10(SelectScrollUpButton, {}),
+        /* @__PURE__ */ jsx10(
           SelectPrimitive.Viewport,
           {
             className: cn(
@@ -1100,7 +1261,7 @@ function SelectContent({
             children
           }
         ),
-        /* @__PURE__ */ jsx8(SelectScrollDownButton, {})
+        /* @__PURE__ */ jsx10(SelectScrollDownButton, {})
       ]
     }
   ) });
@@ -1110,7 +1271,7 @@ function SelectItem({
   children,
   ...props
 }) {
-  return /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsxs5(
     SelectPrimitive.Item,
     {
       "data-slot": "select-item",
@@ -1120,8 +1281,8 @@ function SelectItem({
       ),
       ...props,
       children: [
-        /* @__PURE__ */ jsx8("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx8(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx8(CheckIcon, { className: "size-4" }) }) }),
-        /* @__PURE__ */ jsx8(SelectPrimitive.ItemText, { children })
+        /* @__PURE__ */ jsx10("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx10(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx10(CheckIcon, { className: "size-4" }) }) }),
+        /* @__PURE__ */ jsx10(SelectPrimitive.ItemText, { children })
       ]
     }
   );
@@ -1130,13 +1291,13 @@ function SelectScrollUpButton({
   className,
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx10(
     SelectPrimitive.ScrollUpButton,
     {
       "data-slot": "select-scroll-up-button",
       className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
-      children: /* @__PURE__ */ jsx8(ChevronUpIcon, { className: "size-4" })
+      children: /* @__PURE__ */ jsx10(ChevronUpIcon, { className: "size-4" })
     }
   );
 }
@@ -1144,31 +1305,13 @@ function SelectScrollDownButton({
   className,
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx10(
     SelectPrimitive.ScrollDownButton,
     {
       "data-slot": "select-scroll-down-button",
       className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
-      children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4" })
-    }
-  );
-}
-
-// src/ui/textarea.tsx
-import { jsx as jsx9 } from "react/jsx-runtime";
-function Textarea({ className, ...props }) {
-  return /* @__PURE__ */ jsx9(
-    "textarea",
-    {
-      "data-slot": "textarea",
-      className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      ),
-      ...props
+      children: /* @__PURE__ */ jsx10(ChevronDownIcon, { className: "size-4" })
     }
   );
 }
@@ -1202,10 +1345,11 @@ export {
   SheetDescription,
   Textarea,
   Rl3Mark,
+  CommentThread,
   MyTicketsPanel,
   useMyPendingActionCount,
   capturePageScreenshot,
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-QHL2D7PL.js.map
+//# sourceMappingURL=chunk-3LMPO3MI.js.map

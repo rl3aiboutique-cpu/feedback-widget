@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from feedback_widget.models import (
     FeedbackAttachmentKind,
+    FeedbackCommentAuthorRole,
     FeedbackStatus,
     FeedbackType,
 )
@@ -123,3 +124,29 @@ class FeedbackStatusUpdate(BaseModel):
 
     status: FeedbackStatus
     triage_note: str | None = Field(default=None, max_length=2000)
+
+
+class FeedbackCommentRead(BaseModel):
+    """One comment in the conversation thread."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    feedback_id: uuid.UUID
+    author_user_id: uuid.UUID
+    author_role: FeedbackCommentAuthorRole
+    body: str
+    created_at: datetime | None = None
+
+
+class FeedbackCommentCreatePayload(BaseModel):
+    """Body of POST /feedback/{id}/comments."""
+
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class FeedbackCommentListResponse(BaseModel):
+    """List of comments on one feedback ticket, oldest first."""
+
+    data: list[FeedbackCommentRead]
+    count: int

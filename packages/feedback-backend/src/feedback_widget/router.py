@@ -58,6 +58,9 @@ from feedback_widget.helpers import (
 )
 from feedback_widget.models import FeedbackStatus, FeedbackType
 from feedback_widget.schemas import (
+    FeedbackCommentCreatePayload,
+    FeedbackCommentListResponse,
+    FeedbackCommentRead,
     FeedbackCreatePayload,
     FeedbackListResponse,
     FeedbackRead,
@@ -564,6 +567,100 @@ def build_router(
             raise
         except Exception as exc:
             logger.exception("delete_feedback failed unexpectedly (id=%s)", feedback_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
+    # GET /{id}/comments — list (submitter for own ticket OR MASTER_ADMIN)
+    # ────────────────────────────────────────────────────────────────
+
+    @router.get("/{feedback_id}/comments", response_model=FeedbackCommentListResponse)
+    def list_feedback_comments(
+        feedback_id: uuid.UUID,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> FeedbackCommentListResponse:
+        try:
+            is_admin = deps.auth.is_master_admin(current_user)
+            service = FeedbackService(
+                session=session,
+                storage=s3,
+                tenant_id=current_user.tenant_id,
+                settings=cfg,
+            )
+            try:
+                rows = service.list_comments(
+                    feedback_id=feedback_id,
+                    is_admin=is_admin,
+                    current_user_id=current_user.user_id,
+                )
+            except FeedbackNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+                ) from exc
+            data = [FeedbackCommentRead.model_validate(r) for r in rows]
+            return FeedbackCommentListResponse(data=data, count=len(data))
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("list_feedback_comments failed (id=%s)", feedback_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
+    # POST /{id}/comments — append (submitter for own OR MASTER_ADMIN)
+    # ────────────────────────────────────────────────────────────────
+
+    @router.post(
+        "/{feedback_id}/comments",
+        response_model=FeedbackCommentRead,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def create_feedback_comment(
+        feedback_id: uuid.UUID,
+        body: FeedbackCommentCreatePayload,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> FeedbackCommentRead:
+        try:
+            is_admin = deps.auth.is_master_admin(current_user)
+            service = FeedbackService(
+                session=session,
+                storage=s3,
+                tenant_id=current_user.tenant_id,
+                settings=cfg,
+            )
+            try:
+                comment = service.create_comment(
+                    feedback_id=feedback_id,
+                    is_admin=is_admin,
+                    current_user_id=current_user.user_id,
+                    payload=body,
+                )
+            except FeedbackNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+                ) from exc
+            except FeedbackError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+                ) from exc
+
+            session.commit()
+            session.refresh(comment)
+            return FeedbackCommentRead.model_validate(comment)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("create_feedback_comment failed (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",

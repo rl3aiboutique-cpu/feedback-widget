@@ -17,6 +17,7 @@ import { useState } from "react";
 import { useFeedbackAdapter } from "./FeedbackProvider";
 import { useMyFeedbackQuery } from "./adapter";
 import type { FeedbackAttachmentRead, FeedbackRead } from "./client";
+import { CommentThread } from "./comments/CommentThread";
 import type { FeedbackReadShape, FeedbackStatusKey } from "./types";
 import { Badge } from "./ui/badge";
 
@@ -206,6 +207,8 @@ export function MyTicketsPanel({ onSelectTicket }: MyTicketsPanelProps): React.R
                       </ul>
                     </section>
                   ) : null}
+
+                  <CommentThread feedbackId={r.id} />
 
                   {onSelectTicket ? (
                     <button

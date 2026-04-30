@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-04-30
+
+Additive (no destructive change). Chat-style comment thread on every
+ticket. First post-v0.2.0-freeze migration: append-only.
+
+### Added
+- **`feedback_comment` table** + Alembic migration 0004. Append-only
+  in v0.2.2 — edit / delete arrive in a later minor version.
+- **Endpoints**: `GET /feedback/{id}/comments` and
+  `POST /feedback/{id}/comments`. Submitter sees + writes on tickets
+  they filed; admin sees + writes on any ticket in the tenant.
+- **CommentThread component** wired into both `MyTicketsPanel` (the
+  user's own ticket detail) and the admin triage `DetailBody`. Polls
+  every 30 s so admin replies surface near-live.
+- Replaces the v0.2.0-removed magic-link accept/reject loop with an
+  in-app conversation.
+
 ## [0.2.1] — 2026-04-30
 
 Additive (no schema change). Submitter-facing ticket preview.

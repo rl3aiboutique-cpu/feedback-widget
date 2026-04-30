@@ -1,6 +1,7 @@
 import {
   Badge,
   Button,
+  CommentThread,
   FeedbackProvider,
   Input,
   Rl3Mark,
@@ -27,7 +28,7 @@ import {
   useFeedbackListQuery,
   useMyPendingActionCount,
   useUpdateFeedbackStatusMutation
-} from "./chunk-QHL2D7PL.js";
+} from "./chunk-3LMPO3MI.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -375,6 +376,7 @@ function DetailBody({
         a.id
       )) })
     ] }) : null,
+    /* @__PURE__ */ jsx2(CommentThread, { feedbackId: data.id }),
     /* @__PURE__ */ jsxs("details", { className: "text-xs", children: [
       /* @__PURE__ */ jsx2("summary", { className: "cursor-pointer font-medium text-foreground", children: "Technical metadata (redacted)" }),
       /* @__PURE__ */ jsx2("pre", { className: "whitespace-pre-wrap rounded-md bg-muted/50 p-3 border mt-2 max-h-96 overflow-auto", children: JSON.stringify(data.metadata_bundle, null, 2) })
@@ -616,7 +618,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-HY6ROZ4D.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-R2MBCWCR.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
