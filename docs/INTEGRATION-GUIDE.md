@@ -1,8 +1,16 @@
 # Integration Guide
 
-How to install `rl3-feedback-widget` (Python) + `@rl3/feedback-widget` (JS) into any FastAPI + React host.
+> **Canonical install guide → [`INSTALL.md`](./INSTALL.md)** — host↔widget responsibility matrix, full env reference, Docker BuildKit secret pattern, troubleshooting.
+>
+> Host-specific walkthroughs:
+> - sapphira-clinic → [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md)
+> - CRM (Compliance Brain) → [`INSTALL-CRM.md`](./INSTALL-CRM.md)
+>
+> Architecture decisions → [`adr/000-index.md`](./adr/000-index.md).
 
-> Status: skeleton — filled in during Phases 1-4. The sapphira-clinic-specific walkthrough lives in [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md).
+The skeleton below predates `INSTALL.md` and is kept only as historical reference; treat `INSTALL.md` as the source of truth.
+
+---
 
 ## What you need
 

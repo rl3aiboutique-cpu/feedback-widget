@@ -1,0 +1,63 @@
+# docker-compose.feedback.yml — opt-in services for hosts without infra.
+#
+# Usage from a host that has no Postgres / S3 / SMTP yet:
+#
+#     docker compose -f docker-compose.yml \
+#         -f node_modules/@rl3/feedback-widget/docker-compose.feedback.yml up -d
+#
+# Hosts that already have these services (sapphira-clinic, capellai-ai-crm,
+# any production deployment) MUST NOT use this snippet — point the
+# FEEDBACK_* env vars at the existing services instead.
+#
+# Ports are intentionally non-default to avoid collisions with the host's
+# own services:
+#   - postgres: 5432 (in container) -> 55432 (host)
+#   - minio:    9000/9001 -> 9100/9101
+#   - mailhog:  1025/8025 -> 1126/8126
+
+services:
+  postgres-feedback:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: feedback
+      POSTGRES_PASSWORD: feedback_dev_password
+      POSTGRES_DB: feedback
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_feedback_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U feedback -d feedback"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio-feedback:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: feedback
+      MINIO_ROOT_PASSWORD: feedback_dev_minio_secret
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - minio_feedback_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  mailhog-feedback:
+    image: mailhog/mailhog:latest
+    restart: unless-stopped
+    ports:
+      - "1126:1025"
+      - "8126:8025"
+
+volumes:
+  postgres_feedback_data:
+  minio_feedback_data:

@@ -2,6 +2,8 @@
 
 In-app feedback module that ships as **two installable packages** plus a **sandbox host** that doubles as demo and extraction validator. Drop it into any RL3 / Capellai web app and you get bug + persona capture, redacted screenshots, magic-link triage, and a per-tenant ticket workflow — without copy-paste.
 
+> **Integrating into your project? → Read [`docs/INSTALL.md`](./docs/INSTALL.md)** — canonical guide with host↔widget responsibility matrix.
+
 > First validation host: `sapphira-clinic` (single-tenant FastAPI + Vite). Second: `capellai-ai-crm` (multi-tenant + RLS).
 
 ## Layout
