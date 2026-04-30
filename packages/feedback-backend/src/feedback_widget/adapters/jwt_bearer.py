@@ -127,12 +127,16 @@ class JWTBearerAuth:
             return None
         scheme, _, token = header.partition(" ")
         if scheme.lower() != "bearer":
-            logger.info(
+            # DEBUG (not INFO) — attacker-controllable: a probe scanner
+            # spraying `Token <random>` at /feedback/* would amplify log
+            # volume at INFO. Operators investigating wrong_scheme issues
+            # can re-enable via `--log-level debug`.
+            logger.debug(
                 "feedback_widget jwt rejected: reason=wrong_scheme scheme=%r", scheme
             )
             return None
         if not token:
-            logger.info("feedback_widget jwt rejected: reason=empty_token")
+            logger.debug("feedback_widget jwt rejected: reason=empty_token")
             return None
         return token
 
@@ -140,16 +144,23 @@ class JWTBearerAuth:
         try:
             return jwt.decode(token, self._secret_key, algorithms=[self._algorithm])
         except ExpiredSignatureError:
+            # INFO: legitimate users hit this after token TTL — operators
+            # debugging "401 only after a few hours" benefit from this
+            # being on by default.
             logger.info(
                 "feedback_widget jwt rejected: reason=expired alg=%s", self._algorithm
             )
             return None
         except JWTClaimsError as exc:
+            # INFO: claim shape mismatch points at host misconfig (issuer,
+            # audience, etc.) — operator-debuggable.
             logger.info("feedback_widget jwt rejected: reason=claims detail=%s", exc)
             return None
         except JWTError as exc:
-            # Catches signature mismatch, malformed token, alg mismatch.
-            logger.info(
+            # DEBUG (not INFO) — signature/format mismatch is
+            # attacker-controllable (spray garbage at /feedback/*).
+            # Demote to DEBUG to prevent log amplification under scan.
+            logger.debug(
                 "feedback_widget jwt rejected: reason=signature_or_format detail=%s",
                 exc,
             )

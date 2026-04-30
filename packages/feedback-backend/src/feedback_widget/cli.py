@@ -146,6 +146,8 @@ def cmd_verify() -> None:
             BotoCoreError,
             ClientError,
             EndpointConnectionError,
+            NoCredentialsError,
+            PartialCredentialsError,
         )
     except ImportError as exc:
         table.add_row("s3 bucket", "[red]FAIL[/red]", f"boto3 not installed: {exc}")
@@ -197,6 +199,15 @@ def cmd_verify() -> None:
                     "s3 bucket", "[red]FAIL[/red]", f"{code}: {exc}"[:200]
                 )
                 failures.append("s3")
+        except (NoCredentialsError, PartialCredentialsError) as exc:
+            table.add_row(
+                "s3 bucket",
+                "[red]FAIL[/red]",
+                f"credentials not configured — set FEEDBACK_S3_ACCESS_KEY/SECRET ({exc})"[
+                    :200
+                ],
+            )
+            failures.append("s3")
         except BotoCoreError as exc:
             table.add_row("s3 bucket", "[red]FAIL[/red]", str(exc)[:200])
             failures.append("s3")

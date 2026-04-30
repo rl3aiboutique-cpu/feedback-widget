@@ -56,6 +56,36 @@ def test_mount_helper_raises_if_neither_auth_nor_secret_provided(
         mount_feedback_widget_for_async_host(app)
 
 
+def test_double_mount_is_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Calling mount_feedback_widget_for_async_host twice on the same app
+    must NOT build a second engine (the first would leak from app.state)."""
+    monkeypatch.setenv("FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none")
+    monkeypatch.setenv("FEEDBACK_S3_ENDPOINT_URL", "http://127.0.0.1:1")
+    monkeypatch.setenv("FEEDBACK_S3_ACCESS_KEY", "x")
+    monkeypatch.setenv("FEEDBACK_S3_SECRET_KEY", "y")
+    monkeypatch.setenv("FEEDBACK_BUCKET", "test")
+    monkeypatch.setenv("FEEDBACK_BUCKET_FAILSAFE", "1")
+
+    fake_engine = MagicMock()
+    fake_engine.url.drivername = "postgresql+psycopg"
+    from feedback_widget import integration as integration_mod
+
+    call_count = {"n": 0}
+
+    def _factory(*_, **__):
+        call_count["n"] += 1
+        return fake_engine
+
+    monkeypatch.setattr(integration_mod, "make_sync_engine", _factory)
+
+    app = FastAPI()
+    mount_feedback_widget_for_async_host(app, auth=MagicMock(), secret_key="k")
+    assert call_count["n"] == 1
+    # Second call: the guard should short-circuit.
+    mount_feedback_widget_for_async_host(app, auth=MagicMock(), secret_key="k")
+    assert call_count["n"] == 1, "second mount must not build a new engine"
+
+
 def test_lifespan_composition_disposes_engine_on_shutdown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -102,6 +102,17 @@ def mount_feedback_widget_for_async_host(
     # Local import to avoid a circular dep at module-load time.
     from feedback_widget import register_feedback_router
 
+    # Idempotency guard — calling this twice on the same app would
+    # build a second sync engine and replace the lifespan composition
+    # again, leaking the first engine (which is no longer accessible
+    # via app.state) and causing a double-dispose on shutdown. Common
+    # trigger: shared FastAPI app fixtures across tests.
+    if getattr(app.state, "feedback_widget_engine", None) is not None:
+        logger.warning(
+            "feedback_widget: already mounted on this app — skipping duplicate mount"
+        )
+        return
+
     cfg = settings or get_settings()
     if not cfg.DATABASE_URL:
         raise RuntimeError(
