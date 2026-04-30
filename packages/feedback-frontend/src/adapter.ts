@@ -80,6 +80,15 @@ export interface FeedbackHostBindings {
    */
   getCsrfToken: () => Promise<string>
 
+  /**
+   * Optional. Returns the value to attach as `Authorization` header
+   * (e.g. `"Bearer <token>"`). Hosts using cookie-based auth (with
+   * `credentials: "include"`) leave this undefined; hosts that store
+   * the token in localStorage / memory provide a callback. Returning
+   * an empty string skips the header.
+   */
+  authHeader?: () => Promise<string>
+
   /** Backend root URL — the SDK appends `/api/v1/feedback` to this. */
   apiBaseUrl: string
 
@@ -130,6 +139,25 @@ function _resolveBase(b: FeedbackHostBindings): string {
   return b.apiBaseUrl.replace(/\/$/, "")
 }
 
+/** Build the auth-aware headers for a request. CSRF + optional bearer. */
+async function _buildHeaders(
+  bindings: FeedbackHostBindings,
+  base: Record<string, string> = {},
+): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { ...base }
+  const csrfToken = await bindings.getCsrfToken()
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken
+  }
+  if (bindings.authHeader) {
+    const auth = await bindings.authHeader()
+    if (auth) {
+      headers.Authorization = auth
+    }
+  }
+  return headers
+}
+
 async function submitFeedback(
   bindings: FeedbackHostBindings,
   payloadJson: string,
@@ -140,11 +168,7 @@ async function submitFeedback(
   if (screenshot) {
     form.append("screenshot", screenshot, "screenshot.png")
   }
-  const csrfToken = await bindings.getCsrfToken()
-  const headers: Record<string, string> = {}
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken
-  }
+  const headers = await _buildHeaders(bindings)
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}`
   const resp = await fetch(url, {
     method: "POST",
@@ -180,10 +204,13 @@ async function consumeActionToken(
   token: string,
   action: "accept" | "reject",
 ): Promise<PublicActionResult> {
+  // Magic-link tokens are public (no auth needed) but we still include
+  // the auth header if present — the backend tolerates it.
+  const headers = await _buildHeaders(bindings)
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/action/${encodeURIComponent(
     token,
   )}?action=${action}`
-  const resp = await fetch(url, { method: "POST", credentials: "include" })
+  const resp = await fetch(url, { method: "POST", credentials: "include", headers })
   if (!resp.ok) {
     const text = await resp.text().catch(() => "")
     throw new Error(`POST /feedback/action/${token} failed (${resp.status}) ${text}`)
@@ -199,7 +226,8 @@ export async function downloadFeedbackBundleViaBindings(
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(
     feedbackId,
   )}/download`
-  const resp = await fetch(url, { method: "GET", credentials: "include" })
+  const headers = await _buildHeaders(bindings)
+  const resp = await fetch(url, { method: "GET", credentials: "include", headers })
   if (!resp.ok) {
     const text = await resp.text().catch(() => "")
     throw new Error(
@@ -229,9 +257,11 @@ async function _getJson<T>(
       }
     }
   }
+  const headers = await _buildHeaders(bindings)
   const resp = await fetch(url.toString(), {
     method: "GET",
     credentials: "include",
+    headers,
   })
   if (!resp.ok) {
     const text = await resp.text().catch(() => "")
@@ -245,11 +275,7 @@ async function _patchJson<T>(
   path: string,
   body: unknown,
 ): Promise<T> {
-  const csrfToken = await bindings.getCsrfToken()
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken
-  }
+  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" })
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
   const resp = await fetch(url, {
     method: "PATCH",
@@ -268,11 +294,7 @@ async function _deleteJson(
   bindings: FeedbackHostBindings,
   path: string,
 ): Promise<void> {
-  const csrfToken = await bindings.getCsrfToken()
-  const headers: Record<string, string> = {}
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken
-  }
+  const headers = await _buildHeaders(bindings)
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
   const resp = await fetch(url, {
     method: "DELETE",

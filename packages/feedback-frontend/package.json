@@ -1,6 +1,6 @@
 {
   "name": "@rl3/feedback-widget",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "RL3 in-app feedback widget — React provider, floating button, admin triage, magic-link landing pages.",
   "license": "UNLICENSED",
   "type": "module",

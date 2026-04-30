@@ -431,17 +431,27 @@ function _resolvePrefix(b) {
 function _resolveBase(b) {
   return b.apiBaseUrl.replace(/\/$/, "");
 }
+async function _buildHeaders(bindings, base = {}) {
+  const headers = { ...base };
+  const csrfToken = await bindings.getCsrfToken();
+  if (csrfToken) {
+    headers["X-CSRF-Token"] = csrfToken;
+  }
+  if (bindings.authHeader) {
+    const auth = await bindings.authHeader();
+    if (auth) {
+      headers.Authorization = auth;
+    }
+  }
+  return headers;
+}
 async function submitFeedback(bindings, payloadJson, screenshot) {
   const form = new FormData();
   form.append("payload", payloadJson);
   if (screenshot) {
     form.append("screenshot", screenshot, "screenshot.png");
   }
-  const csrfToken = await bindings.getCsrfToken();
-  const headers = {};
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
-  }
+  const headers = await _buildHeaders(bindings);
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}`;
   const resp = await fetch(url, {
     method: "POST",
@@ -465,10 +475,11 @@ async function submitFeedback(bindings, payloadJson, screenshot) {
   return await resp.json();
 }
 async function consumeActionToken(bindings, token, action) {
+  const headers = await _buildHeaders(bindings);
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/action/${encodeURIComponent(
     token
   )}?action=${action}`;
-  const resp = await fetch(url, { method: "POST", credentials: "include" });
+  const resp = await fetch(url, { method: "POST", credentials: "include", headers });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`POST /feedback/action/${token} failed (${resp.status}) ${text}`);
@@ -479,7 +490,8 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(
     feedbackId
   )}/download`;
-  const resp = await fetch(url, { method: "GET", credentials: "include" });
+  const headers = await _buildHeaders(bindings);
+  const resp = await fetch(url, { method: "GET", credentials: "include", headers });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(
@@ -500,9 +512,11 @@ async function _getJson(bindings, path, query) {
       }
     }
   }
+  const headers = await _buildHeaders(bindings);
   const resp = await fetch(url.toString(), {
     method: "GET",
-    credentials: "include"
+    credentials: "include",
+    headers
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
@@ -511,11 +525,7 @@ async function _getJson(bindings, path, query) {
   return await resp.json();
 }
 async function _patchJson(bindings, path, body) {
-  const csrfToken = await bindings.getCsrfToken();
-  const headers = { "Content-Type": "application/json" };
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
-  }
+  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "PATCH",
@@ -530,11 +540,7 @@ async function _patchJson(bindings, path, body) {
   return await resp.json();
 }
 async function _deleteJson(bindings, path) {
-  const csrfToken = await bindings.getCsrfToken();
-  const headers = {};
-  if (csrfToken) {
-    headers["X-CSRF-Token"] = csrfToken;
-  }
+  const headers = await _buildHeaders(bindings);
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "DELETE",
@@ -1228,4 +1234,4 @@ export {
   MyTicketsPanel,
   useMyPendingActionCount
 };
-//# sourceMappingURL=chunk-2JNE4DGE.js.map
+//# sourceMappingURL=chunk-2VEKEJIP.js.map

@@ -273,6 +273,14 @@ interface FeedbackHostBindings {
      * `FEEDBACK_CSRF_REQUIRED`.
      */
     getCsrfToken: () => Promise<string>;
+    /**
+     * Optional. Returns the value to attach as `Authorization` header
+     * (e.g. `"Bearer <token>"`). Hosts using cookie-based auth (with
+     * `credentials: "include"`) leave this undefined; hosts that store
+     * the token in localStorage / memory provide a callback. Returning
+     * an empty string skips the header.
+     */
+    authHeader?: () => Promise<string>;
     /** Backend root URL — the SDK appends `/api/v1/feedback` to this. */
     apiBaseUrl: string;
     /** Optional: override the API path prefix (default: `/api/v1/feedback`). */
