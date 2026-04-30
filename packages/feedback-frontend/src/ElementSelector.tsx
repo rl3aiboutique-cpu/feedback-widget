@@ -118,10 +118,11 @@ export function ElementSelector({ onLock, onCancel }: ElementSelectorProps): Rea
   }, [onLock, onCancel]);
 
   return (
-    // biome-ignore lint/a11y/useSemanticElements: <dialog> would steal pointer events; this layer must stay click-through.
+    // Not role="dialog" on purpose: this layer is pointer-events:none and
+    // does NOT trap focus — a real dialog would. The aria-live="polite"
+    // banner communicates the picker mode.
     <div
       data-feedback-widget-root="true"
-      role="dialog"
       aria-label={t("feedback.element_selector_active")}
       aria-live="polite"
       // The whole layer is fixed + pointer-events:none so the cursor
