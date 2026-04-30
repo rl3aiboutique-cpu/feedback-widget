@@ -76,6 +76,12 @@ def run_migrations_online() -> None:
             target_metadata=target_metadata,
             version_table="feedback_widget_alembic_version",
             include_object=_include_object,
+            # Commit per-migration so newly added Postgres enum values
+            # in one migration are visible to DML in the next migration.
+            # Without this, e.g. 0002 ADDs an enum value and 0003 trying
+            # to reference it in the same transaction fails with
+            # UnsafeNewEnumValueUsage.
+            transaction_per_migration=True,
         )
         with context.begin_transaction():
             context.run_migrations()
