@@ -118,7 +118,12 @@ class FeedbackRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    tenant_id: uuid.UUID
+    # Single-tenant hosts (FEEDBACK_MULTI_TENANT_MODE=false) leave the
+    # tenant_id column NULL — the schema must accept that, otherwise
+    # POST /feedback succeeds at the DB level but the response
+    # serialization 500s on pydantic validation. Multi-tenant hosts
+    # always populate it.
+    tenant_id: uuid.UUID | None = None
     user_id: uuid.UUID
     type: FeedbackType
     status: FeedbackStatus
