@@ -2,14 +2,7 @@
 
 Plug-and-play feedback widget para cualquier app FastAPI + React. La guía completa con la matriz host↔widget vive en [`docs/INSTALL.md`](./docs/INSTALL.md). Esto es la versión corta.
 
-> **Repo privado** — necesitas un GitHub PAT con scope `repo` (o un fine-grained con `contents:read` sobre este repo). Si tienes `gh` autenticado:
-> ```bash
-> gh auth token > .secrets/github_token
-> ```
-> Luego en cualquier shell donde corras `pip install` / `npm install`:
-> ```bash
-> export GITHUB_TOKEN=$(cat .secrets/github_token)
-> ```
+> **Repo público** — `pip install` y `npm install` resuelven el paquete sobre HTTPS sin credenciales. No hace falta token, ni BuildKit secret, ni `.netrc`.
 
 ---
 
@@ -18,28 +11,26 @@ Plug-and-play feedback widget para cualquier app FastAPI + React. La guía compl
 ### Backend (FastAPI):
 
 ```bash
-GITHUB_TOKEN=$(cat .secrets/github_token) pip install \
-  "rl3-feedback-widget @ git+https://${GITHUB_TOKEN}@github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.11#subdirectory=packages/feedback-backend"
+pip install "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.13#subdirectory=packages/feedback-backend"
 ```
 
-O si lo quieres en `pyproject.toml`:
+O en `pyproject.toml`:
 ```toml
 dependencies = [
   ...,
-  "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.11#subdirectory=packages/feedback-backend",
+  "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.13#subdirectory=packages/feedback-backend",
 ]
 ```
-(El `git config --global url.\"https://${GITHUB_TOKEN}@github.com/\".insteadOf \"https://github.com/\"` antes del `pip install` inyecta el token sin que aparezca en el archivo.)
 
 ### Frontend (React + Vite/Next):
 
 ```bash
-npm install "git+https://${GITHUB_TOKEN}@github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.11"
+npm install "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.13"
 ```
 
 O en `package.json`:
 ```json
-"@rl3/feedback-widget": "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.11"
+"@rl3/feedback-widget": "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.13"
 ```
 
 ---
@@ -164,21 +155,7 @@ Reinicia el backend (que el cambio de `mount_feedback_widget_for_async_host` hag
 
 ## Cuándo usar Docker vs no
 
-El widget **no necesita Docker**. Funciona igual en `uvicorn` / `gunicorn` / Lambda / lo que sea — porque es solo un paquete pip + npm.
-
-Lo que SÍ necesita Docker (cuando tu app está dockerizada):
-- Pasar el `GITHUB_TOKEN` al `pip install`/`npm install` que corre dentro del container, sin que el token quede en una capa de la imagen. Eso se hace con `--mount=type=secret,id=github_token` + `git config insteadOf`. Ejemplo en [`docs/DOCKERFILE-PATTERNS.md`](./docs/DOCKERFILE-PATTERNS.md) o mirando el Dockerfile de sapphira (`backend/Dockerfile`).
-
-Si tu repo es **público** o usas un **registry privado** (PyPI/npm interno), nada de eso aplica — `pip install` y `npm install` desde el Dockerfile sin secret.
-
----
-
-## Referencias para hacerlo público (si lo decides)
-
-```bash
-gh repo edit rl3aiboutique-cpu/feedback-widget --visibility public --accept-visibility-change-consequences
-```
-A partir de ese momento: cualquier `pip install` o `npm install` de este paquete funciona sin token, sin BuildKit secret, sin nada. La guía de arriba se reduce a "pip install + npm install + 5-10 líneas de wiring".
+El widget **no necesita Docker**. Funciona igual en `uvicorn` / `gunicorn` / Lambda / lo que sea — porque es solo un paquete pip + npm. Hosts dockerizados (sapphira, etc.) hacen el `pip install` / `npm ci` dentro del Dockerfile sin trucos: el repo es público y no necesita auth.
 
 ---
 

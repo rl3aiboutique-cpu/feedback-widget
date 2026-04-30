@@ -6,17 +6,16 @@ For host-specific walkthroughs see [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md
 
 ## Quick start (5 commands)
 
+The repo is **public** — no auth required. `pip install` / `npm install` work plain.
+
 ```bash
-# 0. Generate a PAT with scope=repo at https://github.com/settings/tokens (classic)
-#    Save it to .secrets/github_token (NOT committed) — see your host's gitignore.
+# 1. Add the backend dep (in your pyproject.toml dependencies):
+#    "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.13#subdirectory=packages/feedback-backend"
 
-# 1. Add the backend dep (Docker + BuildKit secret pattern is documented below)
-echo 'rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.1#subdirectory=packages/feedback-backend' >> backend/pyproject.toml
+# 2. Add the frontend dep (in your package.json dependencies):
+#    "@rl3/feedback-widget": "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.13"
 
-# 2. Add the frontend dep
-npm install "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.1&path:packages/feedback-frontend"
-
-# 3. Wire up: see `feedback-widget init` for stubs
+# 3. Wire up: 1 backend call + 1 frontend mount — see `feedback-widget init` for stubs.
 
 # 4. Verify env vars + connectivity
 feedback-widget verify
