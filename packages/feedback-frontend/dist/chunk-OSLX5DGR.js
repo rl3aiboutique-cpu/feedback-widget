@@ -318,7 +318,11 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
     feedbackId
   )}/download`;
   const headers = await _buildHeaders(bindings);
-  const resp = await fetch(url, { method: "GET", credentials: "include", headers });
+  const resp = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers
+  });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(
@@ -331,7 +335,9 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   return { blob: await resp.blob(), filename };
 }
 async function _getJson(bindings, path, query) {
-  const url = new URL(`${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`);
+  const url = new URL(
+    `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
+  );
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== void 0 && v !== null && v !== "") {
@@ -352,7 +358,9 @@ async function _getJson(bindings, path, query) {
   return await resp.json();
 }
 async function _patchJson(bindings, path, body) {
-  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const headers = await _buildHeaders(bindings, {
+    "Content-Type": "application/json"
+  });
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "PATCH",
@@ -689,6 +697,112 @@ function Rl3Mark({
   );
 }
 
+// src/ui/badge.tsx
+import { Slot as Slot2 } from "@radix-ui/react-slot";
+import { cva as cva2 } from "class-variance-authority";
+import { jsx as jsx5 } from "react/jsx-runtime";
+var badgeVariants = cva2(
+  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        secondary: "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"
+      }
+    },
+    defaultVariants: {
+      variant: "default"
+    }
+  }
+);
+function Badge({
+  className,
+  variant,
+  asChild = false,
+  ...props
+}) {
+  const Comp = asChild ? Slot2 : "span";
+  return /* @__PURE__ */ jsx5(
+    Comp,
+    {
+      "data-slot": "badge",
+      className: cn(badgeVariants({ variant }), className),
+      ...props
+    }
+  );
+}
+
+// src/MyTicketsPanel.tsx
+import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
+function statusVariant(s) {
+  if (s === "new") return "default";
+  if (s === "triaged" || s === "in_progress") return "secondary";
+  if (s === "wont_fix") return "destructive";
+  return "outline";
+}
+function humanStatus(s) {
+  switch (s) {
+    case "new":
+      return "Submitted";
+    case "triaged":
+      return "Triaged";
+    case "in_progress":
+      return "In progress";
+    case "done":
+      return "Resolved";
+    case "wont_fix":
+      return "Closed (won't fix)";
+    default:
+      return s;
+  }
+}
+function MyTicketsPanel({
+  onSelectTicket
+}) {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
+  const query = useMyFeedbackQuery(25);
+  if (query.isLoading) {
+    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
+  }
+  if (query.isError) {
+    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
+  }
+  const rows = query.data ?? [];
+  if (rows.length === 0) {
+    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
+  }
+  return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
+    const recentlyResolved = r.status === "done";
+    const clickable = !!onSelectTicket;
+    const Tag = clickable ? "button" : "div";
+    return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
+      Tag,
+      {
+        type: clickable ? "button" : void 0,
+        onClick: clickable ? () => onSelectTicket?.(r) : void 0,
+        className: `w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
+                ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}
+                ${clickable ? "hover:bg-accent" : ""}`,
+        children: [
+          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+            /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+            /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title })
+          ] }),
+          recentlyResolved ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+        ]
+      }
+    ) }, r.id);
+  }) });
+}
+function useMyPendingActionCount() {
+  const query = useMyFeedbackQuery(25);
+  return (query.data ?? []).filter((r) => r.status === "done").length;
+}
+
 // src/capture/screenshot.ts
 var DEFAULT_MAX_PIXELS = 1920 * 1080 * 2;
 var DEFAULT_TYPE = "image/png";
@@ -834,112 +948,6 @@ function _xpathOf(el) {
     node = elNode.parentNode;
   }
   return segments.length > 0 ? `/${segments.join("/")}` : null;
-}
-
-// src/ui/badge.tsx
-import { Slot as Slot2 } from "@radix-ui/react-slot";
-import { cva as cva2 } from "class-variance-authority";
-import { jsx as jsx5 } from "react/jsx-runtime";
-var badgeVariants = cva2(
-  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
-  {
-    variants: {
-      variant: {
-        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary: "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"
-      }
-    },
-    defaultVariants: {
-      variant: "default"
-    }
-  }
-);
-function Badge({
-  className,
-  variant,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot2 : "span";
-  return /* @__PURE__ */ jsx5(
-    Comp,
-    {
-      "data-slot": "badge",
-      className: cn(badgeVariants({ variant }), className),
-      ...props
-    }
-  );
-}
-
-// src/MyTicketsPanel.tsx
-import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
-function statusVariant(s) {
-  if (s === "new") return "default";
-  if (s === "triaged" || s === "in_progress") return "secondary";
-  if (s === "wont_fix") return "destructive";
-  return "outline";
-}
-function humanStatus(s) {
-  switch (s) {
-    case "new":
-      return "Submitted";
-    case "triaged":
-      return "Triaged";
-    case "in_progress":
-      return "In progress";
-    case "done":
-      return "Resolved";
-    case "wont_fix":
-      return "Closed (won't fix)";
-    default:
-      return s;
-  }
-}
-function MyTicketsPanel({
-  onSelectTicket
-}) {
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
-  const query = useMyFeedbackQuery(25);
-  if (query.isLoading) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
-  }
-  if (query.isError) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
-  }
-  const rows = query.data ?? [];
-  if (rows.length === 0) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
-  }
-  return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
-    const recentlyResolved = r.status === "done";
-    const clickable = !!onSelectTicket;
-    const Tag = clickable ? "button" : "div";
-    return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
-      Tag,
-      {
-        type: clickable ? "button" : void 0,
-        onClick: clickable ? () => onSelectTicket?.(r) : void 0,
-        className: `w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
-                ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}
-                ${clickable ? "hover:bg-accent" : ""}`,
-        children: [
-          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-            /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-            /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title })
-          ] }),
-          recentlyResolved ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
-        ]
-      }
-    ) }, r.id);
-  }) });
-}
-function useMyPendingActionCount() {
-  const query = useMyFeedbackQuery(25);
-  return (query.data ?? []).filter((r) => r.status === "done").length;
 }
 
 // src/ui/input.tsx
@@ -1092,10 +1100,7 @@ function SelectScrollDownButton({
 
 // src/ui/textarea.tsx
 import { jsx as jsx9 } from "react/jsx-runtime";
-function Textarea({
-  className,
-  ...props
-}) {
+function Textarea({ className, ...props }) {
   return /* @__PURE__ */ jsx9(
     "textarea",
     {
@@ -1140,10 +1145,10 @@ export {
   SheetDescription,
   Textarea,
   Rl3Mark,
+  MyTicketsPanel,
+  useMyPendingActionCount,
   capturePageScreenshot,
   captureElementScreenshot,
-  describeElement,
-  MyTicketsPanel,
-  useMyPendingActionCount
+  describeElement
 };
-//# sourceMappingURL=chunk-W3G7PIWA.js.map
+//# sourceMappingURL=chunk-OSLX5DGR.js.map

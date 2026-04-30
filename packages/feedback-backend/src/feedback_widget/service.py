@@ -131,10 +131,7 @@ class FeedbackService:
         Caller MUST run ``check_rate_limit`` first if rate limiting applies.
         """
         attachments = attachments or []
-        if (
-            screenshot is not None
-            and len(screenshot.content) > self.settings.MAX_SCREENSHOT_BYTES
-        ):
+        if screenshot is not None and len(screenshot.content) > self.settings.MAX_SCREENSHOT_BYTES:
             raise FeedbackError(
                 f"Screenshot exceeds size cap ({self.settings.MAX_SCREENSHOT_BYTES} bytes)"
             )

@@ -140,8 +140,7 @@ def build_router(
                                         "format": "binary",
                                     },
                                     "description": (
-                                        "Up to 5 user-uploaded files "
-                                        "(images, PDF, text, logs)."
+                                        "Up to 5 user-uploaded files " "(images, PDF, text, logs)."
                                     ),
                                 },
                             },
@@ -184,9 +183,7 @@ def build_router(
             payload: str = payload_value
             screenshot_value = form.get("screenshot")
             screenshot: StarletteUploadFile | None = (
-                screenshot_value
-                if isinstance(screenshot_value, StarletteUploadFile)
-                else None
+                screenshot_value if isinstance(screenshot_value, StarletteUploadFile) else None
             )
             attachment_values = form.getlist("attachments")
             attachment_uploads: list[StarletteUploadFile] = [
@@ -202,9 +199,7 @@ def build_router(
                 ) from exc
 
             screenshot_upload = await read_screenshot(screenshot, settings=cfg)
-            attachments_uploaded = await read_attachments(
-                attachment_uploads, settings=cfg
-            )
+            attachments_uploaded = await read_attachments(attachment_uploads, settings=cfg)
 
             service = FeedbackService(
                 session=session,
@@ -318,9 +313,7 @@ def build_router(
                 page_size=page_size,
             )
             data = [service.to_read(r, sign_urls=False) for r in rows]
-            return FeedbackListResponse(
-                data=data, count=total, page=page, page_size=page_size
-            )
+            return FeedbackListResponse(data=data, count=total, page=page, page_size=page_size)
         except HTTPException:
             raise
         except Exception as exc:
@@ -382,9 +375,7 @@ def build_router(
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             return service.to_read(feedback, sign_urls=True)
         except HTTPException:
             raise
@@ -418,9 +409,7 @@ def build_router(
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as fnf:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(fnf)
-                ) from fnf
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(fnf)) from fnf
 
             attachments = service.list_attachments(feedback.id)
 
@@ -448,9 +437,7 @@ def build_router(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "download_feedback_bundle failed unexpectedly (id=%s)", feedback_id
-            )
+            logger.exception("download_feedback_bundle failed unexpectedly (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",
@@ -484,9 +471,7 @@ def build_router(
                     update=body,
                 )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             except FeedbackError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
@@ -542,9 +527,7 @@ def build_router(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "update_feedback_status failed unexpectedly (id=%s)", feedback_id
-            )
+            logger.exception("update_feedback_status failed unexpectedly (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",
@@ -572,9 +555,7 @@ def build_router(
             try:
                 service.delete(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             session.commit()
         except HTTPException:
             raise

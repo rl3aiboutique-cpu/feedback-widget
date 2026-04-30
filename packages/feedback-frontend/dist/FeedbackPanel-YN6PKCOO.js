@@ -21,7 +21,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-W3G7PIWA.js";
+} from "./chunk-OSLX5DGR.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
@@ -293,22 +293,15 @@ function AttachmentsField({
       }
     ),
     /* @__PURE__ */ jsxs(
-      "div",
+      "button",
       {
+        type: "button",
         onClick: () => inputRef.current?.click(),
-        onKeyDown: (e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            inputRef.current?.click();
-          }
-        },
         onDragOver,
         onDragLeave,
         onDrop,
-        role: "button",
-        tabIndex: 0,
         "aria-label": t("feedback.attachments.dropzone"),
-        className: `cursor-pointer rounded-md border-2 border-dashed px-4 py-6 text-center text-sm transition-colors
+        className: `w-full cursor-pointer rounded-md border-2 border-dashed px-4 py-6 text-center text-sm transition-colors
           ${dragActive ? "border-primary bg-primary/5 text-foreground" : error ? "border-destructive bg-destructive/5 text-destructive" : "border-input bg-muted/40 text-muted-foreground hover:border-primary/50 hover:text-foreground"}`,
         "data-feedback-id": "feedback.attachments.dropzone",
         children: [
@@ -711,13 +704,10 @@ function FeedbackPanel({
       );
       const link = adapter.getDeepLinkToFeedback(created.id);
       const ticketLabel = created.ticket_code || created.id.slice(0, 8);
-      adapter.toast.success(
-        t("feedback.toast_success", { id: ticketLabel }),
-        {
-          url: link,
-          actionLabel: t("feedback.toast_success_link")
-        }
-      );
+      adapter.toast.success(t("feedback.toast_success", { id: ticketLabel }), {
+        url: link,
+        actionLabel: t("feedback.toast_success_link")
+      });
       onOpenChange(false);
     } catch (err) {
       if (err instanceof SubmitFeedbackError && err.status === 429) {
@@ -887,4 +877,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-UJJKJYYI.js.map
+//# sourceMappingURL=FeedbackPanel-YN6PKCOO.js.map

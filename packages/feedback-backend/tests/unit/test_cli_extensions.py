@@ -3,13 +3,13 @@
 The pre-existing migrate / version / check-config commands are covered
 elsewhere; these tests target only the new commands added in v0.1.1.
 """
+
 from __future__ import annotations
 
 import pytest
-from typer.testing import CliRunner
-
 from feedback_widget.cli import app
 from feedback_widget.settings import get_settings
+from typer.testing import CliRunner
 
 runner = CliRunner()
 
@@ -44,9 +44,7 @@ def test_verify_without_db_url_exits_nonzero(monkeypatch: pytest.MonkeyPatch) ->
 def test_drop_tables_without_yes_or_confirmation_aborts(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(
-        "FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none"
-    )
+    monkeypatch.setenv("FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none")
     result = runner.invoke(app, ["drop-tables"], input="n\n")
     assert "abort" in result.stdout.lower() or result.exit_code != 0
 

@@ -14,13 +14,12 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import create_engine
-
 from feedback_widget import (
     FeedbackSettings,
     register_feedback_router,
     run_migrations,
 )
+from sqlalchemy import create_engine
 
 from app.auth import SandboxAuth
 

@@ -33,9 +33,7 @@ class StorageBackend:
 
     def _client(self, *, public: bool = False) -> object:
         """Return a boto3 client bound to either the in-cluster or public endpoint."""
-        endpoint = (
-            self.settings.s3_public_endpoint if public else self.settings.S3_ENDPOINT_URL
-        )
+        endpoint = self.settings.s3_public_endpoint if public else self.settings.S3_ENDPOINT_URL
         return boto3.client(
             "s3",
             endpoint_url=endpoint,

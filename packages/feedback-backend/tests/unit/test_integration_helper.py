@@ -1,11 +1,11 @@
 """Tests for mount_feedback_widget_for_async_host + make_sync_engine."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
 import pytest
 from fastapi import FastAPI
-
 from feedback_widget import make_sync_engine, mount_feedback_widget_for_async_host
 from feedback_widget.settings import get_settings
 
@@ -47,9 +47,7 @@ def test_mount_helper_raises_if_database_url_missing(
 def test_mount_helper_raises_if_neither_auth_nor_secret_provided(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(
-        "FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none"
-    )
+    monkeypatch.setenv("FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none")
     app = FastAPI()
     # Eager DB connect would fail anyway, but the auth check fires first.
     with pytest.raises(RuntimeError, match="auth=|secret_key="):

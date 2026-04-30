@@ -27,7 +27,7 @@ import {
   useFeedbackListQuery,
   useMyPendingActionCount,
   useUpdateFeedbackStatusMutation
-} from "./chunk-W3G7PIWA.js";
+} from "./chunk-OSLX5DGR.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -193,14 +193,21 @@ function FeedbackTriagePage() {
     ] }) }),
     /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-end gap-3 rounded-md border p-3", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx2("label", { className: "block text-xs text-muted-foreground mb-1", children: "Type" }),
+        /* @__PURE__ */ jsx2(
+          "label",
+          {
+            htmlFor: "triage-type-filter",
+            className: "block text-xs text-muted-foreground mb-1",
+            children: "Type"
+          }
+        ),
         /* @__PURE__ */ jsxs(
           Select,
           {
             value: typeFilter,
             onValueChange: (v) => setTypeFilter(v),
             children: [
-              /* @__PURE__ */ jsx2(SelectTrigger, { children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
+              /* @__PURE__ */ jsx2(SelectTrigger, { id: "triage-type-filter", children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
               /* @__PURE__ */ jsxs(SelectContent, { children: [
                 /* @__PURE__ */ jsx2(SelectItem, { value: "all", children: "All" }),
                 TYPE_VALUES.map((t) => /* @__PURE__ */ jsx2(SelectItem, { value: t, children: t }, t))
@@ -210,14 +217,21 @@ function FeedbackTriagePage() {
         )
       ] }),
       /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx2("label", { className: "block text-xs text-muted-foreground mb-1", children: "Status" }),
+        /* @__PURE__ */ jsx2(
+          "label",
+          {
+            htmlFor: "triage-status-filter",
+            className: "block text-xs text-muted-foreground mb-1",
+            children: "Status"
+          }
+        ),
         /* @__PURE__ */ jsxs(
           Select,
           {
             value: statusFilter,
             onValueChange: (v) => setStatusFilter(v),
             children: [
-              /* @__PURE__ */ jsx2(SelectTrigger, { children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
+              /* @__PURE__ */ jsx2(SelectTrigger, { id: "triage-status-filter", children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
               /* @__PURE__ */ jsxs(SelectContent, { children: [
                 /* @__PURE__ */ jsx2(SelectItem, { value: "all", children: "All" }),
                 STATUS_VALUES.map((s) => /* @__PURE__ */ jsx2(SelectItem, { value: s, children: s }, s))
@@ -227,10 +241,18 @@ function FeedbackTriagePage() {
         )
       ] }),
       /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx2("label", { className: "block text-xs text-muted-foreground mb-1", children: "Search title" }),
+        /* @__PURE__ */ jsx2(
+          "label",
+          {
+            htmlFor: "triage-search",
+            className: "block text-xs text-muted-foreground mb-1",
+            children: "Search title"
+          }
+        ),
         /* @__PURE__ */ jsx2(
           Input,
           {
+            id: "triage-search",
             value: q,
             onChange: (e) => setQ(e.target.value),
             placeholder: "\u2026"
@@ -311,7 +333,7 @@ function FeedbackTriagePage() {
                   data: detail.data,
                   onChangeStatus: (status, note) => {
                     patchStatus.mutate(
-                      { id: detail.data.id, status, triage_note: note },
+                      { id: detail.data?.id ?? "", status, triage_note: note },
                       {
                         onSuccess: () => adapter.toast.success("Status updated"),
                         onError: (err) => adapter.toast.error(`Could not update: ${String(err)}`)
@@ -319,7 +341,7 @@ function FeedbackTriagePage() {
                     );
                   },
                   onDelete: () => {
-                    remove.mutate(detail.data.id, {
+                    remove.mutate(detail.data?.id ?? "", {
                       onSuccess: () => {
                         adapter.toast.success("Feedback deleted");
                         setOpenId(null);
@@ -501,7 +523,7 @@ function DetailBody({
 }
 
 // src/FeedbackButton.tsx
-import { lazy, Suspense, useCallback, useState as useState3 } from "react";
+import { Suspense, lazy, useCallback, useState as useState3 } from "react";
 
 // src/ElementSelector.tsx
 import { useEffect, useRef, useState as useState2 } from "react";
@@ -656,7 +678,7 @@ function ElementSelector({
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-UJJKJYYI.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-YN6PKCOO.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",

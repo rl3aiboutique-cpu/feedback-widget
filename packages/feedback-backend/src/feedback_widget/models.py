@@ -63,11 +63,11 @@ class FeedbackType(StrEnum):
 class FeedbackStatus(StrEnum):
     """Triage lifecycle. Default ``new`` on insert.
 
-      NEW          — submitted, unread
-      TRIAGED      — admin acknowledged, in queue
-      IN_PROGRESS  — admin actively working on it
-      DONE         — admin finished, submitter notified
-      WONT_FIX     — admin closed without fixing (final)
+    NEW          — submitted, unread
+    TRIAGED      — admin acknowledged, in queue
+    IN_PROGRESS  — admin actively working on it
+    DONE         — admin finished, submitter notified
+    WONT_FIX     — admin closed without fixing (final)
     """
 
     NEW = "new"

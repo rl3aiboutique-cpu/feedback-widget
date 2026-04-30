@@ -6,7 +6,6 @@ client-side redactor missed them.
 from __future__ import annotations
 
 import pytest
-
 from feedback_widget.redaction import redact_bundle, redact_string
 
 

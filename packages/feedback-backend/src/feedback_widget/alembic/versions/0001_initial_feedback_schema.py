@@ -44,9 +44,7 @@ FEEDBACK_ATTACHMENT_KIND_VALUES = ("screenshot", "log_dump")
 
 def upgrade() -> None:
     # ─── Postgres-native enums ────────────────────────────────────────
-    feedback_type = postgresql.ENUM(
-        *FEEDBACK_TYPE_VALUES, name="feedback_type", create_type=False
-    )
+    feedback_type = postgresql.ENUM(*FEEDBACK_TYPE_VALUES, name="feedback_type", create_type=False)
     feedback_status = postgresql.ENUM(
         *FEEDBACK_STATUS_VALUES, name="feedback_status", create_type=False
     )

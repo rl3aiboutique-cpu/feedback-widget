@@ -6,7 +6,6 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-
 from feedback_widget.email.render import (
     build_feedback_email,
     build_status_transition_email,

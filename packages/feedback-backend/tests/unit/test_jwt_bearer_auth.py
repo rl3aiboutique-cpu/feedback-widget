@@ -1,4 +1,5 @@
 """Unit tests for JWTBearerAuth — decode-only adapter implementing FeedbackAuthAdapter."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -6,10 +7,9 @@ import uuid
 
 import pytest
 from fastapi import Request
-from jose import jwt
-
 from feedback_widget.adapters import JWTBearerAuth
 from feedback_widget.auth import FeedbackAuthAdapter
+from jose import jwt
 
 SECRET = "test-secret-please-rotate"
 USER_UUID = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -76,9 +76,7 @@ def test_non_bearer_scheme_returns_none() -> None:
 
 def test_expired_token_returns_none() -> None:
     auth = JWTBearerAuth(secret_key=SECRET)
-    token = _token(
-        {"sub": str(USER_UUID), "email": "u@x.com"}, exp_offset_seconds=-10
-    )
+    token = _token({"sub": str(USER_UUID), "email": "u@x.com"}, exp_offset_seconds=-10)
     assert auth.get_current_user(_request(f"Bearer {token}")) is None
 
 
@@ -173,9 +171,7 @@ def test_non_string_email_claim_yields_none_email() -> None:
 def test_non_string_full_name_yields_none_full_name() -> None:
     """Same defence for full_name claim."""
     auth = JWTBearerAuth(secret_key=SECRET)
-    token = _token(
-        {"sub": str(USER_UUID), "email": "u@x.com", "full_name": {"first": "A"}}
-    )
+    token = _token({"sub": str(USER_UUID), "email": "u@x.com", "full_name": {"first": "A"}})
     snap = auth.get_current_user(_request(f"Bearer {token}"))
     assert snap is not None
     assert snap.full_name is None
@@ -188,7 +184,7 @@ def test_implements_feedback_auth_adapter_protocol() -> None:
     assert callable(auth.is_master_admin)
 
 
-def _make_snapshot(*, role: str) -> "object":
+def _make_snapshot(*, role: str) -> object:
     from feedback_widget.auth import CurrentUserSnapshot
 
     return CurrentUserSnapshot(user_id=USER_UUID, email="u@x.com", role=role)

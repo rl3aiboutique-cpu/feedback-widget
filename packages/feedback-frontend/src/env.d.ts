@@ -7,14 +7,14 @@
 // tsup can emit declarations.
 
 interface ImportMetaEnv {
-  readonly VITE_API_URL?: string
-  readonly VITE_FEEDBACK_ENABLED?: string
-  readonly VITE_FEEDBACK_POSITION?: string
-  readonly VITE_FEEDBACK_BRAND_PRIMARY_HEX?: string
-  readonly VITE_APP_VERSION?: string
-  readonly VITE_GIT_COMMIT_SHA?: string
+	readonly VITE_API_URL?: string;
+	readonly VITE_FEEDBACK_ENABLED?: string;
+	readonly VITE_FEEDBACK_POSITION?: string;
+	readonly VITE_FEEDBACK_BRAND_PRIMARY_HEX?: string;
+	readonly VITE_APP_VERSION?: string;
+	readonly VITE_GIT_COMMIT_SHA?: string;
 }
 
 interface ImportMeta {
-  readonly env: ImportMetaEnv
+	readonly env: ImportMetaEnv;
 }

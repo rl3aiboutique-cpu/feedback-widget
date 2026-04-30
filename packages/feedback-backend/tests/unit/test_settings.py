@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from feedback_widget.settings import FeedbackSettings, get_settings
 
 

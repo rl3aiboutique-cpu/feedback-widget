@@ -14,10 +14,6 @@ from typing import Any
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
-
 from feedback_widget import (
     CurrentUserSnapshot,
     FeedbackAuthAdapter,
@@ -25,6 +21,9 @@ from feedback_widget import (
     register_feedback_router,
     run_migrations,
 )
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 
 
 def _database_url() -> str:
@@ -177,9 +176,7 @@ def fake_storage() -> FakeStorage:
 
 
 @pytest.fixture
-def app(
-    settings: FeedbackSettings, engine: Engine, fake_storage: FakeStorage
-) -> FastAPI:
+def app(settings: FeedbackSettings, engine: Engine, fake_storage: FakeStorage) -> FastAPI:
     fastapi_app = FastAPI()
     register_feedback_router(
         fastapi_app,

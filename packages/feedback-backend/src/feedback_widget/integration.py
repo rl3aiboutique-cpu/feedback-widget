@@ -108,9 +108,7 @@ def mount_feedback_widget_for_async_host(
     # via app.state) and causing a double-dispose on shutdown. Common
     # trigger: shared FastAPI app fixtures across tests.
     if getattr(app.state, "feedback_widget_engine", None) is not None:
-        logger.warning(
-            "feedback_widget: already mounted on this app — skipping duplicate mount"
-        )
+        logger.warning("feedback_widget: already mounted on this app — skipping duplicate mount")
         return
 
     cfg = settings or get_settings()
@@ -149,6 +147,4 @@ def mount_feedback_widget_for_async_host(
                 logger.info("feedback_widget: sync engine disposed via lifespan")
 
     app.router.lifespan_context = _composed_lifespan
-    logger.info(
-        "feedback_widget: mounted at %s with auto-managed sync engine", prefix
-    )
+    logger.info("feedback_widget: mounted at %s with auto-managed sync engine", prefix)
