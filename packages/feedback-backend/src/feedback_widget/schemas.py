@@ -74,7 +74,13 @@ class FeedbackCreatePayload(BaseModel):
     # ``follow_up_email == current_user.email`` (see
     # router._validate_follow_up_email) so an authenticated user cannot
     # redirect notifications to an arbitrary recipient.
-    follow_up_email: EmailStr | None = Field(default=None, max_length=320)
+    # NOTE: not EmailStr. Pydantic's EmailStr rejects ".local" TLDs as
+    # "reserved special-use names" — which kills any host using a dev
+    # seeding pattern like manager@sapphira.local. We accept any string
+    # that loosely matches an email shape (one @, non-empty parts).
+    # Hosts that want strict deliverability validation should layer their
+    # own check on the way out (e.g. before sending the magic-link).
+    follow_up_email: str | None = Field(default=None, max_length=320)
     # Optional reference to a previous ticket. The form's reject flow
     # auto-fills this when the user is filing a follow-up. The service
     # resolves it to parent_feedback_id at create time and validates
@@ -84,12 +90,30 @@ class FeedbackCreatePayload(BaseModel):
     @field_validator("follow_up_email", mode="before")
     @classmethod
     def _coerce_empty_to_none(cls, v: object) -> object:
-        """Treat blank-string opt-out as None so Pydantic doesn't try to
-        EmailStr-validate ``""``. Frontend sends empty string when the
-        user clears the pre-filled field.
+        """Treat blank-string opt-out as None so the email regex below
+        doesn't reject ``""``. Frontend sends empty string when the user
+        clears the pre-filled field.
         """
         if isinstance(v, str) and not v.strip():
             return None
+        return v
+
+    @field_validator("follow_up_email", mode="after")
+    @classmethod
+    def _validate_email_shape(cls, v: str | None) -> str | None:
+        """Accept any string that has the basic email shape — including
+        .local / .test / other reserved TLDs that EmailStr rejects."""
+        if v is None:
+            return None
+        # Loose: one @, non-empty user part, non-empty domain part with
+        # at least one dot. Good enough for sending; hosts that need
+        # strict deliverability layer their own check.
+        v = v.strip()
+        if "@" not in v:
+            raise ValueError("follow_up_email must contain '@'")
+        local, _, domain = v.partition("@")
+        if not local or not domain or "." not in domain:
+            raise ValueError("follow_up_email is not a valid email address")
         return v
 
 

@@ -203,8 +203,17 @@ def build_router(
             # notifications to their own account email. Without this an
             # authenticated user could direct the magic-link email to an
             # arbitrary recipient.
+            #
+            # When the host's CurrentUserSnapshot does not carry an email
+            # (e.g. minimal JWTs without the email claim — see ADR-006bis),
+            # the widget cannot enforce the match. In that mode we accept
+            # whatever the submitter types: the host opted into a more
+            # permissive auth surface by not exposing email, and the
+            # follow_up_email shape validator (schemas.py) still keeps
+            # garbage out.
             if (
-                parsed.follow_up_email is not None
+                current_user.email is not None
+                and parsed.follow_up_email is not None
                 and parsed.follow_up_email.strip().lower() != current_user.email.strip().lower()
             ):
                 raise HTTPException(
