@@ -3,6 +3,11 @@ import {
   Input,
   MyTicketsPanel,
   Rl3Mark,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Sheet,
   SheetContent,
   SheetDescription,
@@ -16,7 +21,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-GXNRGDHV.js";
+} from "./chunk-W3G7PIWA.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
@@ -77,9 +82,6 @@ function buildMetadataBundle(args) {
   };
   return redactBundle(raw);
 }
-
-// src/forms/FeedbackForm.tsx
-import { ChevronRight } from "lucide-react";
 
 // src/ui/label.tsx
 import * as LabelPrimitive from "@radix-ui/react-label";
@@ -428,27 +430,43 @@ function FeedbackForm({
     onChange({ ...values, type: next });
   };
   return /* @__PURE__ */ jsxs2("div", { className: "space-y-5", children: [
-    /* @__PURE__ */ jsxs2("div", { children: [
-      /* @__PURE__ */ jsx3(Label, { className: "text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.type_label") }),
-      /* @__PURE__ */ jsx3("div", { className: "mt-2 grid grid-cols-2 gap-2", children: TYPE_DEFS.map((def) => {
-        const active = values.type === def.key;
-        return /* @__PURE__ */ jsxs2(
-          "button",
-          {
-            type: "button",
-            title: t(def.hintKey),
-            onClick: () => handleTypeChange(def.key),
-            "data-feedback-id": `feedback.type.${def.key}`,
-            className: `flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors
-                  ${active ? "border-primary bg-primary/10 text-foreground" : "border-input hover:bg-accent hover:text-accent-foreground"}`,
-            children: [
-              /* @__PURE__ */ jsx3("span", { children: t(def.labelKey) }),
-              /* @__PURE__ */ jsx3(ChevronRight, { className: "h-3 w-3 opacity-50" })
-            ]
-          },
-          def.key
-        );
-      }) })
+    /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
+      /* @__PURE__ */ jsx3(
+        Label,
+        {
+          htmlFor: "feedback-type",
+          className: "text-xs uppercase tracking-wide text-muted-foreground",
+          children: t("feedback.type_label")
+        }
+      ),
+      /* @__PURE__ */ jsxs2(
+        Select,
+        {
+          value: values.type ?? "",
+          onValueChange: (v) => handleTypeChange(v),
+          children: [
+            /* @__PURE__ */ jsx3(
+              SelectTrigger,
+              {
+                id: "feedback-type",
+                "data-feedback-id": "feedback.type_select",
+                "aria-required": "true",
+                children: /* @__PURE__ */ jsx3(SelectValue, { placeholder: t("feedback.type_placeholder") })
+              }
+            ),
+            /* @__PURE__ */ jsx3(SelectContent, { children: TYPE_DEFS.map((def) => /* @__PURE__ */ jsx3(
+              SelectItem,
+              {
+                value: def.key,
+                title: t(def.hintKey),
+                "data-feedback-id": `feedback.type.${def.key}`,
+                children: t(def.labelKey)
+              },
+              def.key
+            )) })
+          ]
+        }
+      )
     ] }),
     values.type ? /* @__PURE__ */ jsxs2(Fragment, { children: [
       /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
@@ -869,4 +887,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-VKO4Q3VG.js.map
+//# sourceMappingURL=FeedbackPanel-UJJKJYYI.js.map

@@ -35,6 +35,7 @@ export const en: Record<string, string> = {
     "Move the mouse to highlight · Click to lock · ESC to cancel",
 
   "feedback.type_label": "Type",
+  "feedback.type_placeholder": "Pick a category…",
   "feedback.type.bug": "Bug",
   "feedback.type.bug_hint":
     "Something is broken or behaves wrong. Use this when reality doesn't match expectation.",

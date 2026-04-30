@@ -1,14 +1,19 @@
 /**
- * Single uniform feedback form. Six type chips, three text fields,
+ * Single uniform feedback form. One type dropdown, three text fields,
  * a multi-file attachment dropzone, and a metadata-capture disclosure.
- * Switching feedback types preserves every field — there are no
- * type-specific fields anymore.
+ * Every type renders the same inputs — the dropdown is a triage hint,
+ * not a layout switch.
  */
-
-import { ChevronRight } from "lucide-react"
 
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select"
 import { Textarea } from "../ui/textarea"
 
 import { useFeedbackAdapter } from "../FeedbackProvider"
@@ -68,34 +73,38 @@ export function FeedbackForm({
 
   return (
     <div className="space-y-5">
-      {/* Type chips */}
-      <div>
-        <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+      {/* Type dropdown */}
+      <div className="space-y-2">
+        <Label
+          htmlFor="feedback-type"
+          className="text-xs uppercase tracking-wide text-muted-foreground"
+        >
           {t("feedback.type_label")}
         </Label>
-        <div className="mt-2 grid grid-cols-2 gap-2">
-          {TYPE_DEFS.map((def) => {
-            const active = values.type === def.key
-            return (
-              <button
+        <Select
+          value={values.type ?? ""}
+          onValueChange={(v) => handleTypeChange(v as FeedbackTypeKey)}
+        >
+          <SelectTrigger
+            id="feedback-type"
+            data-feedback-id="feedback.type_select"
+            aria-required="true"
+          >
+            <SelectValue placeholder={t("feedback.type_placeholder")} />
+          </SelectTrigger>
+          <SelectContent>
+            {TYPE_DEFS.map((def) => (
+              <SelectItem
                 key={def.key}
-                type="button"
+                value={def.key}
                 title={t(def.hintKey)}
-                onClick={() => handleTypeChange(def.key)}
                 data-feedback-id={`feedback.type.${def.key}`}
-                className={`flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors
-                  ${
-                    active
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-input hover:bg-accent hover:text-accent-foreground"
-                  }`}
               >
-                <span>{t(def.labelKey)}</span>
-                <ChevronRight className="h-3 w-3 opacity-50" />
-              </button>
-            )
-          })}
-        </div>
+                {t(def.labelKey)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {values.type ? (
