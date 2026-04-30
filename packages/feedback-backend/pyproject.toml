@@ -21,6 +21,8 @@ dependencies = [
     "python-multipart>=0.0.18",
     "typer>=0.13",
     "structlog>=24.4",
+    "python-jose[cryptography]>=3.3.0",
+    "rich>=13.0",
 ]
 
 [project.scripts]
