@@ -49,6 +49,7 @@ import {
   useUpdateFeedbackStatusMutation,
 } from "../adapter"
 import { useFeedbackAdapter } from "../FeedbackProvider"
+import { useCanTriageFeedback } from "../hooks/useCanTriageFeedback"
 import { Rl3Mark } from "../Rl3Mark"
 
 const TYPE_VALUES: FeedbackType[] = [
@@ -91,9 +92,7 @@ function statusVariant(
 }
 
 export function FeedbackTriagePage(): React.ReactElement {
-  const adapter = useFeedbackAdapter()
-  const user = adapter.useCurrentUser()
-  const isAdmin = user?.role === "MASTER_ADMIN"
+  const isAdmin = useCanTriageFeedback()
 
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all")
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">(
@@ -122,7 +121,9 @@ export function FeedbackTriagePage(): React.ReactElement {
       <div className="space-y-4">
         <h1 className="text-2xl font-semibold">Feedback</h1>
         <p className="text-muted-foreground">
-          Only MASTER_ADMIN can see the triage queue.
+          Your role is not authorised to triage feedback. Configure
+          <code className="mx-1">VITE_FEEDBACK_TRIAGE_ROLES</code>
+          (or the host's <code>bindings.triageRoles</code>) to include your role.
         </p>
       </div>
     )

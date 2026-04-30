@@ -34,9 +34,9 @@ var VERSION = "0.1.0";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
-  const adapter = useFeedbackAdapter();
+  const adapter2 = useFeedbackAdapter();
   const bindings = useFeedbackBindings();
-  const user = adapter.useCurrentUser();
+  const user = adapter2.useCurrentUser();
   if (!user) return false;
   const allowed = (bindings.triageRoles && bindings.triageRoles.length > 0 ? bindings.triageRoles : ["MASTER_ADMIN"]).map((r) => r.toUpperCase());
   return allowed.includes(user.role.toUpperCase());
@@ -156,9 +156,7 @@ function statusVariant(s) {
   return "outline";
 }
 function FeedbackTriagePage() {
-  const adapter = useFeedbackAdapter();
-  const user = adapter.useCurrentUser();
-  const isAdmin = user?.role === "MASTER_ADMIN";
+  const isAdmin = useCanTriageFeedback();
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState(
     "all"
@@ -179,7 +177,13 @@ function FeedbackTriagePage() {
   if (!isAdmin) {
     return /* @__PURE__ */ jsxs("div", { className: "space-y-4", children: [
       /* @__PURE__ */ jsx2("h1", { className: "text-2xl font-semibold", children: "Feedback" }),
-      /* @__PURE__ */ jsx2("p", { className: "text-muted-foreground", children: "Only MASTER_ADMIN can see the triage queue." })
+      /* @__PURE__ */ jsxs("p", { className: "text-muted-foreground", children: [
+        "Your role is not authorised to triage feedback. Configure",
+        /* @__PURE__ */ jsx2("code", { className: "mx-1", children: "VITE_FEEDBACK_TRIAGE_ROLES" }),
+        "(or the host's ",
+        /* @__PURE__ */ jsx2("code", { children: "bindings.triageRoles" }),
+        ") to include your role."
+      ] })
     ] });
   }
   return /* @__PURE__ */ jsxs("div", { className: "space-y-4", children: [
@@ -361,7 +365,7 @@ function DetailBody({
   onDelete,
   busy
 }) {
-  const adapter = useFeedbackAdapter();
+  const adapter2 = useFeedbackAdapter();
   const [status, setStatus] = useState(data.status);
   const [note, setNote] = useState(data.triage_note ?? "");
   const screenshot = data.attachments?.[0]?.presigned_url ?? null;
@@ -455,7 +459,7 @@ function DetailBody({
             "data-feedback-id": "feedback.triage.download",
             onClick: async () => {
               try {
-                const { blob, filename } = await adapter.downloadFeedbackBundle(
+                const { blob, filename } = await adapter2.downloadFeedbackBundle(
                   data.id
                 );
                 const url = URL.createObjectURL(blob);
@@ -466,9 +470,9 @@ function DetailBody({
                 link.click();
                 link.remove();
                 URL.revokeObjectURL(url);
-                adapter.toast.success(`Downloaded ${filename}`);
+                adapter2.toast.success(`Downloaded ${filename}`);
               } catch (err) {
-                adapter.toast.error(`Could not download: ${String(err)}`);
+                adapter2.toast.error(`Could not download: ${String(err)}`);
               }
             },
             disabled: busy,
@@ -524,8 +528,8 @@ function ElementSelector({
   onCancel
 }) {
   const [rect, setRect] = useState2(null);
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
+  const adapter2 = useFeedbackAdapter();
+  const t = adapter2.useTranslation();
   const currentRef = useRef(null);
   useEffect(() => {
     if (typeof document === "undefined") return void 0;
@@ -664,8 +668,8 @@ var POSITION_CLASSES = {
 };
 function FeedbackButton() {
   const config = useFeedbackConfig();
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
+  const adapter2 = useFeedbackAdapter();
+  const t = adapter2.useTranslation();
   const [open, setOpen] = useState3(false);
   const [pickerActive, setPickerActive] = useState3(false);
   const [locked, setLocked] = useState3(null);
@@ -772,7 +776,7 @@ function FeedbackActionPage({
   token,
   onSubmitFollowUp
 }) {
-  const adapter = useFeedbackAdapter();
+  const adapter2 = useFeedbackAdapter();
   const [phase, setPhase] = useState4(
     token ? { kind: "loading" } : { kind: "missing_token" }
   );
@@ -781,7 +785,7 @@ function FeedbackActionPage({
     let cancelled = false;
     void (async () => {
       try {
-        const result = await adapter.consumeActionToken(
+        const result = await adapter2.consumeActionToken(
           token,
           action
         );
@@ -795,7 +799,7 @@ function FeedbackActionPage({
     return () => {
       cancelled = true;
     };
-  }, [action, token, adapter]);
+  }, [action, token, adapter2]);
   return /* @__PURE__ */ jsx5("div", { className: "min-h-screen flex items-center justify-center bg-background p-4", children: /* @__PURE__ */ jsxs4("div", { className: "w-full max-w-md rounded-lg border bg-card text-card-foreground shadow-sm p-6 space-y-4", children: [
     /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
       /* @__PURE__ */ jsx5(Rl3Mark, { className: "h-6 w-6" }),
