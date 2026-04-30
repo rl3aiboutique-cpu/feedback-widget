@@ -1,12 +1,27 @@
 /**
- * Base CSS variables for the feedback widget.
+ * Self-contained stylesheet for the feedback widget.
  *
- * Hosts already running shadcn/ui can skip this file — their existing
- * theme variables drive the widget. Hosts NOT running shadcn import
- * this file once at the app root:
+ * Tailwind v4 CSS-first build. The host imports this once at the app
+ * root and gets:
+ *   1. Every utility class the widget's components reference, scanned
+ *      directly from src/**.{ts,tsx} (the @source line below).
+ *   2. The shadcn-style design tokens used by the widget components.
+ *
+ * Hosts already running their own Tailwind + shadcn don't need to do
+ * anything special — Tailwind v4's CSS layers compose; duplicate
+ * tokens win in the host's stylesheet because it loads later. Hosts
+ * with NO Tailwind get a fully styled widget out of the box.
  *
  *   import "@rl3/feedback-widget/styles.css"
  */
+
+@import "tailwindcss";
+
+/* Scan the widget's own .tsx/.ts so every utility class the components
+   reference ends up compiled in this stylesheet — no host-side
+   scanning required. Path is relative to this file
+   (src/styles.css → ../src). */
+@source "../src/**/*.{ts,tsx}";
 
 @layer base {
   :root {

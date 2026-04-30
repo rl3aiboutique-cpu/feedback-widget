@@ -1,6 +1,6 @@
 {
   "name": "@rl3/feedback-widget",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "RL3 in-app feedback widget — React provider, floating button, admin triage, magic-link landing pages.",
   "license": "UNLICENSED",
   "type": "module",
@@ -24,7 +24,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && node -e \"require('node:fs').copyFileSync('src/styles.css','dist/styles.css')\"",
+    "build": "tsup && tailwindcss -i src/styles.css -o dist/styles.css --minify",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src",
     "test": "vitest run"
@@ -57,6 +57,7 @@
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "@tailwindcss/cli": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",
