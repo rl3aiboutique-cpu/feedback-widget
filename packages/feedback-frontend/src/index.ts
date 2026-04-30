@@ -21,41 +21,41 @@ export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback";
 
 export { FeedbackTriagePage } from "./admin/FeedbackTriagePage";
 export {
-	default as FeedbackButtonDefault,
-	FeedbackButton,
+  default as FeedbackButtonDefault,
+  FeedbackButton,
 } from "./FeedbackButton";
 
 export {
-	type FeedbackConfig,
-	type FeedbackPosition,
-	FeedbackProvider,
-	useFeedbackAdapter,
-	useFeedbackBindings,
-	useFeedbackConfig,
+  type FeedbackConfig,
+  type FeedbackPosition,
+  FeedbackProvider,
+  useFeedbackAdapter,
+  useFeedbackBindings,
+  useFeedbackConfig,
 } from "./FeedbackProvider";
 
 export {
-	createAdapter,
-	type FeedbackAdapter,
-	type FeedbackHostBindings,
-	SubmitFeedbackError,
+  createAdapter,
+  type FeedbackAdapter,
+  type FeedbackHostBindings,
+  SubmitFeedbackError,
 } from "./adapter";
 
 export type {
-	CurrentUserSnapshot,
-	FeedbackReadShape,
-	FeedbackStatusKey,
-	FeedbackTypeKey,
-	ToastApi,
-	ToastOptions,
-	Translator,
+  CurrentUserSnapshot,
+  FeedbackReadShape,
+  FeedbackStatusKey,
+  FeedbackTypeKey,
+  ToastApi,
+  ToastOptions,
+  Translator,
 } from "./types";
 
 export type {
-	FeedbackAttachmentRead,
-	FeedbackListResponse,
-	FeedbackRead,
-	FeedbackStatus,
-	FeedbackStatusUpdate,
-	FeedbackType,
+  FeedbackAttachmentRead,
+  FeedbackListResponse,
+  FeedbackRead,
+  FeedbackStatus,
+  FeedbackStatusUpdate,
+  FeedbackType,
 } from "./client";

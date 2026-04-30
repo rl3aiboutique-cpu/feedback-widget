@@ -318,7 +318,7 @@ interface FeedbackProviderProps {
     /** Optional non-secret tuning (button position, locale, etc.). */
     config?: FeedbackConfig;
 }
-declare function FeedbackProvider({ children, bindings, adapter, config, }: FeedbackProviderProps): react_jsx_runtime.JSX.Element;
+declare function FeedbackProvider({ children, bindings, adapter, config }: FeedbackProviderProps): react_jsx_runtime.JSX.Element;
 declare function useFeedbackAdapter(): FeedbackAdapter;
 declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;

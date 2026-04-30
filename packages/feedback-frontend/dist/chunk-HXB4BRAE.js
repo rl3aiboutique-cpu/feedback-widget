@@ -20,12 +20,7 @@ var DEFAULT_CONFIG = Object.freeze({
   locale: _ENV_LOCALE
 });
 var FeedbackContext = createContext(null);
-function FeedbackProvider({
-  children,
-  bindings,
-  adapter,
-  config
-}) {
+function FeedbackProvider({ children, bindings, adapter, config }) {
   if (!bindings || typeof bindings.useCurrentUser !== "function") {
     throw new Error(
       "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
@@ -258,10 +253,7 @@ async function _buildHeaders(bindings, base = {}) {
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   } catch (err) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[feedback] getCsrfToken threw, proceeding without CSRF token",
-        err
-      );
+      console.warn("[feedback] getCsrfToken threw, proceeding without CSRF token", err);
     }
   }
   if (bindings.authHeader) {
@@ -270,10 +262,7 @@ async function _buildHeaders(bindings, base = {}) {
       if (auth) headers.Authorization = auth;
     } catch (err) {
       if (typeof console !== "undefined") {
-        console.warn(
-          "[feedback] authHeader threw, proceeding without Authorization",
-          err
-        );
+        console.warn("[feedback] authHeader threw, proceeding without Authorization", err);
       }
     }
   }
@@ -325,9 +314,7 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(
-      `GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`
-    );
+    throw new Error(`GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`);
   }
   const cd = resp.headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
@@ -335,9 +322,7 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   return { blob: await resp.blob(), filename };
 }
 async function _getJson(bindings, path, query) {
-  const url = new URL(
-    `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
-  );
+  const url = new URL(`${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== void 0 && v !== null && v !== "") {
@@ -401,10 +386,7 @@ function getDefaultRedactionSelectors() {
 }
 function useTranslation() {
   const config = useFeedbackConfig();
-  return useMemo2(
-    () => createTranslator({ locale: config.locale }),
-    [config.locale]
-  );
+  return useMemo2(() => createTranslator({ locale: config.locale }), [config.locale]);
 }
 var APP_VERSION = ENV_APP_VERSION;
 var GIT_COMMIT_SHA = ENV_GIT_SHA;
@@ -442,14 +424,10 @@ function useUpdateFeedbackStatusMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input) => _patchJson(
-      bindings,
-      `/${encodeURIComponent(input.id)}/status`,
-      {
-        status: input.status,
-        triage_note: input.triage_note ?? null
-      }
-    ),
+    mutationFn: (input) => _patchJson(bindings, `/${encodeURIComponent(input.id)}/status`, {
+      status: input.status,
+      triage_note: input.triage_note ?? null
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
     }
@@ -546,9 +524,7 @@ import { jsx as jsx3, jsxs } from "react/jsx-runtime";
 function Sheet({ ...props }) {
   return /* @__PURE__ */ jsx3(SheetPrimitive.Root, { "data-slot": "sheet", ...props });
 }
-function SheetPortal({
-  ...props
-}) {
+function SheetPortal({ ...props }) {
   return /* @__PURE__ */ jsx3(SheetPrimitive.Portal, { "data-slot": "sheet-portal", ...props });
 }
 function SheetOverlay({
@@ -619,10 +595,7 @@ function SheetFooter({ className, ...props }) {
     }
   );
 }
-function SheetTitle({
-  className,
-  ...props
-}) {
+function SheetTitle({ className, ...props }) {
   return /* @__PURE__ */ jsx3(
     SheetPrimitive.Title,
     {
@@ -724,14 +697,7 @@ function Badge({
   ...props
 }) {
   const Comp = asChild ? Slot2 : "span";
-  return /* @__PURE__ */ jsx5(
-    Comp,
-    {
-      "data-slot": "badge",
-      className: cn(badgeVariants({ variant }), className),
-      ...props
-    }
-  );
+  return /* @__PURE__ */ jsx5(Comp, { "data-slot": "badge", className: cn(badgeVariants({ variant }), className), ...props });
 }
 
 // src/MyTicketsPanel.tsx
@@ -758,9 +724,7 @@ function humanStatus(s) {
       return s;
   }
 }
-function MyTicketsPanel({
-  onSelectTicket
-}) {
+function MyTicketsPanel({ onSelectTicket }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
@@ -920,9 +884,7 @@ function _cssSelectorOf(el) {
     }
     const parent = cur.parentElement;
     if (parent) {
-      const siblings = Array.from(parent.children).filter(
-        (s) => s.tagName === cur?.tagName
-      );
+      const siblings = Array.from(parent.children).filter((s) => s.tagName === cur?.tagName);
       if (siblings.length > 1) {
         part += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
       }
@@ -973,14 +935,10 @@ function Input({ className, type, ...props }) {
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
-function Select({
-  ...props
-}) {
+function Select({ ...props }) {
   return /* @__PURE__ */ jsx8(SelectPrimitive.Root, { "data-slot": "select", ...props });
 }
-function SelectValue({
-  ...props
-}) {
+function SelectValue({ ...props }) {
   return /* @__PURE__ */ jsx8(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
 }
 function SelectTrigger({
@@ -1071,10 +1029,7 @@ function SelectScrollUpButton({
     SelectPrimitive.ScrollUpButton,
     {
       "data-slot": "select-scroll-up-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
+      className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
       children: /* @__PURE__ */ jsx8(ChevronUpIcon, { className: "size-4" })
     }
@@ -1088,10 +1043,7 @@ function SelectScrollDownButton({
     SelectPrimitive.ScrollDownButton,
     {
       "data-slot": "select-scroll-down-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
+      className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
       children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4" })
     }
@@ -1151,4 +1103,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-OSLX5DGR.js.map
+//# sourceMappingURL=chunk-HXB4BRAE.js.map

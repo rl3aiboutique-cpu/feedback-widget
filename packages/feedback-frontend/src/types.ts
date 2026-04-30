@@ -10,29 +10,24 @@
  */
 
 export type FeedbackTypeKey =
-	| "bug"
-	| "ui"
-	| "performance"
-	| "new_feature"
-	| "extend_feature"
-	| "other";
+  | "bug"
+  | "ui"
+  | "performance"
+  | "new_feature"
+  | "extend_feature"
+  | "other";
 
-export type FeedbackStatusKey =
-	| "new"
-	| "triaged"
-	| "in_progress"
-	| "done"
-	| "wont_fix";
+export type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
 
 export interface CurrentUserSnapshot {
-	/** Stable user identifier — UUID-as-string. */
-	id: string;
-	email: string;
-	role: string;
-	/** Optional human display name; null when the host doesn't track one. */
-	full_name?: string | null;
-	/** Optional active tenant; null for single-tenant hosts (sapphira). */
-	tenant_id?: string | null;
+  /** Stable user identifier — UUID-as-string. */
+  id: string;
+  email: string;
+  role: string;
+  /** Optional human display name; null when the host doesn't track one. */
+  full_name?: string | null;
+  /** Optional active tenant; null for single-tenant hosts (sapphira). */
+  tenant_id?: string | null;
 }
 
 /**
@@ -41,78 +36,78 @@ export interface CurrentUserSnapshot {
  * console-only stub so the package never imports a notifier library.
  */
 export interface ToastOptions {
-	/** Optional href the host can attach as a click action. */
-	url?: string;
-	/** Optional plain-text label for the click action. */
-	actionLabel?: string;
+  /** Optional href the host can attach as a click action. */
+  url?: string;
+  /** Optional plain-text label for the click action. */
+  actionLabel?: string;
 }
 
 export interface ToastApi {
-	success(message: string, options?: ToastOptions): void;
-	error(message: string, options?: ToastOptions): void;
-	info(message: string, options?: ToastOptions): void;
-	warning(message: string, options?: ToastOptions): void;
+  success(message: string, options?: ToastOptions): void;
+  error(message: string, options?: ToastOptions): void;
+  info(message: string, options?: ToastOptions): void;
+  warning(message: string, options?: ToastOptions): void;
 }
 
 export interface FeedbackElementInfo {
-	selector: string | null;
-	xpath: string | null;
-	bounding_box: { x: number; y: number; w: number; h: number } | null;
+  selector: string | null;
+  xpath: string | null;
+  bounding_box: { x: number; y: number; w: number; h: number } | null;
 }
 
 export interface FeedbackCreatePayloadInput {
-	type: FeedbackTypeKey;
-	title: string;
-	description: string;
-	expected_outcome?: string | null;
-	url_captured: string;
-	route_name?: string | null;
-	element?: FeedbackElementInfo | null;
-	metadata_bundle: Record<string, unknown>;
-	app_version?: string | null;
-	git_commit_sha?: string | null;
-	user_agent?: string | null;
+  type: FeedbackTypeKey;
+  title: string;
+  description: string;
+  expected_outcome?: string | null;
+  url_captured: string;
+  route_name?: string | null;
+  element?: FeedbackElementInfo | null;
+  metadata_bundle: Record<string, unknown>;
+  app_version?: string | null;
+  git_commit_sha?: string | null;
+  user_agent?: string | null;
 }
 
 export interface FeedbackAttachmentSummary {
-	id: string;
-	kind: "screenshot" | "user_attachment";
-	bucket: string;
-	object_key: string;
-	content_type: string;
-	byte_size: number;
-	filename: string | null;
-	width: number | null;
-	height: number | null;
-	created_at: string | null;
-	presigned_url: string | null;
+  id: string;
+  kind: "screenshot" | "user_attachment";
+  bucket: string;
+  object_key: string;
+  content_type: string;
+  byte_size: number;
+  filename: string | null;
+  width: number | null;
+  height: number | null;
+  created_at: string | null;
+  presigned_url: string | null;
 }
 
 export interface FeedbackReadShape {
-	id: string;
-	tenant_id: string;
-	user_id: string;
-	type: FeedbackTypeKey;
-	status: FeedbackStatusKey;
-	title: string;
-	description: string;
-	expected_outcome: string | null;
-	url_captured: string;
-	route_name: string | null;
-	element_selector: string | null;
-	element_xpath: string | null;
-	element_bounding_box: Record<string, unknown> | null;
-	metadata_bundle: Record<string, unknown>;
-	app_version: string | null;
-	git_commit_sha: string | null;
-	user_agent: string | null;
-	created_at: string | null;
-	updated_at: string | null;
-	triaged_by: string | null;
-	triaged_at: string | null;
-	triage_note: string | null;
-	ticket_code: string;
-	attachments: FeedbackAttachmentSummary[];
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  type: FeedbackTypeKey;
+  status: FeedbackStatusKey;
+  title: string;
+  description: string;
+  expected_outcome: string | null;
+  url_captured: string;
+  route_name: string | null;
+  element_selector: string | null;
+  element_xpath: string | null;
+  element_bounding_box: Record<string, unknown> | null;
+  metadata_bundle: Record<string, unknown>;
+  app_version: string | null;
+  git_commit_sha: string | null;
+  user_agent: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  triaged_by: string | null;
+  triaged_at: string | null;
+  triage_note: string | null;
+  ticket_code: string;
+  attachments: FeedbackAttachmentSummary[];
 }
 
 /**

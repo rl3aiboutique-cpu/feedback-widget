@@ -13,14 +13,14 @@
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 
 export function useCanTriageFeedback(): boolean {
-	const adapter = useFeedbackAdapter();
-	const bindings = useFeedbackBindings();
-	const user = adapter.useCurrentUser();
-	if (!user) return false;
-	const allowed = (
-		bindings.triageRoles && bindings.triageRoles.length > 0
-			? bindings.triageRoles
-			: ["MASTER_ADMIN"]
-	).map((r) => r.toUpperCase());
-	return allowed.includes(user.role.toUpperCase());
+  const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
+  const user = adapter.useCurrentUser();
+  if (!user) return false;
+  const allowed = (
+    bindings.triageRoles && bindings.triageRoles.length > 0
+      ? bindings.triageRoles
+      : ["MASTER_ADMIN"]
+  ).map((r) => r.toUpperCase());
+  return allowed.includes(user.role.toUpperCase());
 }

@@ -11,19 +11,17 @@ import { en } from "./en";
 const _DICTIONARIES: Record<string, Record<string, string>> = { en };
 
 export interface CreateTranslatorOptions {
-	locale?: "en";
+  locale?: "en";
 }
 
-export function createTranslator(
-	_options?: CreateTranslatorOptions,
-): Translator {
-	return function t(key: string, vars?: Record<string, string>): string {
-		let msg = _DICTIONARIES.en?.[key] ?? key;
-		if (vars) {
-			for (const [k, v] of Object.entries(vars)) {
-				msg = msg.split(`{${k}}`).join(v);
-			}
-		}
-		return msg;
-	};
+export function createTranslator(_options?: CreateTranslatorOptions): Translator {
+  return function t(key: string, vars?: Record<string, string>): string {
+    let msg = _DICTIONARIES.en?.[key] ?? key;
+    if (vars) {
+      for (const [k, v] of Object.entries(vars)) {
+        msg = msg.split(`{${k}}`).join(v);
+      }
+    }
+    return msg;
+  };
 }
