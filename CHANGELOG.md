@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-04-30
+
+UX-first simplification + multi-file attachments. **Breaking** — the
+schema, the wire shape, and the admin email lifecycle all changed.
+v0.1.x clients should drop their old data (this was a beta) and re-pin.
+
+### Added
+- **Multi-file attachments**: hosts can now drop or pick up to 5 files
+  (≤10 MB each) per submission alongside the auto-captured screenshot.
+  Allowed types: PNG / JPEG / GIF / WebP / PDF / plain text / markdown
+  / JSON / .log / .ndjson. Frontend validates count + size + MIME +
+  extension; backend re-validates with magic-byte sniffing.
+- **`expected_outcome` column** on `feedback`: the form now asks
+  "How should it work?" as a separate optional field next to "What's
+  happening?" so triage gets diagnosis and proposal apart.
+- **`filename` column** on `feedback_attachment` for the user-uploaded
+  files; surfaced in the LLM-handoff ZIP as `attachments/<name>`.
+
+### Changed
+- **Form simplified to 6 types × 3 uniform fields**: `bug`, `ui`,
+  `performance`, `new_feature`, `extend_feature`, `other`. Every type
+  asks the same three questions (title, description, expected outcome).
+  Picking a type only changes triage routing — never the form layout.
+
+### Removed (BREAKING)
+- **Persona, linked user stories, parent-ticket cascade, follow-up
+  email, consent toggle, type-specific dynamic fields (`type_fields`
+  JSONB)**. Submissions still carry redacted page metadata; no
+  user-facing checkbox is required.
+- **Magic-link accept/reject email flow**: status-transition emails
+  are informational from now on. Endpoints `POST /feedback/action/{token}`
+  removed, along with the `accepted_by_user` / `rejected_by_user`
+  status values, the `acceptance_token` / `acceptance_token_expires_at`
+  columns, and the `parent_feedback_id` column.
+- **Autocomplete endpoints** `GET /feedback/personas` and
+  `GET /feedback/user-stories` (the form fields they fed are gone).
+- **Frontend `FeedbackActionPage`** (the public landing page used by
+  magic-link emails) — removed from `packages/feedback-frontend/src/public/`
+  and from the public export map.
+
+### Migration
+- `alembic upgrade head` applies `0003_simplify_to_v0_2_0`: deletes
+  rows whose enum values are about to disappear, drops the deprecated
+  columns, recreates the three Postgres enums with the new value sets,
+  and adds `expected_outcome` + `attachment.filename`.
+- Downgrade is **not supported** — restore from a backup taken before
+  the migration if you need the old schema back.
+
+### Schema lock-in
+After v0.2.0 the schema is frozen. Future destructive changes require
+non-destructive migrations with backwards compatibility — no more
+clean breaks.
+
 ## [0.1.0] — 2026-04-29
 
 First installable version of the package. Tagged locally; push to

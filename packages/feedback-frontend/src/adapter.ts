@@ -189,11 +189,17 @@ async function submitFeedback(
   bindings: FeedbackHostBindings,
   payloadJson: string,
   screenshot: Blob | null,
+  attachments?: readonly File[],
 ): Promise<FeedbackReadShape> {
   const form = new FormData()
   form.append("payload", payloadJson)
   if (screenshot) {
     form.append("screenshot", screenshot, "screenshot.png")
+  }
+  if (attachments && attachments.length > 0) {
+    for (const file of attachments) {
+      form.append("attachments", file, file.name)
+    }
   }
   const headers = await _buildHeaders(bindings)
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}`
@@ -219,32 +225,6 @@ async function submitFeedback(
   return (await resp.json()) as FeedbackReadShape
 }
 
-export interface PublicActionResult {
-  status: string
-  ticket_code: string
-  message: string
-  cascade_count?: number
-}
-
-async function consumeActionToken(
-  bindings: FeedbackHostBindings,
-  token: string,
-  action: "accept" | "reject",
-): Promise<PublicActionResult> {
-  // Magic-link tokens are public (no auth needed) but we still include
-  // the auth header if present — the backend tolerates it.
-  const headers = await _buildHeaders(bindings)
-  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/action/${encodeURIComponent(
-    token,
-  )}?action=${action}`
-  const resp = await fetch(url, { method: "POST", credentials: "include", headers })
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "")
-    throw new Error(`POST /feedback/action/${token} failed (${resp.status}) ${text}`)
-  }
-  return (await resp.json()) as PublicActionResult
-}
-
 /** Re-exported as a named binding so the admin triage page can import it directly. */
 export async function downloadFeedbackBundleViaBindings(
   bindings: FeedbackHostBindings,
@@ -268,7 +248,7 @@ export async function downloadFeedbackBundleViaBindings(
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// JSON helpers for typed list/detail/personas + admin mutations
+// JSON helpers for typed list/detail + admin mutations
 // ─────────────────────────────────────────────────────────────────────
 
 async function _getJson<T>(
@@ -461,39 +441,6 @@ export function useDeleteFeedbackMutation(): UseMutationResult<
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Submission helpers (used by the form's "pick previous" dropdowns)
-// ─────────────────────────────────────────────────────────────────────
-
-export interface UserStoryShape {
-  story: string
-  acceptance_criteria: string | null
-  priority: string | null
-}
-
-export function usePersonasQuery(
-  limit: number = 50,
-): UseQueryResult<string[], Error> {
-  const bindings = useFeedbackBindings()
-  return useQuery({
-    queryKey: ["feedback", "personas", limit],
-    queryFn: () => _getJson<string[]>(bindings, "/personas", { limit }),
-    staleTime: 60_000,
-  })
-}
-
-export function useUserStoriesQuery(
-  limit: number = 100,
-): UseQueryResult<UserStoryShape[], Error> {
-  const bindings = useFeedbackBindings()
-  return useQuery({
-    queryKey: ["feedback", "user-stories", limit],
-    queryFn: () =>
-      _getJson<UserStoryShape[]>(bindings, "/user-stories", { limit }),
-    staleTime: 60_000,
-  })
-}
-
-// ─────────────────────────────────────────────────────────────────────
 // Adapter shape — the bag the FeedbackProvider injects into context
 // ─────────────────────────────────────────────────────────────────────
 
@@ -501,15 +448,13 @@ export interface FeedbackAdapter {
   useCurrentUser: typeof useCurrentUser
   appVersion: string
   gitSha: string
-  /** Caller passes payloadJson + optional screenshot; we attach CSRF + cookies. */
+  /** Caller passes payloadJson + optional screenshot + up to 5 user
+   * attachments; we attach CSRF + cookies. */
   submitFeedback: (
     payloadJson: string,
     screenshot: Blob | null,
+    attachments?: readonly File[],
   ) => Promise<FeedbackReadShape>
-  consumeActionToken: (
-    token: string,
-    action: "accept" | "reject",
-  ) => Promise<PublicActionResult>
   downloadFeedbackBundle: (
     feedbackId: string,
   ) => Promise<{ blob: Blob; filename: string }>
@@ -526,10 +471,11 @@ export function createAdapter(bindings: FeedbackHostBindings): FeedbackAdapter {
     useCurrentUser,
     appVersion: APP_VERSION,
     gitSha: GIT_COMMIT_SHA,
-    submitFeedback: (payloadJson: string, screenshot: Blob | null) =>
-      submitFeedback(bindings, payloadJson, screenshot),
-    consumeActionToken: (token: string, action: "accept" | "reject") =>
-      consumeActionToken(bindings, token, action),
+    submitFeedback: (
+      payloadJson: string,
+      screenshot: Blob | null,
+      attachments?: readonly File[],
+    ) => submitFeedback(bindings, payloadJson, screenshot, attachments),
     downloadFeedbackBundle: (feedbackId: string) =>
       downloadFeedbackBundleViaBindings(bindings, feedbackId),
     getDeepLinkToFeedback: (id: string) =>

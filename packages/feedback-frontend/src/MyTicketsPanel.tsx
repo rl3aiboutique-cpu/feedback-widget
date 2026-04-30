@@ -6,7 +6,6 @@
  *
  *   1. Confirm their submission landed.
  *   2. See when admin moves it through TRIAGED → IN_PROGRESS → DONE.
- *   3. Spot the DONE rows that need their accept/reject action.
  *
  * Polling lives in `useMyFeedbackQuery` (60s interval) so this view
  * is "near-live" without a manual refresh.
@@ -25,7 +24,7 @@ function statusVariant(
 ): "default" | "secondary" | "outline" | "destructive" {
   if (s === "new") return "default"
   if (s === "triaged" || s === "in_progress") return "secondary"
-  if (s === "wont_fix" || s === "rejected_by_user") return "destructive"
+  if (s === "wont_fix") return "destructive"
   return "outline"
 }
 
@@ -38,13 +37,9 @@ function humanStatus(s: FeedbackStatusKey): string {
     case "in_progress":
       return "In progress"
     case "done":
-      return "Awaiting your confirmation"
+      return "Resolved"
     case "wont_fix":
       return "Closed (won't fix)"
-    case "accepted_by_user":
-      return "Closed by you"
-    case "rejected_by_user":
-      return "Reopened by you"
     default:
       return s
   }
@@ -90,7 +85,7 @@ export function MyTicketsPanel({
   return (
     <ul className="space-y-2">
       {rows.map((r) => {
-        const needsAction = r.status === "done"
+        const recentlyResolved = r.status === "done"
         const clickable = !!onSelectTicket
         const Tag = clickable ? "button" : "div"
         return (
@@ -103,7 +98,7 @@ export function MyTicketsPanel({
                   : undefined
               }
               className={`w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
-                ${needsAction ? "border-primary bg-primary/5" : "border-input"}
+                ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}
                 ${clickable ? "hover:bg-accent" : ""}`}
             >
               <div className="flex items-center gap-2">
@@ -115,12 +110,7 @@ export function MyTicketsPanel({
                 </Badge>
                 <span className="truncate flex-1 font-medium">{r.title}</span>
               </div>
-              {r.parent_ticket_code ? (
-                <span className="text-[11px] text-muted-foreground">
-                  ↳ Linked to {r.parent_ticket_code}
-                </span>
-              ) : null}
-              {needsAction ? (
+              {recentlyResolved ? (
                 <span className="text-[11px] text-primary">
                   {t("feedback.mine.action_hint")}
                 </span>
@@ -134,9 +124,8 @@ export function MyTicketsPanel({
 }
 
 /**
- * Hook returning the count of feedback rows in DONE status (i.e.
- * waiting for the user's accept/reject action). Used by FeedbackButton
- * to render a notification badge.
+ * Hook returning the count of feedback rows in DONE status (recently
+ * resolved). Used by FeedbackButton to render a "look at this" badge.
  */
 export function useMyPendingActionCount(): number {
   const query = useMyFeedbackQuery(25)

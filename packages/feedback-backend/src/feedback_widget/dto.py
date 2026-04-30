@@ -9,12 +9,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from feedback_widget.models import FeedbackAttachmentKind
+
 
 @dataclass
 class ScreenshotUpload:
-    """In-memory screenshot file the router hands to the service."""
+    """In-memory auto-captured screenshot the router hands to the service."""
 
     content: bytes
     content_type: str
+    width: int | None = None
+    height: int | None = None
+
+
+@dataclass
+class AttachmentUpload:
+    """In-memory user-uploaded attachment (wireframe, log, note, …)."""
+
+    content: bytes
+    content_type: str
+    filename: str
+    kind: FeedbackAttachmentKind = FeedbackAttachmentKind.USER_ATTACHMENT
     width: int | None = None
     height: int | None = None

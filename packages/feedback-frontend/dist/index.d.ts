@@ -30,8 +30,8 @@ declare function FeedbackTriagePage(): React.ReactElement;
  * onto these declarations. This is the contract that makes extraction
  * cheap: if the host SDK changes shape, only `adapter.ts` cares.
  */
-type FeedbackTypeKey = "bug" | "new_feature" | "extend_feature" | "new_user_story" | "question" | "ux_polish" | "performance" | "data_issue";
-type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix" | "accepted_by_user" | "rejected_by_user";
+type FeedbackTypeKey = "bug" | "ui" | "performance" | "new_feature" | "extend_feature" | "other";
+type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
 interface CurrentUserSnapshot {
     /** Stable user identifier — UUID-as-string. */
     id: string;
@@ -61,11 +61,12 @@ interface ToastApi {
 }
 interface FeedbackAttachmentSummary {
     id: string;
-    kind: "screenshot" | "log_dump";
+    kind: "screenshot" | "user_attachment";
     bucket: string;
     object_key: string;
     content_type: string;
     byte_size: number;
+    filename: string | null;
     width: number | null;
     height: number | null;
     created_at: string | null;
@@ -79,16 +80,13 @@ interface FeedbackReadShape {
     status: FeedbackStatusKey;
     title: string;
     description: string;
+    expected_outcome: string | null;
     url_captured: string;
     route_name: string | null;
     element_selector: string | null;
     element_xpath: string | null;
     element_bounding_box: Record<string, unknown> | null;
-    type_fields: Record<string, unknown>;
-    persona: string | null;
-    linked_user_stories: Record<string, unknown>[];
     metadata_bundle: Record<string, unknown>;
-    consent_metadata_capture: boolean;
     app_version: string | null;
     git_commit_sha: string | null;
     user_agent: string | null;
@@ -98,9 +96,6 @@ interface FeedbackReadShape {
     triaged_at: string | null;
     triage_note: string | null;
     ticket_code: string;
-    follow_up_email: string | null;
-    parent_feedback_id: string | null;
-    parent_ticket_code: string | null;
     attachments: FeedbackAttachmentSummary[];
 }
 /**
@@ -137,52 +132,14 @@ type Translator = (key: string, vars?: Record<string, string>) => string;
 declare function FeedbackButton(): React.ReactElement | null;
 
 /**
- * Public landing page for the magic-link accept/reject buttons.
- *
- * Lives INSIDE the widget folder so the widget owns the whole user flow.
- * The host's route file (routes/feedback.accept.tsx,
- * routes/feedback.reject.tsx) is a 3-line wrapper that renders this
- * component with the right action.
- *
- * The page is reachable WITHOUT authentication — the acceptance_token
- * in the URL IS the proof of identity. We POST it to
- * `/api/v1/feedback/action/{token}?action=accept|reject` and render
- * the server's response.
- */
-type FeedbackActionKind = "accept" | "reject";
-interface FeedbackActionPageProps {
-    action: FeedbackActionKind;
-    /** Token query param parsed from the URL by the host route. */
-    token: string | null;
-    /**
-     * Optional handler for the "submit a follow-up" CTA shown after a
-     * reject. The host wires this to its in-app feedback widget — when
-     * the user is also logged in, opening the widget pre-filled with
-     * parent_ticket_code is the seamless follow-up flow.
-     */
-    onSubmitFollowUp?: (parentTicketCode: string) => void;
-}
-declare function FeedbackActionPage({ action, token, onSubmitFollowUp, }: FeedbackActionPageProps): React.ReactElement;
-
-/**
  * Wire-shape types for the feedback widget.
- *
- * The package generates a fully typed SDK from the sandbox host's
- * OpenAPI in Phase 3 (`pnpm exec openapi-ts` writes `index.ts` here).
- * Until that wires up, this hand-written stub keeps the package
- * compiling and reflects the on-the-wire DTOs the backend exposes.
  *
  * The shapes here intentionally mirror Pydantic schemas in
  * `feedback_widget.schemas` — keep them in sync.
  */
-type FeedbackType = "bug" | "new_feature" | "extend_feature" | "new_user_story" | "question" | "ux_polish" | "performance" | "data_issue";
-type FeedbackStatus = "new" | "triaged" | "in_progress" | "done" | "wont_fix" | "accepted_by_user" | "rejected_by_user";
-type FeedbackAttachmentKind = "screenshot" | "log_dump";
-interface LinkedUserStory {
-    story: string;
-    acceptance_criteria?: string | null;
-    priority?: string | null;
-}
+type FeedbackType = "bug" | "ui" | "performance" | "new_feature" | "extend_feature" | "other";
+type FeedbackStatus = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+type FeedbackAttachmentKind = "screenshot" | "user_attachment";
 interface FeedbackAttachmentRead {
     id: string;
     kind: FeedbackAttachmentKind;
@@ -190,6 +147,7 @@ interface FeedbackAttachmentRead {
     object_key: string;
     content_type: string;
     byte_size: number;
+    filename?: string | null;
     width?: number | null;
     height?: number | null;
     created_at?: string | null;
@@ -203,16 +161,13 @@ interface FeedbackRead {
     status: FeedbackStatus;
     title: string;
     description: string;
+    expected_outcome?: string | null;
     url_captured: string;
     route_name?: string | null;
     element_selector?: string | null;
     element_xpath?: string | null;
     element_bounding_box?: Record<string, number> | null;
-    type_fields: Record<string, unknown>;
-    persona?: string | null;
-    linked_user_stories: LinkedUserStory[];
     metadata_bundle: Record<string, unknown>;
-    consent_metadata_capture: boolean;
     app_version?: string | null;
     git_commit_sha?: string | null;
     user_agent?: string | null;
@@ -222,9 +177,6 @@ interface FeedbackRead {
     triaged_at?: string | null;
     triage_note?: string | null;
     ticket_code: string;
-    follow_up_email?: string | null;
-    parent_feedback_id?: string | null;
-    parent_ticket_code?: string | null;
     attachments: FeedbackAttachmentRead[];
 }
 interface FeedbackListResponse {
@@ -319,12 +271,6 @@ declare class SubmitFeedbackError extends Error {
     readonly retryAfter: string | null;
     constructor(status: number, body: string, retryAfter: string | null);
 }
-interface PublicActionResult {
-    status: string;
-    ticket_code: string;
-    message: string;
-    cascade_count?: number;
-}
 declare function useCurrentUser(): CurrentUserSnapshot | null;
 declare function getDefaultRedactionSelectors(): readonly string[];
 
@@ -333,9 +279,9 @@ interface FeedbackAdapter {
     useCurrentUser: typeof useCurrentUser;
     appVersion: string;
     gitSha: string;
-    /** Caller passes payloadJson + optional screenshot; we attach CSRF + cookies. */
-    submitFeedback: (payloadJson: string, screenshot: Blob | null) => Promise<FeedbackReadShape>;
-    consumeActionToken: (token: string, action: "accept" | "reject") => Promise<PublicActionResult>;
+    /** Caller passes payloadJson + optional screenshot + up to 5 user
+     * attachments; we attach CSRF + cookies. */
+    submitFeedback: (payloadJson: string, screenshot: Blob | null, attachments?: readonly File[]) => Promise<FeedbackReadShape>;
     downloadFeedbackBundle: (feedbackId: string) => Promise<{
         blob: Blob;
         filename: string;
@@ -377,4 +323,4 @@ declare function useFeedbackAdapter(): FeedbackAdapter;
 declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
-export { type CurrentUserSnapshot, FeedbackActionPage, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, type LinkedUserStory, type PublicActionResult, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

@@ -11,13 +11,11 @@
 
 export type FeedbackTypeKey =
   | "bug"
+  | "ui"
+  | "performance"
   | "new_feature"
   | "extend_feature"
-  | "new_user_story"
-  | "question"
-  | "ux_polish"
-  | "performance"
-  | "data_issue"
+  | "other"
 
 export type FeedbackStatusKey =
   | "new"
@@ -25,8 +23,6 @@ export type FeedbackStatusKey =
   | "in_progress"
   | "done"
   | "wont_fix"
-  | "accepted_by_user"
-  | "rejected_by_user"
 
 export interface CurrentUserSnapshot {
   /** Stable user identifier — UUID-as-string. */
@@ -58,12 +54,6 @@ export interface ToastApi {
   warning(message: string, options?: ToastOptions): void
 }
 
-export interface LinkedUserStory {
-  story: string
-  acceptance_criteria?: string | null
-  priority?: string | null
-}
-
 export interface FeedbackElementInfo {
   selector: string | null
   xpath: string | null
@@ -74,28 +64,24 @@ export interface FeedbackCreatePayloadInput {
   type: FeedbackTypeKey
   title: string
   description: string
+  expected_outcome?: string | null
   url_captured: string
   route_name?: string | null
   element?: FeedbackElementInfo | null
-  type_fields: Record<string, unknown>
-  persona?: string | null
-  linked_user_stories: LinkedUserStory[]
   metadata_bundle: Record<string, unknown>
-  consent_metadata_capture: boolean
   app_version?: string | null
   git_commit_sha?: string | null
   user_agent?: string | null
-  follow_up_email?: string | null
-  parent_ticket_code?: string | null
 }
 
 export interface FeedbackAttachmentSummary {
   id: string
-  kind: "screenshot" | "log_dump"
+  kind: "screenshot" | "user_attachment"
   bucket: string
   object_key: string
   content_type: string
   byte_size: number
+  filename: string | null
   width: number | null
   height: number | null
   created_at: string | null
@@ -110,16 +96,13 @@ export interface FeedbackReadShape {
   status: FeedbackStatusKey
   title: string
   description: string
+  expected_outcome: string | null
   url_captured: string
   route_name: string | null
   element_selector: string | null
   element_xpath: string | null
   element_bounding_box: Record<string, unknown> | null
-  type_fields: Record<string, unknown>
-  persona: string | null
-  linked_user_stories: Record<string, unknown>[]
   metadata_bundle: Record<string, unknown>
-  consent_metadata_capture: boolean
   app_version: string | null
   git_commit_sha: string | null
   user_agent: string | null
@@ -129,9 +112,6 @@ export interface FeedbackReadShape {
   triaged_at: string | null
   triage_note: string | null
   ticket_code: string
-  follow_up_email: string | null
-  parent_feedback_id: string | null
-  parent_ticket_code: string | null
   attachments: FeedbackAttachmentSummary[]
 }
 

@@ -14,7 +14,12 @@
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
 
-import type { FeedbackRead, FeedbackStatus, FeedbackType } from "../client"
+import type {
+  FeedbackAttachmentRead,
+  FeedbackRead,
+  FeedbackStatus,
+  FeedbackType,
+} from "../client"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Input } from "../ui/input"
@@ -54,19 +59,14 @@ import { Rl3Mark } from "../Rl3Mark"
 
 const TYPE_VALUES: FeedbackType[] = [
   "bug",
+  "ui",
+  "performance",
   "new_feature",
   "extend_feature",
-  "new_user_story",
-  "question",
-  "ux_polish",
-  "performance",
-  "data_issue",
+  "other",
 ]
 
-// Statuses an admin can SET via the dropdown. accepted_by_user and
-// rejected_by_user are set by the submitter via the magic link, never
-// directly by an admin.
-const ADMIN_STATUS_VALUES: FeedbackStatus[] = [
+const STATUS_VALUES: FeedbackStatus[] = [
   "new",
   "triaged",
   "in_progress",
@@ -74,26 +74,18 @@ const ADMIN_STATUS_VALUES: FeedbackStatus[] = [
   "wont_fix",
 ]
 
-// All statuses, used for the filter dropdown so admins can see closed-by-user
-// rows when they want to.
-const ALL_STATUS_VALUES: FeedbackStatus[] = [
-  ...ADMIN_STATUS_VALUES,
-  "accepted_by_user",
-  "rejected_by_user",
-]
-
 function statusVariant(
   s: FeedbackStatus,
 ): "default" | "secondary" | "outline" | "destructive" {
   if (s === "new") return "default"
   if (s === "triaged" || s === "in_progress") return "secondary"
-  if (s === "wont_fix" || s === "rejected_by_user") return "destructive"
+  if (s === "wont_fix") return "destructive"
   return "outline"
 }
 
 export function FeedbackTriagePage(): React.ReactElement {
-  const adapter = useFeedbackAdapter()
   const isAdmin = useCanTriageFeedback()
+  const adapter = useFeedbackAdapter()
 
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all")
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "all">(
@@ -180,7 +172,7 @@ export function FeedbackTriagePage(): React.ReactElement {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              {ALL_STATUS_VALUES.map((s) => (
+              {STATUS_VALUES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -241,11 +233,6 @@ export function FeedbackTriagePage(): React.ReactElement {
                 >
                   <TableCell className="font-mono text-xs">
                     {row.ticket_code || "—"}
-                    {row.parent_ticket_code ? (
-                      <div className="text-[10px] text-muted-foreground">
-                        ↳ {row.parent_ticket_code}
-                      </div>
-                    ) : null}
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {row.created_at?.slice(0, 16) ?? ""}
@@ -296,16 +283,6 @@ export function FeedbackTriagePage(): React.ReactElement {
                     {detail.data.type} · {detail.data.created_at?.slice(0, 16)}{" "}
                     · {detail.data.url_captured}
                   </span>
-                  {detail.data.parent_ticket_code ? (
-                    <span className="block text-primary">
-                      ↳ Linked to {detail.data.parent_ticket_code}
-                    </span>
-                  ) : null}
-                  {detail.data.follow_up_email ? (
-                    <span className="block">
-                      Follow-up: {detail.data.follow_up_email}
-                    </span>
-                  ) : null}
                 </span>
               ) : (
                 "Loading…"
@@ -359,63 +336,29 @@ function DetailBody({
   const adapter = useFeedbackAdapter()
   const [status, setStatus] = useState<FeedbackStatus>(data.status)
   const [note, setNote] = useState<string>(data.triage_note ?? "")
-  const screenshot = data.attachments?.[0]?.presigned_url ?? null
+  const screenshot = data.attachments?.find(
+    (a: FeedbackAttachmentRead) => a.kind === "screenshot",
+  )?.presigned_url
+  const userAttachments =
+    data.attachments?.filter(
+      (a: FeedbackAttachmentRead) => a.kind === "user_attachment",
+    ) ?? []
 
   return (
     <div className="px-4 mt-4 space-y-5">
       <section>
-        <h3 className="text-sm font-medium mb-1">Description</h3>
+        <h3 className="text-sm font-medium mb-1">What's happening?</h3>
         <pre className="whitespace-pre-wrap text-sm rounded-md bg-muted/50 p-3 border">
           {data.description}
         </pre>
       </section>
 
-      {Object.keys(data.type_fields ?? {}).length > 0 ? (
+      {data.expected_outcome ? (
         <section>
-          <h3 className="text-sm font-medium mb-1">Type-specific fields</h3>
-          <dl className="rounded-md border divide-y">
-            {Object.entries(data.type_fields).map(([k, v]) => (
-              <div key={k} className="flex p-2 text-sm">
-                <dt className="w-44 text-muted-foreground">{k}</dt>
-                <dd className="flex-1 whitespace-pre-wrap">{String(v)}</dd>
-              </div>
-            ))}
-          </dl>
-        </section>
-      ) : null}
-
-      {data.persona ? (
-        <section>
-          <h3 className="text-sm font-medium mb-1">Persona</h3>
+          <h3 className="text-sm font-medium mb-1">How should it work?</h3>
           <pre className="whitespace-pre-wrap text-sm rounded-md bg-muted/50 p-3 border">
-            {data.persona}
+            {data.expected_outcome}
           </pre>
-        </section>
-      ) : null}
-
-      {(data.linked_user_stories?.length ?? 0) > 0 ? (
-        <section>
-          <h3 className="text-sm font-medium mb-1">Linked user stories</h3>
-          <ul className="space-y-2">
-            {data.linked_user_stories.map((s, i) => {
-              const story = s as unknown as Record<string, unknown>
-              return (
-                <li key={i} className="rounded-md border p-2 text-sm">
-                  <div className="font-medium">{String(story.story ?? "")}</div>
-                  {story.priority ? (
-                    <Badge variant="outline" className="mt-1">
-                      {String(story.priority)}
-                    </Badge>
-                  ) : null}
-                  {story.acceptance_criteria ? (
-                    <pre className="whitespace-pre-wrap text-xs text-muted-foreground mt-1">
-                      {String(story.acceptance_criteria)}
-                    </pre>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
         </section>
       ) : null}
 
@@ -430,6 +373,39 @@ function DetailBody({
               loading="lazy"
             />
           </a>
+        </section>
+      ) : null}
+
+      {userAttachments.length > 0 ? (
+        <section>
+          <h3 className="text-sm font-medium mb-1">
+            Attachments ({userAttachments.length})
+          </h3>
+          <ul className="space-y-1.5">
+            {userAttachments.map((a) => (
+              <li
+                key={a.id}
+                className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs"
+              >
+                <span className="truncate font-mono">
+                  {a.filename ?? a.object_key}
+                </span>
+                <span className="text-muted-foreground shrink-0">
+                  {(a.byte_size / 1024).toFixed(1)} KB · {a.content_type}
+                </span>
+                {a.presigned_url ? (
+                  <a
+                    href={a.presigned_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 text-primary hover:underline"
+                  >
+                    Open
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
@@ -454,7 +430,7 @@ function DetailBody({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ADMIN_STATUS_VALUES.map((s) => (
+              {STATUS_VALUES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}
                 </SelectItem>
@@ -515,7 +491,7 @@ function DetailBody({
             onClick={() => {
               if (
                 window.confirm(
-                  "Delete this feedback? This removes the row + attachment.",
+                  "Delete this feedback? This removes the row + attachments.",
                 )
               ) {
                 onDelete()

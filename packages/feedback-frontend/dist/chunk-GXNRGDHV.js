@@ -63,19 +63,19 @@ function useFeedbackBindings() {
 // src/locales/en.ts
 var en = {
   "feedback.open_button": "Send feedback with RL3 Feedback",
-  "feedback.open_button_with_pending": "RL3 Feedback \u2014 {count} ticket(s) need your confirmation",
+  "feedback.open_button_with_pending": "RL3 Feedback \u2014 {count} ticket(s) updated recently",
   "feedback.tab.submit": "Submit feedback",
   "feedback.tab.mine": "My tickets",
   "feedback.mine.loading": "Loading your tickets\u2026",
   "feedback.mine.empty": "You haven't submitted any feedback yet.",
   "feedback.mine.error": "Could not load your tickets. Please retry later.",
-  "feedback.mine.action_hint": "We marked this resolved \u2014 check your email for the accept / reject links.",
+  "feedback.mine.action_hint": "We marked this resolved. Reply by email or file fresh feedback if it's still not right.",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
-  "feedback.panel_description": "Tell us what you saw, what you expected, and what we should change. We attach a redacted screenshot and technical metadata.",
-  "feedback.panel_skeleton_note": "Pick a feedback type to start.",
+  "feedback.panel_description": "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
   "feedback.powered_by": "powered by",
   "feedback.powered_by_aria": "Powered by RL3 AI Agency",
+  "feedback.optional": "optional",
   "feedback.mode_label": "Capture",
   "feedback.mode_whole_page": "Whole page",
   "feedback.mode_select_element": "Select element",
@@ -87,98 +87,31 @@ var en = {
   "feedback.type_label": "Type",
   "feedback.type.bug": "Bug",
   "feedback.type.bug_hint": "Something is broken or behaves wrong. Use this when reality doesn't match expectation.",
+  "feedback.type.ui": "UI",
+  "feedback.type.ui_hint": "Something on screen feels off \u2014 copy, layout, contrast, hierarchy, motion.",
+  "feedback.type.performance": "Performance",
+  "feedback.type.performance_hint": "Something is technically working but unacceptably slow.",
   "feedback.type.new_feature": "New feature",
   "feedback.type.new_feature_hint": "A capability that doesn't exist yet.",
   "feedback.type.extend_feature": "Extend feature",
   "feedback.type.extend_feature_hint": "Something exists but doesn't go far enough.",
-  "feedback.type.new_user_story": "New user story",
-  "feedback.type.new_user_story_hint": "A discrete job to be done expressed as a user story.",
-  "feedback.type.question": "Question / confusion",
-  "feedback.type.question_hint": "You got stuck; the product didn't tell you what to do next.",
-  "feedback.type.ux_polish": "UX polish",
-  "feedback.type.ux_polish_hint": "Not a bug, not a missing feature; the surface just feels rough.",
-  "feedback.type.performance": "Performance",
-  "feedback.type.performance_hint": "Something is technically working but unacceptably slow.",
-  "feedback.type.data_issue": "Data issue",
-  "feedback.type.data_issue_hint": "The numbers, names, statuses or relationships in the system look wrong.",
+  "feedback.type.other": "Other",
+  "feedback.type.other_hint": "Anything that doesn't fit the categories above.",
   "feedback.field.title": "Title",
   "feedback.field.title_hint": "Short, specific summary. Will be the email subject.",
   "feedback.field.title_placeholder": "Short summary\u2026",
-  "feedback.field.description": "Description",
-  "feedback.field.description_hint": "Markdown supported. The more concrete, the better.",
-  "feedback.field.description_placeholder": "Tell it from the affected user's point of view\u2026",
-  "feedback.field.consent_metadata": "I accept that redacted technical data is captured (URL, viewport, recent logs).",
-  "feedback.ticketing.section_label": "Ticket",
-  "feedback.field.follow_up_email": "Follow-up email",
-  "feedback.field.follow_up_email_hint": "Where we'll route status updates for this ticket.",
-  "feedback.field.follow_up_email_placeholder": "you@example.com",
-  "feedback.field.follow_up_email_help": "Pre-filled with your account email. Clear it to opt out of transition emails.",
-  "feedback.field.parent_ticket": "Linked to (optional)",
-  "feedback.field.parent_ticket_hint": "Reference a previous ticket \u2014 the parent auto-accepts when this one is accepted.",
-  "feedback.field.parent_ticket_placeholder": "FB-2026-0042",
-  "feedback.field.parent_ticket_help": "Format FB-YYYY-NNNN. Leave blank if this is a fresh issue.",
-  "feedback.field.parent_ticket_link": "Linked to {code}",
-  "feedback.field.severity": "Severity",
-  "feedback.field.severity_hint": "Blocker = blocks work \xB7 High = severely degraded \xB7 Medium = annoying \xB7 Low = polish.",
-  "feedback.severity.blocker": "Blocker",
-  "feedback.severity.high": "High",
-  "feedback.severity.medium": "Medium",
-  "feedback.severity.low": "Low",
-  "feedback.field.reproduction_steps": "Reproduction steps",
-  "feedback.field.reproduction_steps_hint": "A numbered list, step by step. As concrete as possible.",
-  "feedback.field.reproduction_steps_placeholder": "1. Log in as compliance officer.\n2. Open client X.\n3. Click 'Run KYC'.\n4. \u2026",
-  "feedback.field.expected_behavior": "Expected behavior",
-  "feedback.field.actual_behavior": "Actual behavior",
-  "feedback.field.problem_statement": "Problem statement",
-  "feedback.field.problem_statement_placeholder": "Today, compliance officers chase signed PDFs by email; this slows onboarding by 3 to 5 days per client.",
-  "feedback.field.proposed_solution": "Proposed solution",
-  "feedback.field.business_value": "Business value",
-  "feedback.field.business_value_placeholder": "Cuts onboarding cycle by 60 percent; unlocks tier 2 clients we currently turn away.",
-  "feedback.field.existing_feature": "Existing feature",
-  "feedback.field.gap_today": "Gap today",
-  "feedback.field.proposed_extension": "Proposed extension",
-  "feedback.field.user_story": "User story",
-  "feedback.field.user_story_placeholder": "As Mar\xEDa (Compliance Officer), I want to see a red badge on every client missing a UBO, so that I can clear the queue without opening each file.",
-  "feedback.field.acceptance_criteria": "Acceptance criteria",
-  "feedback.field.acceptance_criteria_placeholder": "Given a client with no UBO record, when I open the client list, then I see a red 'UBO missing' badge next to the name.",
-  "feedback.field.priority": "Priority (MoSCoW)",
-  "feedback.priority.must": "Must",
-  "feedback.priority.should": "Should",
-  "feedback.priority.could": "Could",
-  "feedback.priority.wont": "Won't",
-  "feedback.field.what_were_you_trying_to_do": "What were you trying to do?",
-  "feedback.field.what_was_unclear": "What was unclear?",
-  "feedback.field.where_did_you_look_first": "Where did you look first? (Helps us decide where to put help text)",
-  "feedback.field.what_feels_off": "What feels off? (Copy, layout, contrast, hierarchy, motion\u2026)",
-  "feedback.field.suggested_change": "Suggested change",
-  "feedback.field.what_was_slow": "What was slow?",
-  "feedback.field.when_did_it_happen": "When did it happen?",
-  "feedback.when.on_load": "On load",
-  "feedback.when.on_action": "On action",
-  "feedback.when.intermittent": "Intermittent",
-  "feedback.when.always": "Always",
-  "feedback.field.perceived_duration_seconds": "Perceived duration (s)",
-  "feedback.field.which_record": "Which record? (id, name, or description)",
-  "feedback.field.expected_data": "Expected data",
-  "feedback.field.actual_data": "Actual data",
-  "feedback.field.impact": "Impact",
-  "feedback.persona.label": "User persona",
-  "feedback.persona.hint": "Who is the affected user? The more concrete, the better.",
-  "feedback.persona.insert_example": "Insert example",
-  "feedback.persona.pick_existing": "Pick existing",
-  "feedback.persona.pick_existing_help": "Reuse a persona from a previous submission",
-  "feedback.persona.placeholder": "Persona: name and one-line label\nRole and seniority\nGoals when using the CRM\nTop pain points today\nTools used alongside the CRM\nFrequency of use\nWhat success looks like in this situation, one sentence.",
-  "feedback.persona.example": "Persona: Mar\xEDa, Senior Compliance Officer at a mid-size CSP firm.\nRole: Reports to MLRO; eight years of experience.\nGoals: Onboard new clients in under 48 hours; keep audit trail clean for FCA inspections.\nPain points: Has to chase signed PDFs across email and Dropbox; cannot tell if a UBO is missing without opening the PDF.\nTools: Outlook, Excel, World Check, the firm's DMS.\nFrequency: Daily, four to six hours, mostly mornings.\nSuccess here: She can clear today's KYC queue without opening a single PDF.",
-  "feedback.stories.label": "Linked user stories",
-  "feedback.stories.hint": "One or more stories in the form 'As {persona}, I want {capability}, so that {outcome}.'",
-  "feedback.stories.add": "Add story",
-  "feedback.stories.remove": "Remove",
-  "feedback.stories.pick_existing": "Pick existing",
-  "feedback.stories.pick_existing_help": "Reuse a story from a previous submission",
-  "feedback.stories.story_placeholder": "As Mar\xEDa (Compliance Officer), I want to see a red badge on every client missing a UBO, so that I can clear the queue without opening each file.",
-  "feedback.stories.acceptance_placeholder": "Given a client with no UBO record, when I open the client list, then I see a red 'UBO missing' badge next to the name.",
-  "feedback.metadata.title": "What is captured?",
-  "feedback.metadata.summary": "URL, route, viewport, browser, last 50 console messages, last 20 failed network calls, breadcrumbs, app version, and commit SHA. Tokens and cookies are redacted automatically.",
+  "feedback.field.description": "What's happening?",
+  "feedback.field.description_placeholder": "Describe what you're seeing or what's missing. Be concrete.",
+  "feedback.field.expected_outcome": "How should it work?",
+  "feedback.field.expected_outcome_placeholder": "What you'd expect instead.",
+  "feedback.attachments.label": "Attachments",
+  "feedback.attachments.hint": "Wireframes, drawings, external logs, notes \u2014 up to 5 files of 10 MB each.",
+  "feedback.attachments.dropzone": "Drop files here or click to choose",
+  "feedback.attachments.too_many": "Up to {max} files per submission.",
+  "feedback.attachments.too_big": "{name} is too large (max {max}).",
+  "feedback.attachments.bad_type": "{name} has an unsupported file type. We accept images (PNG/JPG/GIF/WebP), PDFs, plain text, markdown, and JSON.",
+  "feedback.attachments.remove": "Remove {name}",
+  "feedback.metadata_disclosure": "We capture page URL and basic context (viewport, recent logs) to help triage. Tokens and cookies are redacted automatically.",
   "feedback.cancel": "Cancel",
   "feedback.submit": "Send feedback",
   "feedback.submitting": "Sending\u2026",
@@ -188,7 +121,6 @@ var en = {
   "feedback.toast_error_generic": "Could not send the feedback. Try again.",
   "feedback.toast_error_429": "Too much feedback. Retry in {seconds}s.",
   "feedback.toast_error_required_field": "Required: {field}.",
-  "feedback.toast_type_change_warning": "Type-specific fields cleared when switching types.",
   "feedback.toast_screenshot_failed": "Could not capture the screen. Sending the feedback without it."
 };
 
@@ -346,11 +278,16 @@ async function _buildHeaders(bindings, base = {}) {
   }
   return headers;
 }
-async function submitFeedback(bindings, payloadJson, screenshot) {
+async function submitFeedback(bindings, payloadJson, screenshot, attachments) {
   const form = new FormData();
   form.append("payload", payloadJson);
   if (screenshot) {
     form.append("screenshot", screenshot, "screenshot.png");
+  }
+  if (attachments && attachments.length > 0) {
+    for (const file of attachments) {
+      form.append("attachments", file, file.name);
+    }
   }
   const headers = await _buildHeaders(bindings);
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}`;
@@ -372,18 +309,6 @@ async function submitFeedback(bindings, payloadJson, screenshot) {
       typeof detail === "string" ? detail : JSON.stringify(detail),
       resp.headers.get("Retry-After")
     );
-  }
-  return await resp.json();
-}
-async function consumeActionToken(bindings, token, action) {
-  const headers = await _buildHeaders(bindings);
-  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/action/${encodeURIComponent(
-    token
-  )}?action=${action}`;
-  const resp = await fetch(url, { method: "POST", credentials: "include", headers });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`POST /feedback/action/${token} failed (${resp.status}) ${text}`);
   }
   return await resp.json();
 }
@@ -531,29 +456,12 @@ function useDeleteFeedbackMutation() {
     }
   });
 }
-function usePersonasQuery(limit = 50) {
-  const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "personas", limit],
-    queryFn: () => _getJson(bindings, "/personas", { limit }),
-    staleTime: 6e4
-  });
-}
-function useUserStoriesQuery(limit = 100) {
-  const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "user-stories", limit],
-    queryFn: () => _getJson(bindings, "/user-stories", { limit }),
-    staleTime: 6e4
-  });
-}
 function createAdapter(bindings) {
   const adapter = {
     useCurrentUser,
     appVersion: APP_VERSION,
     gitSha: GIT_COMMIT_SHA,
-    submitFeedback: (payloadJson, screenshot) => submitFeedback(bindings, payloadJson, screenshot),
-    consumeActionToken: (token, action) => consumeActionToken(bindings, token, action),
+    submitFeedback: (payloadJson, screenshot, attachments) => submitFeedback(bindings, payloadJson, screenshot, attachments),
     downloadFeedbackBundle: (feedbackId) => downloadFeedbackBundleViaBindings(bindings, feedbackId),
     getDeepLinkToFeedback: (id) => getDeepLinkToFeedback(id, bindings.getDeepLinkBase?.()),
     getDefaultRedactionSelectors,
@@ -969,7 +877,7 @@ import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
 function statusVariant(s) {
   if (s === "new") return "default";
   if (s === "triaged" || s === "in_progress") return "secondary";
-  if (s === "wont_fix" || s === "rejected_by_user") return "destructive";
+  if (s === "wont_fix") return "destructive";
   return "outline";
 }
 function humanStatus(s) {
@@ -981,13 +889,9 @@ function humanStatus(s) {
     case "in_progress":
       return "In progress";
     case "done":
-      return "Awaiting your confirmation";
+      return "Resolved";
     case "wont_fix":
       return "Closed (won't fix)";
-    case "accepted_by_user":
-      return "Closed by you";
-    case "rejected_by_user":
-      return "Reopened by you";
     default:
       return s;
   }
@@ -1009,7 +913,7 @@ function MyTicketsPanel({
     return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
   }
   return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
-    const needsAction = r.status === "done";
+    const recentlyResolved = r.status === "done";
     const clickable = !!onSelectTicket;
     const Tag = clickable ? "button" : "div";
     return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
@@ -1018,7 +922,7 @@ function MyTicketsPanel({
         type: clickable ? "button" : void 0,
         onClick: clickable ? () => onSelectTicket?.(r) : void 0,
         className: `w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
-                ${needsAction ? "border-primary bg-primary/5" : "border-input"}
+                ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}
                 ${clickable ? "hover:bg-accent" : ""}`,
         children: [
           /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
@@ -1026,11 +930,7 @@ function MyTicketsPanel({
             /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
             /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title })
           ] }),
-          r.parent_ticket_code ? /* @__PURE__ */ jsxs3("span", { className: "text-[11px] text-muted-foreground", children: [
-            "\u21B3 Linked to ",
-            r.parent_ticket_code
-          ] }) : null,
-          needsAction ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+          recentlyResolved ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
         ]
       }
     ) }, r.id);
@@ -1060,142 +960,13 @@ function Input({ className, type, ...props }) {
   );
 }
 
-// src/ui/select.tsx
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
-function Select({
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Root, { "data-slot": "select", ...props });
-}
-function SelectValue({
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
-}
-function SelectTrigger({
-  className,
-  size = "default",
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxs4(
-    SelectPrimitive.Trigger,
-    {
-      "data-slot": "select-trigger",
-      "data-size": size,
-      className: cn(
-        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      ),
-      ...props,
-      children: [
-        children,
-        /* @__PURE__ */ jsx8(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4 opacity-50" }) })
-      ]
-    }
-  );
-}
-function SelectContent({
-  className,
-  children,
-  position = "popper",
-  align = "center",
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs4(
-    SelectPrimitive.Content,
-    {
-      "data-slot": "select-content",
-      className: cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
-        position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
-        className
-      ),
-      position,
-      align,
-      ...props,
-      children: [
-        /* @__PURE__ */ jsx8(SelectScrollUpButton, {}),
-        /* @__PURE__ */ jsx8(
-          SelectPrimitive.Viewport,
-          {
-            className: cn(
-              "p-1",
-              position === "popper" && "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-            ),
-            children
-          }
-        ),
-        /* @__PURE__ */ jsx8(SelectScrollDownButton, {})
-      ]
-    }
-  ) });
-}
-function SelectItem({
-  className,
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxs4(
-    SelectPrimitive.Item,
-    {
-      "data-slot": "select-item",
-      className: cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      ),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsx8("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx8(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx8(CheckIcon, { className: "size-4" }) }) }),
-        /* @__PURE__ */ jsx8(SelectPrimitive.ItemText, { children })
-      ]
-    }
-  );
-}
-function SelectScrollUpButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(
-    SelectPrimitive.ScrollUpButton,
-    {
-      "data-slot": "select-scroll-up-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
-      ...props,
-      children: /* @__PURE__ */ jsx8(ChevronUpIcon, { className: "size-4" })
-    }
-  );
-}
-function SelectScrollDownButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(
-    SelectPrimitive.ScrollDownButton,
-    {
-      "data-slot": "select-scroll-down-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
-      ...props,
-      children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4" })
-    }
-  );
-}
-
 // src/ui/textarea.tsx
-import { jsx as jsx9 } from "react/jsx-runtime";
+import { jsx as jsx8 } from "react/jsx-runtime";
 function Textarea({
   className,
   ...props
 }) {
-  return /* @__PURE__ */ jsx9(
+  return /* @__PURE__ */ jsx8(
     "textarea",
     {
       "data-slot": "textarea",
@@ -1217,8 +988,6 @@ export {
   useFeedbackDetailQuery,
   useUpdateFeedbackStatusMutation,
   useDeleteFeedbackMutation,
-  usePersonasQuery,
-  useUserStoriesQuery,
   createAdapter,
   FeedbackProvider,
   useFeedbackAdapter,
@@ -1228,11 +997,6 @@ export {
   Badge,
   Button,
   Input,
-  Select,
-  SelectValue,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
   Sheet,
   SheetContent,
   SheetHeader,
@@ -1247,4 +1011,4 @@ export {
   MyTicketsPanel,
   useMyPendingActionCount
 };
-//# sourceMappingURL=chunk-2ALMQ6BZ.js.map
+//# sourceMappingURL=chunk-GXNRGDHV.js.map

@@ -7,13 +7,6 @@ Your feedback "{{ feedback.title }}" has moved to {{ status_label }}.
 {% if triage_note %}--- Note from the team ---
 {{ triage_note }}
 
-{% endif %}{% if accept_url and reject_url %}--- Was this resolved? ---
-ACCEPT (issue resolved): {{ accept_url }}
-REJECT (still broken):    {{ reject_url }}
-
-The buttons are single-use and expire in {{ expiry_days }} days.
-Rejecting will let you submit a follow-up linked to ticket {{ ticket_code }}.
-{% endif %}{% if deep_link %}
-Open the ticket in {{ brand_name }}: {{ deep_link }}
+{% endif %}{% if deep_link %}Open the ticket in {{ brand_name }}: {{ deep_link }}
 {% endif %}
 {% endblock %}

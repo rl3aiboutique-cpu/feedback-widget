@@ -7,7 +7,6 @@
  *     FeedbackProvider,
  *     FeedbackButton,
  *     FeedbackTriagePage,
- *     FeedbackActionPage,
  *     type FeedbackHostBindings,
  *   } from "@rl3/feedback-widget"
  *   import "@rl3/feedback-widget/styles.css"
@@ -25,7 +24,6 @@ export {
   default as FeedbackButtonDefault,
   FeedbackButton,
 } from "./FeedbackButton"
-export { FeedbackActionPage } from "./public/FeedbackActionPage"
 
 export {
   type FeedbackConfig,
@@ -40,7 +38,6 @@ export {
   createAdapter,
   type FeedbackAdapter,
   type FeedbackHostBindings,
-  type PublicActionResult,
   SubmitFeedbackError,
 } from "./adapter"
 
@@ -61,5 +58,4 @@ export {
   type FeedbackStatus,
   type FeedbackStatusUpdate,
   type FeedbackType,
-  type LinkedUserStory,
 } from "./client"

@@ -132,7 +132,7 @@ def cmd_verify() -> None:
             with eng.connect() as c:
                 c.execute(text("SELECT 1"))
             table.add_row("postgres", "[green]OK[/green]", "SELECT 1 succeeded")
-        except Exception as exc:  # noqa: BLE001 — surface any connectivity error to user
+        except Exception as exc:
             table.add_row("postgres", "[red]FAIL[/red]", str(exc)[:120])
             failures.append("postgres")
 
@@ -219,7 +219,7 @@ def cmd_verify() -> None:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as smtp:
             smtp.noop()
         table.add_row("smtp", "[green]OK[/green]", f"{settings.SMTP_HOST}:{settings.SMTP_PORT}")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         table.add_row("smtp", "[red]FAIL[/red]", str(exc)[:120])
         failures.append("smtp")
 

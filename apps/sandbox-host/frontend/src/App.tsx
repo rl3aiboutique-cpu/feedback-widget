@@ -1,5 +1,4 @@
 import {
-  FeedbackActionPage,
   FeedbackButton,
   FeedbackProvider,
   FeedbackTriagePage,
@@ -13,14 +12,12 @@ import {
   type SandboxRole,
 } from "./bindings"
 
-type View = "home" | "admin" | "accept" | "reject"
+type View = "home" | "admin"
 
 function _routeFromUrl(): View {
   if (typeof window === "undefined") return "home"
   const path = window.location.pathname
   if (path.startsWith("/admin/feedback")) return "admin"
-  if (path.startsWith("/feedback/accept")) return "accept"
-  if (path.startsWith("/feedback/reject")) return "reject"
   return "home"
 }
 
@@ -95,22 +92,10 @@ export function App() {
         <main style={{ maxWidth: 960, margin: "32px auto", padding: "0 24px" }}>
           {view === "home" && <Home />}
           {view === "admin" && <FeedbackTriagePage />}
-          {view === "accept" && (
-            <FeedbackActionPage
-              action="accept"
-              token={new URLSearchParams(window.location.search).get("token")}
-            />
-          )}
-          {view === "reject" && (
-            <FeedbackActionPage
-              action="reject"
-              token={new URLSearchParams(window.location.search).get("token")}
-            />
-          )}
         </main>
 
         {/* Mounted everywhere: the floating button is visible on every route. */}
-        {view !== "accept" && view !== "reject" && <FeedbackButton />}
+        <FeedbackButton />
       </div>
     </FeedbackProvider>
   )

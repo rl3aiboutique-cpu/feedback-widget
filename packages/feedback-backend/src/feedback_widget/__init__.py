@@ -21,15 +21,14 @@ from typing import TYPE_CHECKING
 
 from feedback_widget.auth import CurrentUserSnapshot, FeedbackAuthAdapter
 from feedback_widget.deps import WidgetDependencies, build_dependencies
-from feedback_widget.integration import (
-    make_sync_engine,
-    mount_feedback_widget_for_async_host,
-)
 from feedback_widget.exceptions import (
     FeedbackError,
     FeedbackNotFoundError,
     FeedbackRateLimitExceededError,
-    FeedbackTypeRequiresFieldError,
+)
+from feedback_widget.integration import (
+    make_sync_engine,
+    mount_feedback_widget_for_async_host,
 )
 from feedback_widget.models import (
     Feedback,
@@ -46,7 +45,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.1.13"
+__version__ = "0.2.0"
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +61,6 @@ __all__ = [
     "FeedbackSettings",
     "FeedbackStatus",
     "FeedbackType",
-    "FeedbackTypeRequiresFieldError",
     "StorageBackend",
     "WidgetDependencies",
     "__version__",
@@ -78,10 +76,10 @@ __all__ = [
 
 
 def register_feedback_router(
-    app: "FastAPI",
+    app: FastAPI,
     *,
     auth: FeedbackAuthAdapter,
-    engine: "Engine",
+    engine: Engine,
     settings: FeedbackSettings | None = None,
     prefix: str = "/feedback",
     storage: StorageBackend | None = None,
@@ -126,7 +124,7 @@ def register_feedback_router(
     )
     try:
         s3.ensure_bucket()
-    except Exception as exc:  # noqa: BLE001 — surface to host operator
+    except Exception as exc:
         if failsafe:
             logger.warning(
                 "feedback_widget: ensure_bucket failed (FAILSAFE on, "

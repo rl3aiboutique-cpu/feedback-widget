@@ -18,12 +18,11 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
+# Import the package models so SQLModel.metadata knows about them.
+import feedback_widget.models  # noqa: F401
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 from sqlmodel import SQLModel
-
-# Import the package models so SQLModel.metadata knows about them.
-import feedback_widget.models  # noqa: F401
 
 config = context.config
 
