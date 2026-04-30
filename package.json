@@ -1,9 +1,35 @@
 {
-  "name": "rl3-feedback-widget-monorepo",
-  "version": "0.1.0",
-  "private": true,
-  "description": "RL3 Feedback Widget — extractable in-app feedback module for any web host.",
+  "name": "@rl3/feedback-widget",
+  "version": "0.1.2",
+  "description": "RL3 in-app feedback widget — React provider, floating button, admin triage, magic-link landing pages.",
   "license": "UNLICENSED",
+  "type": "module",
+  "main": "./packages/feedback-frontend/dist/index.js",
+  "module": "./packages/feedback-frontend/dist/index.js",
+  "types": "./packages/feedback-frontend/dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./packages/feedback-frontend/dist/index.d.ts",
+      "import": "./packages/feedback-frontend/dist/index.js"
+    },
+    "./styles.css": "./packages/feedback-frontend/dist/styles.css",
+    "./tailwind-preset": {
+      "types": "./packages/feedback-frontend/dist/tailwind-preset.d.ts",
+      "import": "./packages/feedback-frontend/dist/tailwind-preset.js"
+    }
+  },
+  "files": [
+    "packages/feedback-frontend/dist",
+    "packages/feedback-frontend/package.json",
+    "README.md",
+    "docs/INSTALL.md",
+    "docker-compose.feedback.yml"
+  ],
+  "peerDependencies": {
+    "react": ">=18.2 <20",
+    "react-dom": ">=18.2 <20",
+    "@tanstack/react-query": ">=5"
+  },
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=20.10",
