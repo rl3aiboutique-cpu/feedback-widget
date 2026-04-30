@@ -5,9 +5,17 @@ The widget's router builds its dependencies by calling
 :func:`register_feedback_router`) — the result is a small bundle of
 ``Depends(...)``-friendly callables. This keeps the auth-adapter +
 engine + settings injection out of every endpoint signature.
-"""
 
-from __future__ import annotations
+NOTE: this module intentionally does NOT use ``from __future__ import
+annotations``. FastAPI's OpenAPI generator calls ``get_type_hints()`` on
+the closure-captured ``_get_current_admin`` to resolve its
+``Annotated[CurrentUserSnapshot, Depends(_get_current_user)]`` parameter.
+Because ``_get_current_user`` is local to ``build_dependencies`` (not
+module-scoped), the lazy ForwardRef-resolution that ``__future__``
+imports trigger fails with ``PydanticUserError: ... is not fully
+defined``. Keeping annotations eager avoids that — see
+``tests/integration/test_openapi_schema.py`` for the regression test.
+"""
 
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
