@@ -343,7 +343,10 @@ def build_router(
                 settings=cfg,
             )
             rows = service.list_mine(user_id=current_user.user_id, limit=limit)
-            return [service.to_read(r, sign_urls=False) for r in rows]
+            # Sign URLs so the submitter can preview their own
+            # screenshots + attachments without going through admin
+            # triage. The list is already user-scoped.
+            return [service.to_read(r, sign_urls=True) for r in rows]
         except HTTPException:
             raise
         except Exception as exc:

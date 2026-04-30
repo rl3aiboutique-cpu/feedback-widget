@@ -65,6 +65,12 @@ var en = {
   "feedback.mine.empty": "You haven't submitted any feedback yet.",
   "feedback.mine.error": "Could not load your tickets. Please retry later.",
   "feedback.mine.action_hint": "We marked this resolved. Reply by email or file fresh feedback if it's still not right.",
+  "feedback.mine.submitted_at": "Submitted {date} UTC",
+  "feedback.mine.no_description": "(no description)",
+  "feedback.mine.triage_note": "Note from the team",
+  "feedback.mine.attachments": "Attachments ({count})",
+  "feedback.mine.open": "Open",
+  "feedback.mine.open_in_app": "Open in app \u2192",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
   "feedback.panel_description": "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
@@ -670,6 +676,10 @@ function Rl3Mark({
   );
 }
 
+// src/MyTicketsPanel.tsx
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+
 // src/ui/badge.tsx
 import { Slot as Slot2 } from "@radix-ui/react-slot";
 import { cva as cva2 } from "class-variance-authority";
@@ -728,6 +738,7 @@ function MyTicketsPanel({ onSelectTicket }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
+  const [expandedId, setExpandedId] = useState(null);
   if (query.isLoading) {
     return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
   }
@@ -740,23 +751,117 @@ function MyTicketsPanel({ onSelectTicket }) {
   }
   return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
     const recentlyResolved = r.status === "done";
-    const clickable = !!onSelectTicket;
-    const Tag = clickable ? "button" : "div";
+    const isOpen = expandedId === r.id;
     return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
-      Tag,
+      "div",
       {
-        type: clickable ? "button" : void 0,
-        onClick: clickable ? () => onSelectTicket?.(r) : void 0,
-        className: `w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
-                ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}
-                ${clickable ? "hover:bg-accent" : ""}`,
+        className: `rounded-md border ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}`,
         children: [
-          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-            /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-            /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title })
-          ] }),
-          recentlyResolved ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+          /* @__PURE__ */ jsxs3(
+            "button",
+            {
+              type: "button",
+              onClick: () => setExpandedId(isOpen ? null : r.id),
+              className: "w-full text-left p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md",
+              "aria-expanded": isOpen,
+              "aria-controls": `ticket-detail-${r.id}`,
+              "data-feedback-id": "feedback.mine.row",
+              children: [
+                /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
+                  /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+                  /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                  /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title }),
+                  isOpen ? /* @__PURE__ */ jsx6(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
+                ] }),
+                recentlyResolved && !isOpen ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+              ]
+            }
+          ),
+          isOpen ? /* @__PURE__ */ jsxs3(
+            "div",
+            {
+              id: `ticket-detail-${r.id}`,
+              className: "border-t border-input px-3 py-3 space-y-3 text-xs",
+              children: [
+                r.created_at ? /* @__PURE__ */ jsx6("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
+                  date: r.created_at.slice(0, 16).replace("T", " ")
+                }) }) : null,
+                /* @__PURE__ */ jsxs3("section", { children: [
+                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
+                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx6("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
+                ] }),
+                r.expected_outcome ? /* @__PURE__ */ jsxs3("section", { children: [
+                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
+                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
+                ] }) : null,
+                r.triage_note ? /* @__PURE__ */ jsxs3("section", { className: "rounded bg-muted/50 p-2", children: [
+                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
+                  /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: r.triage_note })
+                ] }) : null,
+                r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs3("section", { children: [
+                  /* @__PURE__ */ jsx6("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
+                    count: String(r.attachments.length)
+                  }) }),
+                  /* @__PURE__ */ jsx6("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
+                    const isImage = a.content_type.startsWith("image/");
+                    const label = a.filename ?? a.kind;
+                    return /* @__PURE__ */ jsxs3(
+                      "li",
+                      {
+                        className: "flex items-center gap-2 rounded border border-input bg-background p-1.5",
+                        children: [
+                          isImage && a.presigned_url ? /* @__PURE__ */ jsx6(
+                            "a",
+                            {
+                              href: a.presigned_url,
+                              target: "_blank",
+                              rel: "noreferrer",
+                              className: "shrink-0",
+                              children: /* @__PURE__ */ jsx6(
+                                "img",
+                                {
+                                  src: a.presigned_url,
+                                  alt: label,
+                                  className: "h-10 w-10 rounded object-cover",
+                                  loading: "lazy"
+                                }
+                              )
+                            }
+                          ) : null,
+                          /* @__PURE__ */ jsx6("span", { className: "flex-1 truncate font-mono", children: label }),
+                          /* @__PURE__ */ jsxs3("span", { className: "text-muted-foreground shrink-0", children: [
+                            (a.byte_size / 1024).toFixed(1),
+                            " KB"
+                          ] }),
+                          a.presigned_url ? /* @__PURE__ */ jsx6(
+                            "a",
+                            {
+                              href: a.presigned_url,
+                              target: "_blank",
+                              rel: "noreferrer",
+                              className: "shrink-0 text-primary hover:underline",
+                              children: t("feedback.mine.open")
+                            }
+                          ) : null
+                        ]
+                      },
+                      a.id
+                    );
+                  }) })
+                ] }) : null,
+                onSelectTicket ? /* @__PURE__ */ jsx6(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => onSelectTicket(r),
+                    className: "text-primary hover:underline",
+                    "data-feedback-id": "feedback.mine.deeplink",
+                    children: t("feedback.mine.open_in_app")
+                  }
+                ) : null
+              ]
+            }
+          ) : null
         ]
       }
     ) }, r.id);
@@ -1103,4 +1208,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-HXB4BRAE.js.map
+//# sourceMappingURL=chunk-QHL2D7PL.js.map

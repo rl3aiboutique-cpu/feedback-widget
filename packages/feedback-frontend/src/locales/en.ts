@@ -12,6 +12,12 @@ export const en: Record<string, string> = {
   "feedback.mine.error": "Could not load your tickets. Please retry later.",
   "feedback.mine.action_hint":
     "We marked this resolved. Reply by email or file fresh feedback if it's still not right.",
+  "feedback.mine.submitted_at": "Submitted {date} UTC",
+  "feedback.mine.no_description": "(no description)",
+  "feedback.mine.triage_note": "Note from the team",
+  "feedback.mine.attachments": "Attachments ({count})",
+  "feedback.mine.open": "Open",
+  "feedback.mine.open_in_app": "Open in app →",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
   "feedback.panel_description":

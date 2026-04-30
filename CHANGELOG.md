@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-04-30
+
+Additive (no schema change). Submitter-facing ticket preview.
+
+### Added
+- **Inline ticket preview** in `MyTicketsPanel`: clicking a row expands
+  it to show description, expected outcome, admin triage note, and
+  attachments with image thumbnails. The full ticket detail was already
+  in the `GET /feedback/mine` response — the panel now actually renders
+  it.
+- **Signed attachment URLs on `/feedback/mine`** so the submitter can
+  preview their own screenshots and uploads without admin role.
+
 ## [0.2.0] — 2026-04-30
 
 UX-first simplification + multi-file attachments. **Breaking** — the
