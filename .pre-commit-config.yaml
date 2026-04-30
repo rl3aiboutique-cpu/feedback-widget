@@ -73,6 +73,7 @@ repos:
       - id: no-cross-boundary-imports
         name: no @/ imports inside the widget src/
         language: system
-        entry: bash -c 'if grep -rn "from \"@/" packages/feedback-frontend/src/; then echo "::error:: cross-boundary @/ import inside widget"; exit 1; fi'
+        entry: |
+          bash -c 'if grep -rn "from \"@/" packages/feedback-frontend/src/; then echo "ERROR: cross-boundary @/ import inside widget"; exit 1; fi'
         pass_filenames: false
         files: ^packages/feedback-frontend/src/.*\.(ts|tsx)$
