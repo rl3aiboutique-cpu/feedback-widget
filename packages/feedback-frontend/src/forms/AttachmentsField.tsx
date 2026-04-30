@@ -182,7 +182,7 @@ export function AttachmentsField({
 		}
 	};
 
-	const onDrop = (e: React.DragEvent<HTMLDivElement>): void => {
+	const onDrop = (e: React.DragEvent<HTMLElement>): void => {
 		e.preventDefault();
 		e.stopPropagation();
 		setDragActive(false);
@@ -191,13 +191,13 @@ export function AttachmentsField({
 		}
 	};
 
-	const onDragOver = (e: React.DragEvent<HTMLDivElement>): void => {
+	const onDragOver = (e: React.DragEvent<HTMLElement>): void => {
 		e.preventDefault();
 		e.stopPropagation();
 		setDragActive(true);
 	};
 
-	const onDragLeave = (e: React.DragEvent<HTMLDivElement>): void => {
+	const onDragLeave = (e: React.DragEvent<HTMLElement>): void => {
 		e.preventDefault();
 		e.stopPropagation();
 		setDragActive(false);
