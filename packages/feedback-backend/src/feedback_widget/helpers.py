@@ -193,10 +193,16 @@ async def read_attachments(
         )
     results: list[AttachmentUpload] = []
     for upload in uploads:
+        original_filename = upload.filename or "attachment"
         data = await upload.read()
         if not data:
-            continue
-        original_filename = upload.filename or "attachment"
+            # Surface empty files instead of silently dropping them —
+            # users otherwise see "fewer attachments than I uploaded"
+            # with no signal why.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Attachment '{original_filename}' is empty.",
+            )
         if len(data) > settings.MAX_SCREENSHOT_BYTES:
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,

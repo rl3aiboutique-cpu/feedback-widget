@@ -441,6 +441,7 @@ class FeedbackService:
         # forever.
         from botocore.exceptions import BotoCoreError, ClientError
 
+        orphaned: list[tuple[str, str]] = []
         for a in attachments:
             try:
                 self.storage.delete(a.object_key, bucket=a.bucket)
@@ -450,7 +451,21 @@ class FeedbackService:
                     a.bucket,
                     a.object_key,
                 )
+                orphaned.append((a.bucket, a.object_key))
                 continue
+
+        if orphaned:
+            # Surface a single summary line so a sweep job can grep for
+            # this string and reconcile orphaned objects. The DB row is
+            # still being deleted (zombie row > orphaned object) but the
+            # admin should see this, not just discover it months later.
+            logger.warning(
+                "feedback delete: %d S3 object(s) orphaned for feedback_id=%s tenant_id=%s: %s",
+                len(orphaned),
+                feedback_id,
+                feedback.tenant_id,
+                ", ".join(f"{b}/{k}" for b, k in orphaned),
+            )
 
         # FK ON DELETE CASCADE removes the attachment + comment rows.
         self.session.delete(feedback)
@@ -501,12 +516,27 @@ class FeedbackService:
         author_role = (
             FeedbackCommentAuthorRole.ADMIN if is_admin else FeedbackCommentAuthorRole.SUBMITTER
         )
+        original = payload.body.strip()
+        redacted = redact_string(original)
+        if redacted != original:
+            # The redactor matched something inside user-typed text. Log
+            # so an operator can see when feedback content is being
+            # rewritten — the user never sees the diff, so silent
+            # rewrites would otherwise be invisible. Don't log the body.
+            logger.info(
+                "feedback_comment redactor modified user input: feedback_id=%s author=%s "
+                "before=%d after=%d",
+                feedback_id,
+                current_user_id,
+                len(original),
+                len(redacted),
+            )
         comment = FeedbackComment(
             feedback_id=feedback_id,
             tenant_id=feedback.tenant_id,
             author_user_id=current_user_id,
             author_role=author_role,
-            body=redact_string(payload.body.strip()),
+            body=redacted,
         )
         self.session.add(comment)
         self.session.flush()

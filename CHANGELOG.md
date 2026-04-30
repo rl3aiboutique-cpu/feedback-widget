@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] — 2026-04-30
+
+QA pass — fixes the silent-failure findings + type-contract gaps that
+the code-reviewer / silent-failure-hunter / architecture agents
+flagged on the v0.2.0 → v0.2.3 series.
+
+### Fixed
+- **`bundle.py`**: bundle ZIP no longer ships silently-incomplete on
+  storage failures. Catches `BotoCoreError` / `ClientError` (was
+  `OSError`/`RuntimeError` only — wrong shape for boto3), logs each
+  failure, and lists the missing artefacts in the README so the LLM
+  reading the bundle knows context is reduced.
+- **`service.delete()`**: orphaned S3 objects on cascade now surface a
+  single `logger.warning` summary line listing every `bucket/key`
+  that survived the row delete — sweep jobs can grep on a stable
+  prefix and reconcile.
+- **`service.create_comment()`**: when the redactor rewrites
+  user-typed comment text (e.g. dotted version strings matching the
+  JWT regex), log the before/after lengths so silent rewrites become
+  observable. The user's original is still mangled (no diff returned)
+  but at least operators see it.
+- **`helpers.read_attachments()`**: empty file uploads no longer
+  silently disappear from the result list. Now `400 Attachment '<n>'
+  is empty` so the user gets a clear signal.
+- **`adapter.ts`**: `_getJson` / `_patchJson` / `_deleteJson` /
+  `_postJson` now throw a typed `FeedbackApiError(status, path,
+  detail, retryAfter)` instead of `Error("PATCH /foo failed (500)
+  ...")`. The Retry-After header propagates to all callers, not just
+  `submitFeedback`.
+- **`CommentThread`**: `onError` branches on `FeedbackApiError`
+  status — 429 shows the rate-limit countdown, 401/403 shows a
+  re-auth prompt, everything else shows a clean generic message
+  instead of `String(err)` leaking server URLs.
+- **`FeedbackComment.tenant_id`**: ORM annotation widened from
+  `uuid.UUID` to `uuid.UUID | None` to match the migration's
+  `nullable=True`. Fixes the type-contract mismatch that would have
+  surfaced in single-tenant deployments (sapphira).
+- **`CommentThread` heading**: dropped the duplicated
+  `text-muted-foreground` so the heading actually renders in the
+  foreground colour.
+
+### Added
+- **Public exports**: `FeedbackApiError` (so hosts can branch on it
+  in their own toast handlers) plus `FeedbackCommentRead`,
+  `FeedbackCommentCreatePayload`, `FeedbackCommentListResponse`,
+  `FeedbackCommentAuthorRole` types — hosts that want to render the
+  comment thread standalone can now type against the public API
+  surface instead of importing internal `client/` paths.
+
 ## [0.2.3] — 2026-04-30
 
 Frontend-only fix.

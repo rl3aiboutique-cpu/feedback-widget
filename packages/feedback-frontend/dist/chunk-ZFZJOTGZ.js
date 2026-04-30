@@ -78,7 +78,8 @@ var en = {
   "feedback.comments.placeholder": "Write a reply\u2026",
   "feedback.comments.send": "Send",
   "feedback.comments.sending": "Sending\u2026",
-  "feedback.comments.send_error": "Could not send the message",
+  "feedback.comments.send_error": "Could not send the message. Please retry.",
+  "feedback.comments.send_unauthorized": "You don't have permission to post on this ticket. Try refreshing the page.",
   "feedback.comments.admin_label": "Team",
   "feedback.comments.submitter_label": "Submitter",
   "feedback.comments.you_label": "You",
@@ -257,6 +258,30 @@ var SubmitFeedbackError = class extends Error {
   body;
   retryAfter;
 };
+var FeedbackApiError = class extends Error {
+  constructor(status, path, detail, retryAfter) {
+    super(`${path} failed with ${status}`);
+    this.status = status;
+    this.path = path;
+    this.detail = detail;
+    this.retryAfter = retryAfter;
+    this.name = "FeedbackApiError";
+  }
+  status;
+  path;
+  detail;
+  retryAfter;
+};
+async function _throwApiError(path, resp) {
+  let detail;
+  try {
+    const data = await resp.json();
+    detail = typeof data === "string" ? data : data && typeof data === "object" && "detail" in data ? String(data.detail) : JSON.stringify(data);
+  } catch {
+    detail = await resp.text().catch(() => "");
+  }
+  throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
+}
 function _resolvePrefix(b) {
   return b.apiPathPrefix ?? "/api/v1/feedback";
 }
@@ -354,8 +379,7 @@ async function _getJson(bindings, path, query) {
     headers
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`GET ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`GET ${path}`, resp);
   }
   return await resp.json();
 }
@@ -371,8 +395,7 @@ async function _patchJson(bindings, path, body) {
     body: JSON.stringify(body)
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`PATCH ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`PATCH ${path}`, resp);
   }
   return await resp.json();
 }
@@ -385,8 +408,7 @@ async function _deleteJson(bindings, path) {
     headers
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`DELETE ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`DELETE ${path}`, resp);
   }
 }
 function useCurrentUser() {
@@ -470,8 +492,7 @@ async function _postJson(bindings, path, body) {
     body: JSON.stringify(body)
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`POST ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`POST ${path}`, resp);
   }
   return await resp.json();
 }
@@ -813,13 +834,24 @@ function CommentThread({ feedbackId }) {
           setDraft("");
         },
         onError: (err) => {
-          adapter.toast.error(`${t("feedback.comments.send_error")}: ${String(err)}`);
+          if (err instanceof FeedbackApiError) {
+            if (err.status === 429) {
+              const seconds = err.retryAfter ?? "?";
+              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
+              return;
+            }
+            if (err.status === 401 || err.status === 403) {
+              adapter.toast.error(t("feedback.comments.send_unauthorized"));
+              return;
+            }
+          }
+          adapter.toast.error(t("feedback.comments.send_error"));
         }
       }
     );
   };
   return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
-    /* @__PURE__ */ jsx7("h4", { className: "font-semibold text-foreground text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.comments.thread_title") }),
+    /* @__PURE__ */ jsx7("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
     query.isLoading ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx7("ul", { className: "space-y-2", children: query.data?.data.map((c) => {
       const isMine = currentUser !== null && c.author_user_id === currentUser.id;
       const label = isMine ? t("feedback.comments.you_label") : c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.submitter_label");
@@ -1358,4 +1390,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-5NHQ7LY6.js.map
+//# sourceMappingURL=chunk-ZFZJOTGZ.js.map

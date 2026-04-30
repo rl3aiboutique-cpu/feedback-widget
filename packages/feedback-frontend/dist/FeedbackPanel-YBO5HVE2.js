@@ -21,7 +21,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-5NHQ7LY6.js";
+} from "./chunk-ZFZJOTGZ.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
@@ -842,4 +842,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-3JXXLSOH.js.map
+//# sourceMappingURL=FeedbackPanel-YBO5HVE2.js.map

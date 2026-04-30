@@ -17,6 +17,8 @@ the widget's audit trail; download is a read-only export.
 from __future__ import annotations
 
 import json
+import logging
+from contextlib import suppress
 from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
@@ -28,6 +30,24 @@ from feedback_widget.models import (
     FeedbackAttachmentKind,
     FeedbackStatus,
 )
+
+logger = logging.getLogger(__name__)
+
+
+# Storage backends the widget supports raise these (boto3 BotoCoreError
+# / ClientError, file-backend OSError) plus generic stragglers
+# (RuntimeError, ValueError on truncated downloads). Catch the union so
+# we can log + record which artefact was missed without taking a hard
+# dependency on boto3 here.
+def _import_boto_errors() -> tuple[type[BaseException], ...]:
+    with suppress(ImportError):
+        from botocore.exceptions import BotoCoreError, ClientError
+
+        return (BotoCoreError, ClientError, OSError, RuntimeError)
+    return (OSError, RuntimeError)
+
+
+_STORAGE_DOWNLOAD_ERRORS: tuple[type[BaseException], ...] = _import_boto_errors()
 
 # Default repo URL surfaced in the README of the LLM-handoff ZIP so the
 # coding LLM knows which codebase to apply patches against. Empty string
@@ -69,6 +89,7 @@ def _render_readme(
     *,
     submitter: dict[str, str | None] | None = None,
     repo_url: str = DEFAULT_REPO_URL,
+    missing: list[str] | None = None,
 ) -> str:
     """For-LLM prompt block + ticket quick-summary.
 
@@ -110,6 +131,17 @@ def _render_readme(
         f"`{fb.element_selector or '(whole-page mode)'}`",
         "",
     ]
+    if missing:
+        lines += [
+            "## ⚠️ Missing artefacts",
+            "",
+            "The following file(s) were expected in this archive but the storage",
+            "backend failed to deliver them. Triage with this caveat in mind —",
+            "the LLM is reading reduced context.",
+            "",
+        ]
+        lines += [f"- `{path}`" for path in missing]
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -171,13 +203,10 @@ def build_feedback_bundle(
     concrete backend.
     """
     metadata = fb.metadata_bundle or {}
+    missing: list[str] = []
 
     buffer = BytesIO()
     with ZipFile(buffer, "w", ZIP_DEFLATED) as archive:
-        archive.writestr(
-            "README.md",
-            _render_readme(fb, submitter=submitter, repo_url=repo_url),
-        )
         archive.writestr("ticket.md", _render_ticket(fb))
         archive.writestr("triage.md", _render_triage(fb))
         archive.writestr("metadata.json", json.dumps(metadata, indent=2, default=str))
@@ -194,9 +223,18 @@ def build_feedback_bundle(
                     bucket=screenshot_attachment.bucket,
                 )
                 archive.writestr("screenshot.png", screenshot_bytes)
-            except (OSError, RuntimeError):
-                # Storage transient failure — ship the bundle anyway.
-                pass
+            except _STORAGE_DOWNLOAD_ERRORS as exc:
+                # Log loudly so transient storage failures don't ship
+                # silent broken bundles. Surface in the README so the
+                # LLM (and the admin) know the screenshot was supposed
+                # to be there.
+                logger.warning(
+                    "feedback bundle: screenshot download failed for ticket=%s key=%s: %s",
+                    fb.ticket_code or fb.id,
+                    screenshot_attachment.object_key,
+                    exc,
+                )
+                missing.append("screenshot.png")
 
         # User-uploaded attachments — wireframes, logs, notes, extra
         # screenshots. Embedded under ``attachments/`` so the LLM can
@@ -208,8 +246,28 @@ def build_feedback_bundle(
             try:
                 content = storage.download(a.object_key, bucket=a.bucket)
                 archive.writestr(f"attachments/{safe_name}", content)
-            except (OSError, RuntimeError):
+            except _STORAGE_DOWNLOAD_ERRORS as exc:
+                logger.warning(
+                    "feedback bundle: attachment download failed for ticket=%s key=%s: %s",
+                    fb.ticket_code or fb.id,
+                    a.object_key,
+                    exc,
+                )
+                missing.append(f"attachments/{safe_name}")
                 continue
+
+        # README is written AFTER the file fetches so it can list any
+        # artefacts that failed to embed — gives the LLM a clear signal
+        # rather than guessing why context is missing.
+        archive.writestr(
+            "README.md",
+            _render_readme(
+                fb,
+                submitter=submitter,
+                repo_url=repo_url,
+                missing=missing,
+            ),
+        )
 
         # Raw extracts pulled out of metadata_bundle for direct LLM ingestion.
         # These keys are populated by the widget capture pipeline; ship the

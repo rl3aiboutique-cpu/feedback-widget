@@ -16,7 +16,11 @@ import { Send } from "lucide-react";
 import { useState } from "react";
 
 import { useFeedbackAdapter } from "../FeedbackProvider";
-import { useFeedbackCommentsQuery, usePostFeedbackCommentMutation } from "../adapter";
+import {
+  FeedbackApiError,
+  useFeedbackCommentsQuery,
+  usePostFeedbackCommentMutation,
+} from "../adapter";
 import type { FeedbackCommentRead } from "../client";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -49,7 +53,22 @@ export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactEl
           setDraft("");
         },
         onError: (err) => {
-          adapter.toast.error(`${t("feedback.comments.send_error")}: ${String(err)}`);
+          // Branch on FeedbackApiError so we surface specific UX
+          // (rate-limit countdown, re-auth prompt, generic 5xx) rather
+          // than dumping `String(err)` which leaks server URLs and
+          // status codes to the user.
+          if (err instanceof FeedbackApiError) {
+            if (err.status === 429) {
+              const seconds = err.retryAfter ?? "?";
+              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
+              return;
+            }
+            if (err.status === 401 || err.status === 403) {
+              adapter.toast.error(t("feedback.comments.send_unauthorized"));
+              return;
+            }
+          }
+          adapter.toast.error(t("feedback.comments.send_error"));
         },
       },
     );
@@ -57,7 +76,7 @@ export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactEl
 
   return (
     <section className="space-y-2">
-      <h4 className="font-semibold text-foreground text-xs uppercase tracking-wide text-muted-foreground">
+      <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
         {t("feedback.comments.thread_title")}
       </h4>
 

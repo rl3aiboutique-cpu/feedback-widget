@@ -139,6 +139,38 @@ export class SubmitFeedbackError extends Error {
   }
 }
 
+/** Typed error thrown by every JSON helper (GET / POST / PATCH / DELETE).
+ * Carries the HTTP status and Retry-After header so callers can show
+ * specific UX (rate-limit countdown, re-auth prompt) instead of leaking
+ * a raw `String(err)` to the user. */
+export class FeedbackApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly path: string,
+    public readonly detail: string,
+    public readonly retryAfter: string | null,
+  ) {
+    super(`${path} failed with ${status}`);
+    this.name = "FeedbackApiError";
+  }
+}
+
+async function _throwApiError(path: string, resp: Response): Promise<never> {
+  let detail: string;
+  try {
+    const data = await resp.json();
+    detail =
+      typeof data === "string"
+        ? data
+        : data && typeof data === "object" && "detail" in data
+          ? String((data as { detail: unknown }).detail)
+          : JSON.stringify(data);
+  } catch {
+    detail = await resp.text().catch(() => "");
+  }
+  throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
+}
+
 function _resolvePrefix(b: FeedbackHostBindings): string {
   return b.apiPathPrefix ?? "/api/v1/feedback";
 }
@@ -265,8 +297,7 @@ async function _getJson<T>(
     headers,
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`GET ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`GET ${path}`, resp);
   }
   return (await resp.json()) as T;
 }
@@ -287,8 +318,7 @@ async function _patchJson<T>(
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`PATCH ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`PATCH ${path}`, resp);
   }
   return (await resp.json()) as T;
 }
@@ -302,8 +332,7 @@ async function _deleteJson(bindings: FeedbackHostBindings, path: string): Promis
     headers,
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`DELETE ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`DELETE ${path}`, resp);
   }
 }
 
@@ -437,8 +466,7 @@ async function _postJson<T>(
     body: JSON.stringify(body),
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`POST ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`POST ${path}`, resp);
   }
   return (await resp.json()) as T;
 }

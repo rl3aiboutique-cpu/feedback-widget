@@ -25,7 +25,9 @@ export const en: Record<string, string> = {
   "feedback.comments.placeholder": "Write a reply…",
   "feedback.comments.send": "Send",
   "feedback.comments.sending": "Sending…",
-  "feedback.comments.send_error": "Could not send the message",
+  "feedback.comments.send_error": "Could not send the message. Please retry.",
+  "feedback.comments.send_unauthorized":
+    "You don't have permission to post on this ticket. Try refreshing the page.",
   "feedback.comments.admin_label": "Team",
   "feedback.comments.submitter_label": "Submitter",
   "feedback.comments.you_label": "You",

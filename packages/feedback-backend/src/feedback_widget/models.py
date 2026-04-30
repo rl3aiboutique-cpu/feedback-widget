@@ -259,8 +259,11 @@ class FeedbackComment(SQLModel, table=True):
             index=True,
         )
     )
-    # Mirrored from the parent row so the RLS policy applies without a join.
-    tenant_id: uuid.UUID = Field(index=True)
+    # Mirrored from the parent row so the RLS policy applies without a
+    # join. Single-tenant hosts may leave this NULL — match the parent
+    # ``feedback`` table's optional shape so the ORM model agrees with
+    # the migration's nullable=True column.
+    tenant_id: uuid.UUID | None = Field(default=None, index=True)
 
     author_user_id: uuid.UUID = Field(index=True)
     author_role: FeedbackCommentAuthorRole = Field(
