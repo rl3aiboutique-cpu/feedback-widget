@@ -38,8 +38,8 @@ def _include_object(
     object_: object,
     name: str | None,
     type_: str,
-    reflected: bool,  # noqa: ARG001
-    compare_to: object,  # noqa: ARG001
+    reflected: bool,
+    compare_to: object,
 ) -> bool:
     """Limit autogenerate to the package's own tables."""
     if type_ == "table":

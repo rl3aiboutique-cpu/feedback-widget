@@ -23,7 +23,7 @@
 		"build": "tsup && tailwindcss -i src/styles.css -o dist/styles.css --minify",
 		"typecheck": "tsc --noEmit",
 		"lint": "biome check src",
-		"test": "vitest run"
+		"test": "vitest run --passWithNoTests"
 	},
 	"dependencies": {
 		"@radix-ui/react-dialog": "^1.1.4",

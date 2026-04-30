@@ -50,7 +50,7 @@ def upgrade() -> None:
         "DELETE FROM feedback WHERE type IN "
         "('new_user_story', 'question', 'ux_polish', 'data_issue')"
     )
-    op.execute("DELETE FROM feedback WHERE status IN " "('accepted_by_user', 'rejected_by_user')")
+    op.execute("DELETE FROM feedback WHERE status IN ('accepted_by_user', 'rejected_by_user')")
     op.execute("DELETE FROM feedback_attachment WHERE kind = 'log_dump'")
 
     # 2. Drop columns from feedback. Postgres cascades dependent
@@ -82,9 +82,7 @@ def upgrade() -> None:
         "('bug', 'ui', 'performance', 'new_feature', 'extend_feature', 'other')"
     )
     op.execute(
-        "ALTER TABLE feedback "
-        "ALTER COLUMN type TYPE feedback_type "
-        "USING type::text::feedback_type"
+        "ALTER TABLE feedback ALTER COLUMN type TYPE feedback_type USING type::text::feedback_type"
     )
     op.execute("DROP TYPE feedback_type_old")
 
@@ -94,20 +92,19 @@ def upgrade() -> None:
     op.execute("ALTER TABLE feedback ALTER COLUMN status DROP DEFAULT")
     op.execute("ALTER TYPE feedback_status RENAME TO feedback_status_old")
     op.execute(
-        "CREATE TYPE feedback_status AS ENUM "
-        "('new', 'triaged', 'in_progress', 'done', 'wont_fix')"
+        "CREATE TYPE feedback_status AS ENUM ('new', 'triaged', 'in_progress', 'done', 'wont_fix')"
     )
     op.execute(
         "ALTER TABLE feedback "
         "ALTER COLUMN status TYPE feedback_status "
         "USING status::text::feedback_status"
     )
-    op.execute("ALTER TABLE feedback " "ALTER COLUMN status SET DEFAULT 'new'::feedback_status")
+    op.execute("ALTER TABLE feedback ALTER COLUMN status SET DEFAULT 'new'::feedback_status")
     op.execute("DROP TYPE feedback_status_old")
 
     # 6. Recreate feedback_attachment_kind enum.
-    op.execute("ALTER TYPE feedback_attachment_kind " "RENAME TO feedback_attachment_kind_old")
-    op.execute("CREATE TYPE feedback_attachment_kind AS ENUM " "('screenshot', 'user_attachment')")
+    op.execute("ALTER TYPE feedback_attachment_kind RENAME TO feedback_attachment_kind_old")
+    op.execute("CREATE TYPE feedback_attachment_kind AS ENUM ('screenshot', 'user_attachment')")
     op.execute(
         "ALTER TABLE feedback_attachment "
         "ALTER COLUMN kind TYPE feedback_attachment_kind "

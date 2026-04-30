@@ -140,7 +140,7 @@ def build_router(
                                         "format": "binary",
                                     },
                                     "description": (
-                                        "Up to 5 user-uploaded files " "(images, PDF, text, logs)."
+                                        "Up to 5 user-uploaded files (images, PDF, text, logs)."
                                     ),
                                 },
                             },
