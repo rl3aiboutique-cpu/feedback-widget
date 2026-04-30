@@ -124,6 +124,47 @@ export function FeedbackPanel({
     if (locked) setMode("element")
   }, [locked])
 
+  // useCurrentUser typically returns null on first render (query still
+  // loading) and resolves a tick later. The useState initializer above
+  // captures the null and never re-runs, so the follow_up_email field
+  // ships empty even though the user is logged in. Patch the field once
+  // the email arrives — only if the user hasn't typed anything in it.
+  useEffect(() => {
+    if (user?.email && !values.follow_up_email) {
+      setValues((cur) => ({ ...cur, follow_up_email: user.email ?? "" }))
+    }
+  }, [user?.email, values.follow_up_email])
+
+  // Field-level validation errors. Keys correspond to the `reason` strings
+  // returned by validate() (e.g. "title", "severity", "persona"). Cleared
+  // when the user touches the field again or when submit succeeds.
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+
+  // When the user edits any field, clear errors for that field so the
+  // red marker disappears as soon as they fix it.
+  useEffect(() => {
+    if (Object.keys(fieldErrors).length === 0) return
+    const cleared: Record<string, string> = {}
+    for (const [k, v] of Object.entries(fieldErrors)) {
+      // Heuristic: clear if the corresponding field is now non-empty.
+      // For type_fields we check if the key exists in values.type_fields.
+      if (k === "title" && values.title.trim()) continue
+      if (k === "description" && values.description.trim()) continue
+      if (k === "persona" && values.persona.trim()) continue
+      if (k === "follow_up_email" && values.follow_up_email.trim()) continue
+      if (k === "parent_ticket_code" && values.parent_ticket_code.trim()) continue
+      if (k === "consent_metadata_capture" && values.consent_metadata_capture) continue
+      if (k === "linked_user_stories" && values.linked_user_stories.length > 0) continue
+      // For type_fields, check if the key has been filled.
+      const tf = values.type_fields[k]
+      if (tf !== undefined && tf !== null && tf !== "") continue
+      cleared[k] = v
+    }
+    if (Object.keys(cleared).length !== Object.keys(fieldErrors).length) {
+      setFieldErrors(cleared)
+    }
+  }, [values, fieldErrors])
+
   const selectorInfo: FeedbackElementInfo | null = useMemo(() => {
     if (!locked) return null
     return {
@@ -196,9 +237,43 @@ export function FeedbackPanel({
   const onSubmit = async (): Promise<void> => {
     const v = validate()
     if (!v.ok) {
-      adapter.toast.error(t("feedback.toast_error_generic"))
+      // Build a per-field error map keyed by the `reason` validate()
+      // returned, plus a friendly message naming the offending field.
+      const reason = v.reason
+      const fieldLabel = (() => {
+        switch (reason) {
+          case "type":
+            return t("feedback.type_label")
+          case "title":
+            return t("feedback.field.title")
+          case "description":
+            return t("feedback.field.description")
+          case "persona":
+            return t("feedback.persona.label")
+          case "linked_user_stories":
+            return t("feedback.stories.label")
+          case "follow_up_email":
+            return t("feedback.field.follow_up_email")
+          case "parent_ticket_code":
+            return t("feedback.field.parent_ticket")
+          case "consent_metadata_capture":
+            return t("feedback.field.consent_metadata")
+          default: {
+            // Type-specific field (e.g. "severity", "actual_behavior")
+            const def = values.type ? getTypeDef(values.type) : null
+            const f = def?.fields.find((x) => x.name === reason)
+            return f ? t(f.labelKey) : reason
+          }
+        }
+      })()
+      const message = t("feedback.toast_error_required_field", {
+        field: fieldLabel,
+      })
+      setFieldErrors({ [reason]: message })
+      adapter.toast.error(message)
       return
     }
+    setFieldErrors({})
     setSubmitting(true)
     try {
       // Hide the panel for a moment so the screenshot doesn't catch it.
@@ -394,7 +469,7 @@ export function FeedbackPanel({
                 ) : null}
               </div>
 
-              <FeedbackForm values={values} onChange={setValues} />
+              <FeedbackForm values={values} onChange={setValues} errors={fieldErrors} />
 
               <details className="rounded-md border border-input p-3 text-xs text-muted-foreground">
                 <summary className="cursor-pointer font-medium text-foreground">

@@ -88,11 +88,20 @@ def test_wrong_secret_returns_none() -> None:
     assert auth.get_current_user(_request(f"Bearer {token}")) is None
 
 
-def test_missing_email_returns_none() -> None:
-    """Without email we cannot construct a CurrentUserSnapshot."""
+def test_missing_email_returns_snapshot_with_email_none() -> None:
+    """Email is OPTIONAL — host tokens without the claim still work.
+
+    The widget falls back to follow_up_email for transition emails, and
+    admin notifications use the submitter-typed email instead of the
+    snapshot one.
+    """
     auth = JWTBearerAuth(secret_key=SECRET)
     token = _token({"sub": str(USER_UUID), "role": "MANAGER"})
-    assert auth.get_current_user(_request(f"Bearer {token}")) is None
+    snap = auth.get_current_user(_request(f"Bearer {token}"))
+    assert snap is not None
+    assert snap.user_id == USER_UUID
+    assert snap.email is None
+    assert snap.role == "MANAGER"
 
 
 def test_missing_sub_returns_none() -> None:

@@ -23,7 +23,7 @@ import {
   useFeedbackAdapter,
   usePersonasQuery,
   useUserStoriesQuery
-} from "./chunk-2VEKEJIP.js";
+} from "./chunk-462XMQG2.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState3 } from "react";
@@ -789,9 +789,11 @@ var EMPTY_FORM = {
   follow_up_email: "",
   parent_ticket_code: ""
 };
+var _RequiredMark = () => /* @__PURE__ */ jsx5("span", { "aria-hidden": "true", className: "ml-0.5 text-destructive", children: "*" });
 function FeedbackForm({
   values,
-  onChange
+  onChange,
+  errors = {}
 }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
@@ -857,12 +859,15 @@ function FeedbackForm({
     ] }),
     activeDef ? /* @__PURE__ */ jsxs4(Fragment, { children: [
       /* @__PURE__ */ jsxs4("div", { className: "space-y-2", children: [
-        /* @__PURE__ */ jsx5(
+        /* @__PURE__ */ jsxs4(
           Label,
           {
             htmlFor: "feedback-title",
             title: t("feedback.field.title_hint"),
-            children: t("feedback.field.title")
+            children: [
+              t("feedback.field.title"),
+              /* @__PURE__ */ jsx5(_RequiredMark, {})
+            ]
           }
         ),
         /* @__PURE__ */ jsx5(
@@ -873,17 +878,24 @@ function FeedbackForm({
             onChange: (e) => setField("title", e.target.value),
             placeholder: t("feedback.field.title_placeholder"),
             "data-feedback-id": "feedback.field.title",
-            maxLength: 200
+            maxLength: 200,
+            "aria-invalid": !!errors.title,
+            "aria-required": "true",
+            className: errors.title ? "border-destructive ring-1 ring-destructive" : ""
           }
-        )
+        ),
+        errors.title ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-destructive", children: errors.title }) : null
       ] }),
       /* @__PURE__ */ jsxs4("div", { className: "space-y-2", children: [
-        /* @__PURE__ */ jsx5(
+        /* @__PURE__ */ jsxs4(
           Label,
           {
             htmlFor: "feedback-description",
             title: t("feedback.field.description_hint"),
-            children: t("feedback.field.description")
+            children: [
+              t("feedback.field.description"),
+              /* @__PURE__ */ jsx5(_RequiredMark, {})
+            ]
           }
         ),
         /* @__PURE__ */ jsx5(
@@ -894,20 +906,30 @@ function FeedbackForm({
             onChange: (e) => setField("description", e.target.value),
             placeholder: t("feedback.field.description_placeholder"),
             rows: 4,
-            "data-feedback-id": "feedback.field.description"
+            "data-feedback-id": "feedback.field.description",
+            "aria-invalid": !!errors.description,
+            "aria-required": "true",
+            className: errors.description ? "border-destructive ring-1 ring-destructive" : ""
           }
-        )
+        ),
+        errors.description ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-destructive", children: errors.description }) : null
       ] }),
       activeDef.fields.map((field) => {
         const fieldId = `feedback-tf-${field.name}`;
         const value = values.type_fields[field.name] ?? "";
+        const isRequired = field.required !== false;
+        const fieldError = errors[field.name];
+        const errorClass = fieldError ? "border-destructive ring-1 ring-destructive" : "";
         return /* @__PURE__ */ jsxs4("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx5(
+          /* @__PURE__ */ jsxs4(
             Label,
             {
               htmlFor: fieldId,
               title: field.hintKey ? t(field.hintKey) : void 0,
-              children: t(field.labelKey)
+              children: [
+                t(field.labelKey),
+                isRequired ? /* @__PURE__ */ jsx5(_RequiredMark, {}) : null
+              ]
             }
           ),
           field.kind === "textarea" ? /* @__PURE__ */ jsx5(
@@ -918,7 +940,10 @@ function FeedbackForm({
               onChange: (e) => setTypeFieldValue(field.name, e.target.value),
               placeholder: field.placeholderKey ? t(field.placeholderKey) : void 0,
               rows: field.rows ?? 3,
-              "data-feedback-id": `feedback.field.${field.name}`
+              "data-feedback-id": `feedback.field.${field.name}`,
+              "aria-invalid": !!fieldError,
+              "aria-required": isRequired,
+              className: errorClass
             }
           ) : field.kind === "number" ? /* @__PURE__ */ jsx5(
             Input,
@@ -932,7 +957,10 @@ function FeedbackForm({
                 e.target.value === "" ? "" : Number(e.target.value)
               ),
               placeholder: field.placeholderKey ? t(field.placeholderKey) : void 0,
-              "data-feedback-id": `feedback.field.${field.name}`
+              "data-feedback-id": `feedback.field.${field.name}`,
+              "aria-invalid": !!fieldError,
+              "aria-required": isRequired,
+              className: errorClass
             }
           ) : field.kind === "select" ? /* @__PURE__ */ jsxs4(
             Select,
@@ -945,6 +973,9 @@ function FeedbackForm({
                   {
                     id: fieldId,
                     "data-feedback-id": `feedback.field.${field.name}`,
+                    "aria-invalid": !!fieldError,
+                    "aria-required": isRequired,
+                    className: errorClass,
                     children: /* @__PURE__ */ jsx5(SelectValue, {})
                   }
                 ),
@@ -958,12 +989,16 @@ function FeedbackForm({
               value: String(value),
               onChange: (e) => setTypeFieldValue(field.name, e.target.value),
               placeholder: field.placeholderKey ? t(field.placeholderKey) : void 0,
-              "data-feedback-id": `feedback.field.${field.name}`
+              "data-feedback-id": `feedback.field.${field.name}`,
+              "aria-invalid": !!fieldError,
+              "aria-required": isRequired,
+              className: errorClass
             }
-          )
+          ),
+          fieldError ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-destructive", children: fieldError }) : null
         ] }, field.name);
       }),
-      activeDef.requiresPersona ? /* @__PURE__ */ jsxs4(Fragment, { children: [
+      activeDef.requiresPersona ? /* @__PURE__ */ jsxs4("div", { className: errors.persona ? "rounded-md ring-1 ring-destructive p-1 -m-1" : "", children: [
         /* @__PURE__ */ jsx5(
           PersonaField,
           {
@@ -971,13 +1006,15 @@ function FeedbackForm({
             onChange: (v) => setField("persona", v)
           }
         ),
+        errors.persona ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-destructive mt-1 px-1", children: errors.persona }) : null,
         /* @__PURE__ */ jsx5(
           LinkedUserStoriesField,
           {
             value: values.linked_user_stories,
             onChange: (v) => setField("linked_user_stories", v)
           }
-        )
+        ),
+        errors.linked_user_stories ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-destructive mt-1 px-1", children: errors.linked_user_stories }) : null
       ] }) : null,
       /* @__PURE__ */ jsxs4("div", { className: "rounded-md border border-input p-3 space-y-3 bg-muted/40", children: [
         /* @__PURE__ */ jsx5("div", { className: "text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.ticketing.section_label") }),
@@ -1031,19 +1068,30 @@ function FeedbackForm({
           }) }) : /* @__PURE__ */ jsx5("p", { className: "text-[11px] text-muted-foreground", children: t("feedback.field.parent_ticket_help") })
         ] })
       ] }),
-      /* @__PURE__ */ jsxs4("label", { className: "flex items-start gap-2 text-xs text-muted-foreground cursor-pointer", children: [
-        /* @__PURE__ */ jsx5(
-          "input",
-          {
-            type: "checkbox",
-            checked: values.consent_metadata_capture,
-            onChange: (e) => setField("consent_metadata_capture", e.target.checked),
-            className: "mt-0.5",
-            "data-feedback-id": "feedback.field.consent_metadata"
-          }
-        ),
-        /* @__PURE__ */ jsx5("span", { children: t("feedback.field.consent_metadata") })
-      ] })
+      /* @__PURE__ */ jsxs4(
+        "label",
+        {
+          className: `flex items-start gap-2 text-xs cursor-pointer ${errors.consent_metadata_capture ? "text-destructive" : "text-muted-foreground"}`,
+          children: [
+            /* @__PURE__ */ jsx5(
+              "input",
+              {
+                type: "checkbox",
+                checked: values.consent_metadata_capture,
+                onChange: (e) => setField("consent_metadata_capture", e.target.checked),
+                className: `mt-0.5 ${errors.consent_metadata_capture ? "ring-1 ring-destructive" : ""}`,
+                "data-feedback-id": "feedback.field.consent_metadata",
+                "aria-invalid": !!errors.consent_metadata_capture,
+                "aria-required": "true"
+              }
+            ),
+            /* @__PURE__ */ jsxs4("span", { children: [
+              t("feedback.field.consent_metadata"),
+              /* @__PURE__ */ jsx5(_RequiredMark, {})
+            ] })
+          ]
+        }
+      )
     ] }) : null
   ] });
 }
@@ -1087,6 +1135,31 @@ function FeedbackPanel({
   useEffect2(() => {
     if (locked) setMode("element");
   }, [locked]);
+  useEffect2(() => {
+    if (user?.email && !values.follow_up_email) {
+      setValues((cur) => ({ ...cur, follow_up_email: user.email ?? "" }));
+    }
+  }, [user?.email, values.follow_up_email]);
+  const [fieldErrors, setFieldErrors] = useState3({});
+  useEffect2(() => {
+    if (Object.keys(fieldErrors).length === 0) return;
+    const cleared = {};
+    for (const [k, v] of Object.entries(fieldErrors)) {
+      if (k === "title" && values.title.trim()) continue;
+      if (k === "description" && values.description.trim()) continue;
+      if (k === "persona" && values.persona.trim()) continue;
+      if (k === "follow_up_email" && values.follow_up_email.trim()) continue;
+      if (k === "parent_ticket_code" && values.parent_ticket_code.trim()) continue;
+      if (k === "consent_metadata_capture" && values.consent_metadata_capture) continue;
+      if (k === "linked_user_stories" && values.linked_user_stories.length > 0) continue;
+      const tf = values.type_fields[k];
+      if (tf !== void 0 && tf !== null && tf !== "") continue;
+      cleared[k] = v;
+    }
+    if (Object.keys(cleared).length !== Object.keys(fieldErrors).length) {
+      setFieldErrors(cleared);
+    }
+  }, [values, fieldErrors]);
   const selectorInfo = useMemo2(() => {
     if (!locked) return null;
     return {
@@ -1154,9 +1227,40 @@ function FeedbackPanel({
   const onSubmit = async () => {
     const v = validate();
     if (!v.ok) {
-      adapter.toast.error(t("feedback.toast_error_generic"));
+      const reason = v.reason;
+      const fieldLabel = (() => {
+        switch (reason) {
+          case "type":
+            return t("feedback.type_label");
+          case "title":
+            return t("feedback.field.title");
+          case "description":
+            return t("feedback.field.description");
+          case "persona":
+            return t("feedback.persona.label");
+          case "linked_user_stories":
+            return t("feedback.stories.label");
+          case "follow_up_email":
+            return t("feedback.field.follow_up_email");
+          case "parent_ticket_code":
+            return t("feedback.field.parent_ticket");
+          case "consent_metadata_capture":
+            return t("feedback.field.consent_metadata");
+          default: {
+            const def = values.type ? getTypeDef(values.type) : null;
+            const f = def?.fields.find((x) => x.name === reason);
+            return f ? t(f.labelKey) : reason;
+          }
+        }
+      })();
+      const message = t("feedback.toast_error_required_field", {
+        field: fieldLabel
+      });
+      setFieldErrors({ [reason]: message });
+      adapter.toast.error(message);
       return;
     }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const shotPromise = (async () => {
@@ -1323,7 +1427,7 @@ function FeedbackPanel({
                 )
               ] }) : null
             ] }),
-            /* @__PURE__ */ jsx6(FeedbackForm, { values, onChange: setValues }),
+            /* @__PURE__ */ jsx6(FeedbackForm, { values, onChange: setValues, errors: fieldErrors }),
             /* @__PURE__ */ jsxs5("details", { className: "rounded-md border border-input p-3 text-xs text-muted-foreground", children: [
               /* @__PURE__ */ jsx6("summary", { className: "cursor-pointer font-medium text-foreground", children: t("feedback.metadata.title") }),
               /* @__PURE__ */ jsx6("p", { className: "mt-2", children: t("feedback.metadata.summary") })
@@ -1379,4 +1483,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-NH3YRFLN.js.map
+//# sourceMappingURL=FeedbackPanel-KEZD7TFC.js.map

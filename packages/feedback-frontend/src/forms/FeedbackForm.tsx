@@ -58,11 +58,24 @@ export const EMPTY_FORM: FeedbackFormValues = {
 export interface FeedbackFormProps {
   values: FeedbackFormValues
   onChange: (next: FeedbackFormValues) => void
+  /** Field-level error messages. Key is the field name returned by
+   * `validate()` in FeedbackPanel (e.g. "title", "severity", "persona").
+   * Empty/absent ⇒ no error to display. When set, the corresponding
+   * Label gets a red asterisk and the input gets `border-destructive`
+   * styling. */
+  errors?: Record<string, string>
 }
+
+const _RequiredMark = (): React.ReactElement => (
+  <span aria-hidden="true" className="ml-0.5 text-destructive">
+    *
+  </span>
+)
 
 export function FeedbackForm({
   values,
   onChange,
+  errors = {},
 }: FeedbackFormProps): React.ReactElement {
   const adapter = useFeedbackAdapter()
   const t = adapter.useTranslation()
@@ -154,6 +167,7 @@ export function FeedbackForm({
               title={t("feedback.field.title_hint")}
             >
               {t("feedback.field.title")}
+              <_RequiredMark />
             </Label>
             <Input
               id="feedback-title"
@@ -162,7 +176,13 @@ export function FeedbackForm({
               placeholder={t("feedback.field.title_placeholder")}
               data-feedback-id="feedback.field.title"
               maxLength={200}
+              aria-invalid={!!errors.title}
+              aria-required="true"
+              className={errors.title ? "border-destructive ring-1 ring-destructive" : ""}
             />
+            {errors.title ? (
+              <p className="text-xs text-destructive">{errors.title}</p>
+            ) : null}
           </div>
 
           <div className="space-y-2">
@@ -171,6 +191,7 @@ export function FeedbackForm({
               title={t("feedback.field.description_hint")}
             >
               {t("feedback.field.description")}
+              <_RequiredMark />
             </Label>
             <Textarea
               id="feedback-description"
@@ -179,13 +200,24 @@ export function FeedbackForm({
               placeholder={t("feedback.field.description_placeholder")}
               rows={4}
               data-feedback-id="feedback.field.description"
+              aria-invalid={!!errors.description}
+              aria-required="true"
+              className={errors.description ? "border-destructive ring-1 ring-destructive" : ""}
             />
+            {errors.description ? (
+              <p className="text-xs text-destructive">{errors.description}</p>
+            ) : null}
           </div>
 
           {/* Type-specific fields */}
           {activeDef.fields.map((field) => {
             const fieldId = `feedback-tf-${field.name}`
             const value = values.type_fields[field.name] ?? ""
+            const isRequired = field.required !== false
+            const fieldError = errors[field.name]
+            const errorClass = fieldError
+              ? "border-destructive ring-1 ring-destructive"
+              : ""
             return (
               <div key={field.name} className="space-y-2">
                 <Label
@@ -193,6 +225,7 @@ export function FeedbackForm({
                   title={field.hintKey ? t(field.hintKey) : undefined}
                 >
                   {t(field.labelKey)}
+                  {isRequired ? <_RequiredMark /> : null}
                 </Label>
                 {field.kind === "textarea" ? (
                   <Textarea
@@ -206,6 +239,9 @@ export function FeedbackForm({
                     }
                     rows={field.rows ?? 3}
                     data-feedback-id={`feedback.field.${field.name}`}
+                    aria-invalid={!!fieldError}
+                    aria-required={isRequired}
+                    className={errorClass}
                   />
                 ) : field.kind === "number" ? (
                   <Input
@@ -223,6 +259,9 @@ export function FeedbackForm({
                       field.placeholderKey ? t(field.placeholderKey) : undefined
                     }
                     data-feedback-id={`feedback.field.${field.name}`}
+                    aria-invalid={!!fieldError}
+                    aria-required={isRequired}
+                    className={errorClass}
                   />
                 ) : field.kind === "select" ? (
                   <Select
@@ -232,6 +271,9 @@ export function FeedbackForm({
                     <SelectTrigger
                       id={fieldId}
                       data-feedback-id={`feedback.field.${field.name}`}
+                      aria-invalid={!!fieldError}
+                      aria-required={isRequired}
+                      className={errorClass}
                     >
                       <SelectValue />
                     </SelectTrigger>
@@ -254,24 +296,38 @@ export function FeedbackForm({
                       field.placeholderKey ? t(field.placeholderKey) : undefined
                     }
                     data-feedback-id={`feedback.field.${field.name}`}
+                    aria-invalid={!!fieldError}
+                    aria-required={isRequired}
+                    className={errorClass}
                   />
                 )}
+                {fieldError ? (
+                  <p className="text-xs text-destructive">{fieldError}</p>
+                ) : null}
               </div>
             )
           })}
 
           {/* Persona + linked stories for the three mapping types */}
           {activeDef.requiresPersona ? (
-            <>
+            <div className={errors.persona ? "rounded-md ring-1 ring-destructive p-1 -m-1" : ""}>
               <PersonaField
                 value={values.persona}
                 onChange={(v) => setField("persona", v)}
               />
+              {errors.persona ? (
+                <p className="text-xs text-destructive mt-1 px-1">{errors.persona}</p>
+              ) : null}
               <LinkedUserStoriesField
                 value={values.linked_user_stories}
                 onChange={(v) => setField("linked_user_stories", v)}
               />
-            </>
+              {errors.linked_user_stories ? (
+                <p className="text-xs text-destructive mt-1 px-1">
+                  {errors.linked_user_stories}
+                </p>
+              ) : null}
+            </div>
           ) : null}
 
           {/* Ticketing — follow-up email + parent ticket reference. */}
@@ -335,17 +391,28 @@ export function FeedbackForm({
           </div>
 
           {/* Consent checkbox */}
-          <label className="flex items-start gap-2 text-xs text-muted-foreground cursor-pointer">
+          <label
+            className={`flex items-start gap-2 text-xs cursor-pointer ${
+              errors.consent_metadata_capture
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }`}
+          >
             <input
               type="checkbox"
               checked={values.consent_metadata_capture}
               onChange={(e) =>
                 setField("consent_metadata_capture", e.target.checked)
               }
-              className="mt-0.5"
+              className={`mt-0.5 ${errors.consent_metadata_capture ? "ring-1 ring-destructive" : ""}`}
               data-feedback-id="feedback.field.consent_metadata"
+              aria-invalid={!!errors.consent_metadata_capture}
+              aria-required="true"
             />
-            <span>{t("feedback.field.consent_metadata")}</span>
+            <span>
+              {t("feedback.field.consent_metadata")}
+              <_RequiredMark />
+            </span>
           </label>
         </>
       ) : null}

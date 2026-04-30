@@ -95,8 +95,10 @@ class JWTBearerAuth:
 
     def _snapshot_from_payload(self, payload: dict[str, Any]) -> CurrentUserSnapshot | None:
         sub = payload.get(self._sub_claim)
-        email = payload.get(self._email_claim)
-        if not sub or not email:
+        # email is OPTIONAL — hosts whose tokens don't carry the claim
+        # still get a working snapshot (the widget falls back to the
+        # submitter's follow_up_email field for transition emails).
+        if not sub:
             return None
 
         try:
@@ -112,10 +114,11 @@ class JWTBearerAuth:
             except (ValueError, TypeError):
                 tenant_id = None
 
+        email_raw = payload.get(self._email_claim)
         full_name_raw = payload.get(self._full_name_claim)
         return CurrentUserSnapshot(
             user_id=user_id,
-            email=str(email),
+            email=str(email_raw) if email_raw else None,
             tenant_id=tenant_id,
             role=str(payload.get(self._role_claim, "")),
             full_name=str(full_name_raw) if full_name_raw else None,

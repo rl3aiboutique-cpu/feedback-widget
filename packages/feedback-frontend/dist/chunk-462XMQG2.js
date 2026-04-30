@@ -301,6 +301,7 @@ var en = {
   "feedback.toast_success_link": "Open in admin",
   "feedback.toast_error_generic": "Could not send the feedback. Try again.",
   "feedback.toast_error_429": "Too much feedback. Retry in {seconds}s.",
+  "feedback.toast_error_required_field": "Required: {field}.",
   "feedback.toast_type_change_warning": "Type-specific fields cleared when switching types.",
   "feedback.toast_screenshot_failed": "Could not capture the screen. Sending the feedback without it."
 };
@@ -1234,4 +1235,4 @@ export {
   MyTicketsPanel,
   useMyPendingActionCount
 };
-//# sourceMappingURL=chunk-2VEKEJIP.js.map
+//# sourceMappingURL=chunk-462XMQG2.js.map

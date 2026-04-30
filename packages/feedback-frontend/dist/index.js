@@ -27,7 +27,7 @@ import {
   useFeedbackListQuery,
   useMyPendingActionCount,
   useUpdateFeedbackStatusMutation
-} from "./chunk-2VEKEJIP.js";
+} from "./chunk-462XMQG2.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -645,7 +645,7 @@ function ElementSelector({
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-NH3YRFLN.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-KEZD7TFC.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",

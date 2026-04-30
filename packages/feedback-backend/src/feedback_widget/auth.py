@@ -36,10 +36,17 @@ class CurrentUserSnapshot:
 
     The host adapter builds this from its own User model. ``tenant_id``
     is None for single-tenant hosts (no RLS, no per-tenant filtering).
+
+    ``email`` is **optional** so hosts whose JWT does not carry an email
+    claim (e.g. minimal tokens with only ``sub`` + ``role``) can still
+    use the decode-only ``JWTBearerAuth`` adapter without modifying their
+    login flow. When email is ``None`` the widget falls back to whatever
+    ``follow_up_email`` the submitter types into the form, and admin
+    notifications use that field.
     """
 
     user_id: uuid.UUID
-    email: str
+    email: str | None = None
     tenant_id: uuid.UUID | None = None
     role: str = ""
     full_name: str | None = None
