@@ -14,10 +14,6 @@ from typing import Any
 import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
-
 from feedback_widget import (
     CurrentUserSnapshot,
     FeedbackAuthAdapter,
@@ -25,12 +21,17 @@ from feedback_widget import (
     register_feedback_router,
     run_migrations,
 )
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import OperationalError
 
 
 def _database_url() -> str:
+    # Use psycopg (v3) explicitly — sqlalchemy defaults to psycopg2 when
+    # the driver is omitted, and psycopg2 is not in our deps.
     return os.environ.get(
         "FEEDBACK_DATABASE_URL",
-        "postgresql://feedback:feedback@localhost:5432/feedback_test",
+        "postgresql+psycopg://feedback:feedback@localhost:5432/feedback_test",
     )
 
 
@@ -88,12 +89,14 @@ def _migrate_once(engine: Engine, database_url: str) -> Generator[None, Any, Non
     run_migrations(database_url=database_url)
     yield
     with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS feedback_comment CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback_attachment CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback CASCADE"))
         conn.execute(text("DROP TABLE IF EXISTS feedback_widget_alembic_version CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_type CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_status CASCADE"))
         conn.execute(text("DROP TYPE IF EXISTS feedback_attachment_kind CASCADE"))
+        conn.execute(text("DROP TYPE IF EXISTS feedback_comment_author_role CASCADE"))
 
 
 @pytest.fixture(autouse=True)
@@ -177,9 +180,7 @@ def fake_storage() -> FakeStorage:
 
 
 @pytest.fixture
-def app(
-    settings: FeedbackSettings, engine: Engine, fake_storage: FakeStorage
-) -> FastAPI:
+def app(settings: FeedbackSettings, engine: Engine, fake_storage: FakeStorage) -> FastAPI:
     fastapi_app = FastAPI()
     register_feedback_router(
         fastapi_app,

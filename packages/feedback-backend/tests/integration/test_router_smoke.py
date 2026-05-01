@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -15,12 +14,10 @@ def _create_payload(**overrides: object) -> str:
     base: dict[str, object] = {
         "type": "bug",
         "title": "Smoke test",
-        "description": "Steps: open app, click button, observe.",
+        "description": "Open app, click button, observe.",
+        "expected_outcome": "Button should not crash the page.",
         "url_captured": "http://localhost/sandbox",
-        "type_fields": {"steps_to_reproduce": "1. click 2. boom"},
         "metadata_bundle": {"viewport": "1280x720"},
-        "linked_user_stories": [],
-        "consent_metadata_capture": True,
     }
     base.update(overrides)
     return json.dumps(base)

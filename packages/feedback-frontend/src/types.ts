@@ -11,32 +11,23 @@
 
 export type FeedbackTypeKey =
   | "bug"
+  | "ui"
+  | "performance"
   | "new_feature"
   | "extend_feature"
-  | "new_user_story"
-  | "question"
-  | "ux_polish"
-  | "performance"
-  | "data_issue"
+  | "other";
 
-export type FeedbackStatusKey =
-  | "new"
-  | "triaged"
-  | "in_progress"
-  | "done"
-  | "wont_fix"
-  | "accepted_by_user"
-  | "rejected_by_user"
+export type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
 
 export interface CurrentUserSnapshot {
   /** Stable user identifier — UUID-as-string. */
-  id: string
-  email: string
-  role: string
+  id: string;
+  email: string;
+  role: string;
   /** Optional human display name; null when the host doesn't track one. */
-  full_name?: string | null
+  full_name?: string | null;
   /** Optional active tenant; null for single-tenant hosts (sapphira). */
-  tenant_id?: string | null
+  tenant_id?: string | null;
 }
 
 /**
@@ -46,93 +37,77 @@ export interface CurrentUserSnapshot {
  */
 export interface ToastOptions {
   /** Optional href the host can attach as a click action. */
-  url?: string
+  url?: string;
   /** Optional plain-text label for the click action. */
-  actionLabel?: string
+  actionLabel?: string;
 }
 
 export interface ToastApi {
-  success(message: string, options?: ToastOptions): void
-  error(message: string, options?: ToastOptions): void
-  info(message: string, options?: ToastOptions): void
-  warning(message: string, options?: ToastOptions): void
-}
-
-export interface LinkedUserStory {
-  story: string
-  acceptance_criteria?: string | null
-  priority?: string | null
+  success(message: string, options?: ToastOptions): void;
+  error(message: string, options?: ToastOptions): void;
+  info(message: string, options?: ToastOptions): void;
+  warning(message: string, options?: ToastOptions): void;
 }
 
 export interface FeedbackElementInfo {
-  selector: string | null
-  xpath: string | null
-  bounding_box: { x: number; y: number; w: number; h: number } | null
+  selector: string | null;
+  xpath: string | null;
+  bounding_box: { x: number; y: number; w: number; h: number } | null;
 }
 
 export interface FeedbackCreatePayloadInput {
-  type: FeedbackTypeKey
-  title: string
-  description: string
-  url_captured: string
-  route_name?: string | null
-  element?: FeedbackElementInfo | null
-  type_fields: Record<string, unknown>
-  persona?: string | null
-  linked_user_stories: LinkedUserStory[]
-  metadata_bundle: Record<string, unknown>
-  consent_metadata_capture: boolean
-  app_version?: string | null
-  git_commit_sha?: string | null
-  user_agent?: string | null
-  follow_up_email?: string | null
-  parent_ticket_code?: string | null
+  type: FeedbackTypeKey;
+  title: string;
+  description: string;
+  expected_outcome?: string | null;
+  url_captured: string;
+  route_name?: string | null;
+  element?: FeedbackElementInfo | null;
+  metadata_bundle: Record<string, unknown>;
+  app_version?: string | null;
+  git_commit_sha?: string | null;
+  user_agent?: string | null;
 }
 
 export interface FeedbackAttachmentSummary {
-  id: string
-  kind: "screenshot" | "log_dump"
-  bucket: string
-  object_key: string
-  content_type: string
-  byte_size: number
-  width: number | null
-  height: number | null
-  created_at: string | null
-  presigned_url: string | null
+  id: string;
+  kind: "screenshot" | "user_attachment";
+  bucket: string;
+  object_key: string;
+  content_type: string;
+  byte_size: number;
+  filename: string | null;
+  width: number | null;
+  height: number | null;
+  created_at: string | null;
+  presigned_url: string | null;
 }
 
 export interface FeedbackReadShape {
-  id: string
-  tenant_id: string
-  user_id: string
-  type: FeedbackTypeKey
-  status: FeedbackStatusKey
-  title: string
-  description: string
-  url_captured: string
-  route_name: string | null
-  element_selector: string | null
-  element_xpath: string | null
-  element_bounding_box: Record<string, unknown> | null
-  type_fields: Record<string, unknown>
-  persona: string | null
-  linked_user_stories: Record<string, unknown>[]
-  metadata_bundle: Record<string, unknown>
-  consent_metadata_capture: boolean
-  app_version: string | null
-  git_commit_sha: string | null
-  user_agent: string | null
-  created_at: string | null
-  updated_at: string | null
-  triaged_by: string | null
-  triaged_at: string | null
-  triage_note: string | null
-  ticket_code: string
-  follow_up_email: string | null
-  parent_feedback_id: string | null
-  parent_ticket_code: string | null
-  attachments: FeedbackAttachmentSummary[]
+  id: string;
+  tenant_id: string;
+  user_id: string;
+  type: FeedbackTypeKey;
+  status: FeedbackStatusKey;
+  title: string;
+  description: string;
+  expected_outcome: string | null;
+  url_captured: string;
+  route_name: string | null;
+  element_selector: string | null;
+  element_xpath: string | null;
+  element_bounding_box: Record<string, unknown> | null;
+  metadata_bundle: Record<string, unknown>;
+  app_version: string | null;
+  git_commit_sha: string | null;
+  user_agent: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  triaged_by: string | null;
+  triaged_at: string | null;
+  triage_note: string | null;
+  ticket_code: string;
+  attachments: FeedbackAttachmentSummary[];
 }
 
 /**
@@ -140,4 +115,4 @@ export interface FeedbackReadShape {
  * variable interpolation via the optional `vars` object — inside the
  * default locale map we look for `{name}` placeholders.
  */
-export type Translator = (key: string, vars?: Record<string, string>) => string
+export type Translator = (key: string, vars?: Record<string, string>) => string;

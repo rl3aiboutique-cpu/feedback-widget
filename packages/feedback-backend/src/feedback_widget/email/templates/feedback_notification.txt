@@ -11,24 +11,19 @@ URL:       {{ feedback.url_captured }}
 {% endif %}{% if feedback.app_version %}Version:   {{ feedback.app_version }}{% if feedback.git_commit_sha %} ({{ feedback.git_commit_sha[:8] }}){% endif %}
 {% endif %}Captured:  {{ feedback.created_at }}
 
---- Description ---
+--- What's happening? ---
 {{ feedback.description }}
 
-{% if feedback.type_fields %}--- Type-specific fields ---
-{% for key, value in feedback.type_fields.items() %}{{ key }}: {{ value }}
-{% endfor %}
+{% if feedback.expected_outcome %}--- How should it work? ---
+{{ feedback.expected_outcome }}
+
 {% endif %}{% if feedback.element_selector %}--- Selected element ---
 {{ feedback.element_selector }}
 
-{% endif %}{% if feedback.persona %}--- Persona ---
-{{ feedback.persona }}
-
-{% endif %}{% if feedback.linked_user_stories %}--- Linked user stories ---
-{% for story in feedback.linked_user_stories %}* {{ story.story }}{% if story.priority %} [{{ story.priority }}]{% endif %}
-{% if story.acceptance_criteria %}    {{ story.acceptance_criteria }}
-{% endif %}{% endfor %}
 {% endif %}{% if presigned_url %}--- Screenshot ---
 {{ presigned_url }}
+
+{% endif %}{% if extra_attachment_count and extra_attachment_count > 0 %}{{ extra_attachment_count }} additional file{% if extra_attachment_count != 1 %}s{% endif %} attached — available in the bundle ZIP.
 
 {% endif %}{% if deep_link %}Open in {{ brand_name }} admin: {{ deep_link }}
 

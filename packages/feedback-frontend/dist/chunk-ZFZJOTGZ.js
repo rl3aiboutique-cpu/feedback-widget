@@ -20,12 +20,7 @@ var DEFAULT_CONFIG = Object.freeze({
   locale: _ENV_LOCALE
 });
 var FeedbackContext = createContext(null);
-function FeedbackProvider({
-  children,
-  bindings,
-  adapter,
-  config
-}) {
+function FeedbackProvider({ children, bindings, adapter, config }) {
   if (!bindings || typeof bindings.useCurrentUser !== "function") {
     throw new Error(
       "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
@@ -63,19 +58,37 @@ function useFeedbackBindings() {
 // src/locales/en.ts
 var en = {
   "feedback.open_button": "Send feedback with RL3 Feedback",
-  "feedback.open_button_with_pending": "RL3 Feedback \u2014 {count} ticket(s) need your confirmation",
+  "feedback.open_button_with_pending": "RL3 Feedback \u2014 {count} ticket(s) updated recently",
   "feedback.tab.submit": "Submit feedback",
   "feedback.tab.mine": "My tickets",
   "feedback.mine.loading": "Loading your tickets\u2026",
   "feedback.mine.empty": "You haven't submitted any feedback yet.",
   "feedback.mine.error": "Could not load your tickets. Please retry later.",
-  "feedback.mine.action_hint": "We marked this resolved \u2014 check your email for the accept / reject links.",
+  "feedback.mine.action_hint": "We marked this resolved. Reply by email or file fresh feedback if it's still not right.",
+  "feedback.mine.submitted_at": "Submitted {date} UTC",
+  "feedback.mine.no_description": "(no description)",
+  "feedback.mine.triage_note": "Note from the team",
+  "feedback.mine.attachments": "Attachments ({count})",
+  "feedback.mine.open": "Open",
+  "feedback.mine.open_in_app": "Open in app \u2192",
+  "feedback.comments.thread_title": "Conversation",
+  "feedback.comments.loading": "Loading messages\u2026",
+  "feedback.comments.error": "Could not load messages.",
+  "feedback.comments.empty": "No messages yet \u2014 be the first to reply.",
+  "feedback.comments.placeholder": "Write a reply\u2026",
+  "feedback.comments.send": "Send",
+  "feedback.comments.sending": "Sending\u2026",
+  "feedback.comments.send_error": "Could not send the message. Please retry.",
+  "feedback.comments.send_unauthorized": "You don't have permission to post on this ticket. Try refreshing the page.",
+  "feedback.comments.admin_label": "Team",
+  "feedback.comments.submitter_label": "Submitter",
+  "feedback.comments.you_label": "You",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
-  "feedback.panel_description": "Tell us what you saw, what you expected, and what we should change. We attach a redacted screenshot and technical metadata.",
-  "feedback.panel_skeleton_note": "Pick a feedback type to start.",
+  "feedback.panel_description": "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
   "feedback.powered_by": "powered by",
   "feedback.powered_by_aria": "Powered by RL3 AI Agency",
+  "feedback.optional": "optional",
   "feedback.mode_label": "Capture",
   "feedback.mode_whole_page": "Whole page",
   "feedback.mode_select_element": "Select element",
@@ -85,100 +98,34 @@ var en = {
   "feedback.element_selector_active": "Element-selector mode active. Click to lock, ESC to cancel.",
   "feedback.element_selector_hint": "Move the mouse to highlight \xB7 Click to lock \xB7 ESC to cancel",
   "feedback.type_label": "Type",
+  "feedback.type_placeholder": "Pick a category\u2026",
   "feedback.type.bug": "Bug",
   "feedback.type.bug_hint": "Something is broken or behaves wrong. Use this when reality doesn't match expectation.",
+  "feedback.type.ui": "UI",
+  "feedback.type.ui_hint": "Something on screen feels off \u2014 copy, layout, contrast, hierarchy, motion.",
+  "feedback.type.performance": "Performance",
+  "feedback.type.performance_hint": "Something is technically working but unacceptably slow.",
   "feedback.type.new_feature": "New feature",
   "feedback.type.new_feature_hint": "A capability that doesn't exist yet.",
   "feedback.type.extend_feature": "Extend feature",
   "feedback.type.extend_feature_hint": "Something exists but doesn't go far enough.",
-  "feedback.type.new_user_story": "New user story",
-  "feedback.type.new_user_story_hint": "A discrete job to be done expressed as a user story.",
-  "feedback.type.question": "Question / confusion",
-  "feedback.type.question_hint": "You got stuck; the product didn't tell you what to do next.",
-  "feedback.type.ux_polish": "UX polish",
-  "feedback.type.ux_polish_hint": "Not a bug, not a missing feature; the surface just feels rough.",
-  "feedback.type.performance": "Performance",
-  "feedback.type.performance_hint": "Something is technically working but unacceptably slow.",
-  "feedback.type.data_issue": "Data issue",
-  "feedback.type.data_issue_hint": "The numbers, names, statuses or relationships in the system look wrong.",
+  "feedback.type.other": "Other",
+  "feedback.type.other_hint": "Anything that doesn't fit the categories above.",
   "feedback.field.title": "Title",
   "feedback.field.title_hint": "Short, specific summary. Will be the email subject.",
   "feedback.field.title_placeholder": "Short summary\u2026",
-  "feedback.field.description": "Description",
-  "feedback.field.description_hint": "Markdown supported. The more concrete, the better.",
-  "feedback.field.description_placeholder": "Tell it from the affected user's point of view\u2026",
-  "feedback.field.consent_metadata": "I accept that redacted technical data is captured (URL, viewport, recent logs).",
-  "feedback.ticketing.section_label": "Ticket",
-  "feedback.field.follow_up_email": "Follow-up email",
-  "feedback.field.follow_up_email_hint": "Where we'll route status updates for this ticket.",
-  "feedback.field.follow_up_email_placeholder": "you@example.com",
-  "feedback.field.follow_up_email_help": "Pre-filled with your account email. Clear it to opt out of transition emails.",
-  "feedback.field.parent_ticket": "Linked to (optional)",
-  "feedback.field.parent_ticket_hint": "Reference a previous ticket \u2014 the parent auto-accepts when this one is accepted.",
-  "feedback.field.parent_ticket_placeholder": "FB-2026-0042",
-  "feedback.field.parent_ticket_help": "Format FB-YYYY-NNNN. Leave blank if this is a fresh issue.",
-  "feedback.field.parent_ticket_link": "Linked to {code}",
-  "feedback.field.severity": "Severity",
-  "feedback.field.severity_hint": "Blocker = blocks work \xB7 High = severely degraded \xB7 Medium = annoying \xB7 Low = polish.",
-  "feedback.severity.blocker": "Blocker",
-  "feedback.severity.high": "High",
-  "feedback.severity.medium": "Medium",
-  "feedback.severity.low": "Low",
-  "feedback.field.reproduction_steps": "Reproduction steps",
-  "feedback.field.reproduction_steps_hint": "A numbered list, step by step. As concrete as possible.",
-  "feedback.field.reproduction_steps_placeholder": "1. Log in as compliance officer.\n2. Open client X.\n3. Click 'Run KYC'.\n4. \u2026",
-  "feedback.field.expected_behavior": "Expected behavior",
-  "feedback.field.actual_behavior": "Actual behavior",
-  "feedback.field.problem_statement": "Problem statement",
-  "feedback.field.problem_statement_placeholder": "Today, compliance officers chase signed PDFs by email; this slows onboarding by 3 to 5 days per client.",
-  "feedback.field.proposed_solution": "Proposed solution",
-  "feedback.field.business_value": "Business value",
-  "feedback.field.business_value_placeholder": "Cuts onboarding cycle by 60 percent; unlocks tier 2 clients we currently turn away.",
-  "feedback.field.existing_feature": "Existing feature",
-  "feedback.field.gap_today": "Gap today",
-  "feedback.field.proposed_extension": "Proposed extension",
-  "feedback.field.user_story": "User story",
-  "feedback.field.user_story_placeholder": "As Mar\xEDa (Compliance Officer), I want to see a red badge on every client missing a UBO, so that I can clear the queue without opening each file.",
-  "feedback.field.acceptance_criteria": "Acceptance criteria",
-  "feedback.field.acceptance_criteria_placeholder": "Given a client with no UBO record, when I open the client list, then I see a red 'UBO missing' badge next to the name.",
-  "feedback.field.priority": "Priority (MoSCoW)",
-  "feedback.priority.must": "Must",
-  "feedback.priority.should": "Should",
-  "feedback.priority.could": "Could",
-  "feedback.priority.wont": "Won't",
-  "feedback.field.what_were_you_trying_to_do": "What were you trying to do?",
-  "feedback.field.what_was_unclear": "What was unclear?",
-  "feedback.field.where_did_you_look_first": "Where did you look first? (Helps us decide where to put help text)",
-  "feedback.field.what_feels_off": "What feels off? (Copy, layout, contrast, hierarchy, motion\u2026)",
-  "feedback.field.suggested_change": "Suggested change",
-  "feedback.field.what_was_slow": "What was slow?",
-  "feedback.field.when_did_it_happen": "When did it happen?",
-  "feedback.when.on_load": "On load",
-  "feedback.when.on_action": "On action",
-  "feedback.when.intermittent": "Intermittent",
-  "feedback.when.always": "Always",
-  "feedback.field.perceived_duration_seconds": "Perceived duration (s)",
-  "feedback.field.which_record": "Which record? (id, name, or description)",
-  "feedback.field.expected_data": "Expected data",
-  "feedback.field.actual_data": "Actual data",
-  "feedback.field.impact": "Impact",
-  "feedback.persona.label": "User persona",
-  "feedback.persona.hint": "Who is the affected user? The more concrete, the better.",
-  "feedback.persona.insert_example": "Insert example",
-  "feedback.persona.pick_existing": "Pick existing",
-  "feedback.persona.pick_existing_help": "Reuse a persona from a previous submission",
-  "feedback.persona.placeholder": "Persona: name and one-line label\nRole and seniority\nGoals when using the CRM\nTop pain points today\nTools used alongside the CRM\nFrequency of use\nWhat success looks like in this situation, one sentence.",
-  "feedback.persona.example": "Persona: Mar\xEDa, Senior Compliance Officer at a mid-size CSP firm.\nRole: Reports to MLRO; eight years of experience.\nGoals: Onboard new clients in under 48 hours; keep audit trail clean for FCA inspections.\nPain points: Has to chase signed PDFs across email and Dropbox; cannot tell if a UBO is missing without opening the PDF.\nTools: Outlook, Excel, World Check, the firm's DMS.\nFrequency: Daily, four to six hours, mostly mornings.\nSuccess here: She can clear today's KYC queue without opening a single PDF.",
-  "feedback.stories.label": "Linked user stories",
-  "feedback.stories.hint": "One or more stories in the form 'As {persona}, I want {capability}, so that {outcome}.'",
-  "feedback.stories.add": "Add story",
-  "feedback.stories.remove": "Remove",
-  "feedback.stories.pick_existing": "Pick existing",
-  "feedback.stories.pick_existing_help": "Reuse a story from a previous submission",
-  "feedback.stories.story_placeholder": "As Mar\xEDa (Compliance Officer), I want to see a red badge on every client missing a UBO, so that I can clear the queue without opening each file.",
-  "feedback.stories.acceptance_placeholder": "Given a client with no UBO record, when I open the client list, then I see a red 'UBO missing' badge next to the name.",
-  "feedback.metadata.title": "What is captured?",
-  "feedback.metadata.summary": "URL, route, viewport, browser, last 50 console messages, last 20 failed network calls, breadcrumbs, app version, and commit SHA. Tokens and cookies are redacted automatically.",
+  "feedback.field.description": "What's happening?",
+  "feedback.field.description_placeholder": "Describe what you're seeing or what's missing. Be concrete.",
+  "feedback.field.expected_outcome": "How should it work?",
+  "feedback.field.expected_outcome_placeholder": "What you'd expect instead.",
+  "feedback.attachments.label": "Attachments",
+  "feedback.attachments.hint": "Wireframes, drawings, external logs, notes \u2014 up to 5 files of 10 MB each.",
+  "feedback.attachments.dropzone": "Drop files here or click to choose",
+  "feedback.attachments.too_many": "Up to {max} files per submission.",
+  "feedback.attachments.too_big": "{name} is too large (max {max}).",
+  "feedback.attachments.bad_type": "{name} has an unsupported file type. We accept images (PNG/JPG/GIF/WebP), PDFs, plain text, markdown, and JSON.",
+  "feedback.attachments.remove": "Remove {name}",
+  "feedback.metadata_disclosure": "We capture page URL and basic context (viewport, recent logs) to help triage. Tokens and cookies are redacted automatically.",
   "feedback.cancel": "Cancel",
   "feedback.submit": "Send feedback",
   "feedback.submitting": "Sending\u2026",
@@ -188,7 +135,6 @@ var en = {
   "feedback.toast_error_generic": "Could not send the feedback. Try again.",
   "feedback.toast_error_429": "Too much feedback. Retry in {seconds}s.",
   "feedback.toast_error_required_field": "Required: {field}.",
-  "feedback.toast_type_change_warning": "Type-specific fields cleared when switching types.",
   "feedback.toast_screenshot_failed": "Could not capture the screen. Sending the feedback without it."
 };
 
@@ -312,6 +258,30 @@ var SubmitFeedbackError = class extends Error {
   body;
   retryAfter;
 };
+var FeedbackApiError = class extends Error {
+  constructor(status, path, detail, retryAfter) {
+    super(`${path} failed with ${status}`);
+    this.status = status;
+    this.path = path;
+    this.detail = detail;
+    this.retryAfter = retryAfter;
+    this.name = "FeedbackApiError";
+  }
+  status;
+  path;
+  detail;
+  retryAfter;
+};
+async function _throwApiError(path, resp) {
+  let detail;
+  try {
+    const data = await resp.json();
+    detail = typeof data === "string" ? data : data && typeof data === "object" && "detail" in data ? String(data.detail) : JSON.stringify(data);
+  } catch {
+    detail = await resp.text().catch(() => "");
+  }
+  throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
+}
 function _resolvePrefix(b) {
   return b.apiPathPrefix ?? "/api/v1/feedback";
 }
@@ -325,10 +295,7 @@ async function _buildHeaders(bindings, base = {}) {
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   } catch (err) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[feedback] getCsrfToken threw, proceeding without CSRF token",
-        err
-      );
+      console.warn("[feedback] getCsrfToken threw, proceeding without CSRF token", err);
     }
   }
   if (bindings.authHeader) {
@@ -337,20 +304,22 @@ async function _buildHeaders(bindings, base = {}) {
       if (auth) headers.Authorization = auth;
     } catch (err) {
       if (typeof console !== "undefined") {
-        console.warn(
-          "[feedback] authHeader threw, proceeding without Authorization",
-          err
-        );
+        console.warn("[feedback] authHeader threw, proceeding without Authorization", err);
       }
     }
   }
   return headers;
 }
-async function submitFeedback(bindings, payloadJson, screenshot) {
+async function submitFeedback(bindings, payloadJson, screenshot, attachments) {
   const form = new FormData();
   form.append("payload", payloadJson);
   if (screenshot) {
     form.append("screenshot", screenshot, "screenshot.png");
+  }
+  if (attachments && attachments.length > 0) {
+    for (const file of attachments) {
+      form.append("attachments", file, file.name);
+    }
   }
   const headers = await _buildHeaders(bindings);
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}`;
@@ -375,29 +344,19 @@ async function submitFeedback(bindings, payloadJson, screenshot) {
   }
   return await resp.json();
 }
-async function consumeActionToken(bindings, token, action) {
-  const headers = await _buildHeaders(bindings);
-  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/action/${encodeURIComponent(
-    token
-  )}?action=${action}`;
-  const resp = await fetch(url, { method: "POST", credentials: "include", headers });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`POST /feedback/action/${token} failed (${resp.status}) ${text}`);
-  }
-  return await resp.json();
-}
 async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(
     feedbackId
   )}/download`;
   const headers = await _buildHeaders(bindings);
-  const resp = await fetch(url, { method: "GET", credentials: "include", headers });
+  const resp = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers
+  });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(
-      `GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`
-    );
+    throw new Error(`GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`);
   }
   const cd = resp.headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
@@ -420,13 +379,14 @@ async function _getJson(bindings, path, query) {
     headers
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`GET ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`GET ${path}`, resp);
   }
   return await resp.json();
 }
 async function _patchJson(bindings, path, body) {
-  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const headers = await _buildHeaders(bindings, {
+    "Content-Type": "application/json"
+  });
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "PATCH",
@@ -435,8 +395,7 @@ async function _patchJson(bindings, path, body) {
     body: JSON.stringify(body)
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`PATCH ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`PATCH ${path}`, resp);
   }
   return await resp.json();
 }
@@ -449,8 +408,7 @@ async function _deleteJson(bindings, path) {
     headers
   });
   if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(`DELETE ${path} failed (${resp.status}) ${text}`);
+    await _throwApiError(`DELETE ${path}`, resp);
   }
 }
 function useCurrentUser() {
@@ -467,10 +425,7 @@ function getDefaultRedactionSelectors() {
 }
 function useTranslation() {
   const config = useFeedbackConfig();
-  return useMemo2(
-    () => createTranslator({ locale: config.locale }),
-    [config.locale]
-  );
+  return useMemo2(() => createTranslator({ locale: config.locale }), [config.locale]);
 }
 var APP_VERSION = ENV_APP_VERSION;
 var GIT_COMMIT_SHA = ENV_GIT_SHA;
@@ -508,14 +463,10 @@ function useUpdateFeedbackStatusMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input) => _patchJson(
-      bindings,
-      `/${encodeURIComponent(input.id)}/status`,
-      {
-        status: input.status,
-        triage_note: input.triage_note ?? null
-      }
-    ),
+    mutationFn: (input) => _patchJson(bindings, `/${encodeURIComponent(input.id)}/status`, {
+      status: input.status,
+      triage_note: input.triage_note ?? null
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
     }
@@ -531,20 +482,50 @@ function useDeleteFeedbackMutation() {
     }
   });
 }
-function usePersonasQuery(limit = 50) {
+async function _postJson(bindings, path, body) {
+  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
+  const resp = await fetch(url, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    await _throwApiError(`POST ${path}`, resp);
+  }
+  return await resp.json();
+}
+function useFeedbackCommentsQuery(feedbackId) {
   const bindings = useFeedbackBindings();
   return useQuery({
-    queryKey: ["feedback", "personas", limit],
-    queryFn: () => _getJson(bindings, "/personas", { limit }),
-    staleTime: 6e4
+    queryKey: ["feedback", "comments", feedbackId],
+    queryFn: () => feedbackId ? _getJson(
+      bindings,
+      `/${encodeURIComponent(feedbackId)}/comments`
+    ) : Promise.resolve({
+      data: [],
+      count: 0
+    }),
+    enabled: !!feedbackId,
+    refetchInterval: 3e4,
+    staleTime: 15e3
   });
 }
-function useUserStoriesQuery(limit = 100) {
+function usePostFeedbackCommentMutation() {
   const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "user-stories", limit],
-    queryFn: () => _getJson(bindings, "/user-stories", { limit }),
-    staleTime: 6e4
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input) => _postJson(
+      bindings,
+      `/${encodeURIComponent(input.feedbackId)}/comments`,
+      { body: input.body }
+    ),
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "comments", input.feedbackId]
+      });
+    }
   });
 }
 function createAdapter(bindings) {
@@ -552,8 +533,7 @@ function createAdapter(bindings) {
     useCurrentUser,
     appVersion: APP_VERSION,
     gitSha: GIT_COMMIT_SHA,
-    submitFeedback: (payloadJson, screenshot) => submitFeedback(bindings, payloadJson, screenshot),
-    consumeActionToken: (token, action) => consumeActionToken(bindings, token, action),
+    submitFeedback: (payloadJson, screenshot, attachments) => submitFeedback(bindings, payloadJson, screenshot, attachments),
     downloadFeedbackBundle: (feedbackId) => downloadFeedbackBundleViaBindings(bindings, feedbackId),
     getDeepLinkToFeedback: (id) => getDeepLinkToFeedback(id, bindings.getDeepLinkBase?.()),
     getDefaultRedactionSelectors,
@@ -629,9 +609,7 @@ import { jsx as jsx3, jsxs } from "react/jsx-runtime";
 function Sheet({ ...props }) {
   return /* @__PURE__ */ jsx3(SheetPrimitive.Root, { "data-slot": "sheet", ...props });
 }
-function SheetPortal({
-  ...props
-}) {
+function SheetPortal({ ...props }) {
   return /* @__PURE__ */ jsx3(SheetPrimitive.Portal, { "data-slot": "sheet-portal", ...props });
 }
 function SheetOverlay({
@@ -702,10 +680,7 @@ function SheetFooter({ className, ...props }) {
     }
   );
 }
-function SheetTitle({
-  className,
-  ...props
-}) {
+function SheetTitle({ className, ...props }) {
   return /* @__PURE__ */ jsx3(
     SheetPrimitive.Title,
     {
@@ -778,6 +753,322 @@ function Rl3Mark({
       ]
     }
   );
+}
+
+// src/MyTicketsPanel.tsx
+import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState as useState2 } from "react";
+
+// src/comments/CommentThread.tsx
+import { Send } from "lucide-react";
+import { useState } from "react";
+
+// src/ui/badge.tsx
+import { Slot as Slot2 } from "@radix-ui/react-slot";
+import { cva as cva2 } from "class-variance-authority";
+import { jsx as jsx5 } from "react/jsx-runtime";
+var badgeVariants = cva2(
+  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
+  {
+    variants: {
+      variant: {
+        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
+        secondary: "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
+        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"
+      }
+    },
+    defaultVariants: {
+      variant: "default"
+    }
+  }
+);
+function Badge({
+  className,
+  variant,
+  asChild = false,
+  ...props
+}) {
+  const Comp = asChild ? Slot2 : "span";
+  return /* @__PURE__ */ jsx5(Comp, { "data-slot": "badge", className: cn(badgeVariants({ variant }), className), ...props });
+}
+
+// src/ui/textarea.tsx
+import { jsx as jsx6 } from "react/jsx-runtime";
+function Textarea({ className, ...props }) {
+  return /* @__PURE__ */ jsx6(
+    "textarea",
+    {
+      "data-slot": "textarea",
+      className: cn(
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      ),
+      ...props
+    }
+  );
+}
+
+// src/comments/CommentThread.tsx
+import { jsx as jsx7, jsxs as jsxs3 } from "react/jsx-runtime";
+function _fmt(dt) {
+  if (!dt) return "\u2014";
+  return dt.slice(0, 16).replace("T", " ");
+}
+function CommentThread({ feedbackId }) {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
+  const currentUser = adapter.useCurrentUser();
+  const query = useFeedbackCommentsQuery(feedbackId);
+  const post = usePostFeedbackCommentMutation();
+  const [draft, setDraft] = useState("");
+  const onSend = () => {
+    const body = draft.trim();
+    if (!body) return;
+    post.mutate(
+      { feedbackId, body },
+      {
+        onSuccess: () => {
+          setDraft("");
+        },
+        onError: (err) => {
+          if (err instanceof FeedbackApiError) {
+            if (err.status === 429) {
+              const seconds = err.retryAfter ?? "?";
+              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
+              return;
+            }
+            if (err.status === 401 || err.status === 403) {
+              adapter.toast.error(t("feedback.comments.send_unauthorized"));
+              return;
+            }
+          }
+          adapter.toast.error(t("feedback.comments.send_error"));
+        }
+      }
+    );
+  };
+  return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
+    /* @__PURE__ */ jsx7("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
+    query.isLoading ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx7("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx7("ul", { className: "space-y-2", children: query.data?.data.map((c) => {
+      const isMine = currentUser !== null && c.author_user_id === currentUser.id;
+      const label = isMine ? t("feedback.comments.you_label") : c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.submitter_label");
+      return /* @__PURE__ */ jsxs3(
+        "li",
+        {
+          className: `rounded-md border p-2 text-xs ${isMine ? "border-input bg-background" : c.author_role === "admin" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/40"}`,
+          children: [
+            /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
+              /* @__PURE__ */ jsx7(
+                Badge,
+                {
+                  variant: isMine ? "outline" : c.author_role === "admin" ? "default" : "secondary",
+                  className: "text-[10px]",
+                  children: label
+                }
+              ),
+              /* @__PURE__ */ jsx7("span", { className: "text-[10px] text-muted-foreground", children: _fmt(c.created_at) })
+            ] }),
+            /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: c.body })
+          ]
+        },
+        c.id
+      );
+    }) }),
+    /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
+      /* @__PURE__ */ jsx7(
+        Textarea,
+        {
+          value: draft,
+          onChange: (e) => setDraft(e.target.value),
+          placeholder: t("feedback.comments.placeholder"),
+          rows: 2,
+          maxLength: 5e3,
+          disabled: post.isPending,
+          "data-feedback-id": "feedback.comments.draft"
+        }
+      ),
+      /* @__PURE__ */ jsx7("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs3(
+        Button,
+        {
+          type: "button",
+          size: "sm",
+          onClick: onSend,
+          disabled: post.isPending || draft.trim().length === 0,
+          "data-feedback-id": "feedback.comments.send",
+          children: [
+            /* @__PURE__ */ jsx7(Send, { className: "mr-1 h-3.5 w-3.5" }),
+            post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
+          ]
+        }
+      ) })
+    ] })
+  ] });
+}
+
+// src/MyTicketsPanel.tsx
+import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
+function statusVariant(s) {
+  if (s === "new") return "default";
+  if (s === "triaged" || s === "in_progress") return "secondary";
+  if (s === "wont_fix") return "destructive";
+  return "outline";
+}
+function humanStatus(s) {
+  switch (s) {
+    case "new":
+      return "Submitted";
+    case "triaged":
+      return "Triaged";
+    case "in_progress":
+      return "In progress";
+    case "done":
+      return "Resolved";
+    case "wont_fix":
+      return "Closed (won't fix)";
+    default:
+      return s;
+  }
+}
+function MyTicketsPanel({ onSelectTicket }) {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
+  const query = useMyFeedbackQuery(25);
+  const [expandedId, setExpandedId] = useState2(null);
+  if (query.isLoading) {
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
+  }
+  if (query.isError) {
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
+  }
+  const rows = query.data ?? [];
+  if (rows.length === 0) {
+    return /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
+  }
+  return /* @__PURE__ */ jsx8("ul", { className: "space-y-2", children: rows.map((r) => {
+    const recentlyResolved = r.status === "done";
+    const isOpen = expandedId === r.id;
+    return /* @__PURE__ */ jsx8("li", { children: /* @__PURE__ */ jsxs4(
+      "div",
+      {
+        className: `rounded-md border ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}`,
+        children: [
+          /* @__PURE__ */ jsxs4(
+            "button",
+            {
+              type: "button",
+              onClick: () => setExpandedId(isOpen ? null : r.id),
+              className: "w-full text-left p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md",
+              "aria-expanded": isOpen,
+              "aria-controls": `ticket-detail-${r.id}`,
+              "data-feedback-id": "feedback.mine.row",
+              children: [
+                /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
+                  /* @__PURE__ */ jsx8("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+                  /* @__PURE__ */ jsx8(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                  /* @__PURE__ */ jsx8("span", { className: "truncate flex-1 font-medium", children: r.title }),
+                  isOpen ? /* @__PURE__ */ jsx8(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx8(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
+                ] }),
+                recentlyResolved && !isOpen ? /* @__PURE__ */ jsx8("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+              ]
+            }
+          ),
+          isOpen ? /* @__PURE__ */ jsxs4(
+            "div",
+            {
+              id: `ticket-detail-${r.id}`,
+              className: "border-t border-input px-3 py-3 space-y-3 text-xs",
+              children: [
+                r.created_at ? /* @__PURE__ */ jsx8("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
+                  date: r.created_at.slice(0, 16).replace("T", " ")
+                }) }) : null,
+                /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx8("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
+                ] }),
+                r.expected_outcome ? /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
+                ] }) : null,
+                r.triage_note ? /* @__PURE__ */ jsxs4("section", { className: "rounded bg-muted/50 p-2", children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
+                  /* @__PURE__ */ jsx8("p", { className: "whitespace-pre-wrap", children: r.triage_note })
+                ] }) : null,
+                r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs4("section", { children: [
+                  /* @__PURE__ */ jsx8("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
+                    count: String(r.attachments.length)
+                  }) }),
+                  /* @__PURE__ */ jsx8("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
+                    const isImage = a.content_type.startsWith("image/");
+                    const label = a.filename ?? a.kind;
+                    return /* @__PURE__ */ jsxs4(
+                      "li",
+                      {
+                        className: "flex items-center gap-2 rounded border border-input bg-background p-1.5",
+                        children: [
+                          isImage && a.presigned_url ? /* @__PURE__ */ jsx8(
+                            "a",
+                            {
+                              href: a.presigned_url,
+                              target: "_blank",
+                              rel: "noreferrer",
+                              className: "shrink-0",
+                              children: /* @__PURE__ */ jsx8(
+                                "img",
+                                {
+                                  src: a.presigned_url,
+                                  alt: label,
+                                  className: "h-10 w-10 rounded object-cover",
+                                  loading: "lazy"
+                                }
+                              )
+                            }
+                          ) : null,
+                          /* @__PURE__ */ jsx8("span", { className: "flex-1 truncate font-mono", children: label }),
+                          /* @__PURE__ */ jsxs4("span", { className: "text-muted-foreground shrink-0", children: [
+                            (a.byte_size / 1024).toFixed(1),
+                            " KB"
+                          ] }),
+                          a.presigned_url ? /* @__PURE__ */ jsx8(
+                            "a",
+                            {
+                              href: a.presigned_url,
+                              target: "_blank",
+                              rel: "noreferrer",
+                              className: "shrink-0 text-primary hover:underline",
+                              children: t("feedback.mine.open")
+                            }
+                          ) : null
+                        ]
+                      },
+                      a.id
+                    );
+                  }) })
+                ] }) : null,
+                /* @__PURE__ */ jsx8(CommentThread, { feedbackId: r.id }),
+                onSelectTicket ? /* @__PURE__ */ jsx8(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => onSelectTicket(r),
+                    className: "text-primary hover:underline",
+                    "data-feedback-id": "feedback.mine.deeplink",
+                    children: t("feedback.mine.open_in_app")
+                  }
+                ) : null
+              ]
+            }
+          ) : null
+        ]
+      }
+    ) }, r.id);
+  }) });
+}
+function useMyPendingActionCount() {
+  const query = useMyFeedbackQuery(25);
+  return (query.data ?? []).filter((r) => r.status === "done").length;
 }
 
 // src/capture/screenshot.ts
@@ -897,9 +1188,7 @@ function _cssSelectorOf(el) {
     }
     const parent = cur.parentElement;
     if (parent) {
-      const siblings = Array.from(parent.children).filter(
-        (s) => s.tagName === cur?.tagName
-      );
+      const siblings = Array.from(parent.children).filter((s) => s.tagName === cur?.tagName);
       if (siblings.length > 1) {
         part += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
       }
@@ -927,124 +1216,10 @@ function _xpathOf(el) {
   return segments.length > 0 ? `/${segments.join("/")}` : null;
 }
 
-// src/ui/badge.tsx
-import { Slot as Slot2 } from "@radix-ui/react-slot";
-import { cva as cva2 } from "class-variance-authority";
-import { jsx as jsx5 } from "react/jsx-runtime";
-var badgeVariants = cva2(
-  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
-  {
-    variants: {
-      variant: {
-        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary: "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"
-      }
-    },
-    defaultVariants: {
-      variant: "default"
-    }
-  }
-);
-function Badge({
-  className,
-  variant,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot2 : "span";
-  return /* @__PURE__ */ jsx5(
-    Comp,
-    {
-      "data-slot": "badge",
-      className: cn(badgeVariants({ variant }), className),
-      ...props
-    }
-  );
-}
-
-// src/MyTicketsPanel.tsx
-import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
-function statusVariant(s) {
-  if (s === "new") return "default";
-  if (s === "triaged" || s === "in_progress") return "secondary";
-  if (s === "wont_fix" || s === "rejected_by_user") return "destructive";
-  return "outline";
-}
-function humanStatus(s) {
-  switch (s) {
-    case "new":
-      return "Submitted";
-    case "triaged":
-      return "Triaged";
-    case "in_progress":
-      return "In progress";
-    case "done":
-      return "Awaiting your confirmation";
-    case "wont_fix":
-      return "Closed (won't fix)";
-    case "accepted_by_user":
-      return "Closed by you";
-    case "rejected_by_user":
-      return "Reopened by you";
-    default:
-      return s;
-  }
-}
-function MyTicketsPanel({
-  onSelectTicket
-}) {
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
-  const query = useMyFeedbackQuery(25);
-  if (query.isLoading) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
-  }
-  if (query.isError) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") });
-  }
-  const rows = query.data ?? [];
-  if (rows.length === 0) {
-    return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
-  }
-  return /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
-    const needsAction = r.status === "done";
-    const clickable = !!onSelectTicket;
-    const Tag = clickable ? "button" : "div";
-    return /* @__PURE__ */ jsx6("li", { children: /* @__PURE__ */ jsxs3(
-      Tag,
-      {
-        type: clickable ? "button" : void 0,
-        onClick: clickable ? () => onSelectTicket?.(r) : void 0,
-        className: `w-full text-left rounded-md border p-2 text-sm flex flex-col gap-1
-                ${needsAction ? "border-primary bg-primary/5" : "border-input"}
-                ${clickable ? "hover:bg-accent" : ""}`,
-        children: [
-          /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-            /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-            /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title })
-          ] }),
-          r.parent_ticket_code ? /* @__PURE__ */ jsxs3("span", { className: "text-[11px] text-muted-foreground", children: [
-            "\u21B3 Linked to ",
-            r.parent_ticket_code
-          ] }) : null,
-          needsAction ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
-        ]
-      }
-    ) }, r.id);
-  }) });
-}
-function useMyPendingActionCount() {
-  const query = useMyFeedbackQuery(25);
-  return (query.data ?? []).filter((r) => r.status === "done").length;
-}
-
 // src/ui/input.tsx
-import { jsx as jsx7 } from "react/jsx-runtime";
+import { jsx as jsx9 } from "react/jsx-runtime";
 function Input({ className, type, ...props }) {
-  return /* @__PURE__ */ jsx7(
+  return /* @__PURE__ */ jsx9(
     "input",
     {
       type,
@@ -1063,16 +1238,12 @@ function Input({ className, type, ...props }) {
 // src/ui/select.tsx
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { jsx as jsx8, jsxs as jsxs4 } from "react/jsx-runtime";
-function Select({
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Root, { "data-slot": "select", ...props });
+import { jsx as jsx10, jsxs as jsxs5 } from "react/jsx-runtime";
+function Select({ ...props }) {
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Root, { "data-slot": "select", ...props });
 }
-function SelectValue({
-  ...props
-}) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
+function SelectValue({ ...props }) {
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
 }
 function SelectTrigger({
   className,
@@ -1080,7 +1251,7 @@ function SelectTrigger({
   children,
   ...props
 }) {
-  return /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsxs5(
     SelectPrimitive.Trigger,
     {
       "data-slot": "select-trigger",
@@ -1092,7 +1263,7 @@ function SelectTrigger({
       ...props,
       children: [
         children,
-        /* @__PURE__ */ jsx8(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4 opacity-50" }) })
+        /* @__PURE__ */ jsx10(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx10(ChevronDownIcon, { className: "size-4 opacity-50" }) })
       ]
     }
   );
@@ -1104,7 +1275,7 @@ function SelectContent({
   align = "center",
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsx10(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs5(
     SelectPrimitive.Content,
     {
       "data-slot": "select-content",
@@ -1117,8 +1288,8 @@ function SelectContent({
       align,
       ...props,
       children: [
-        /* @__PURE__ */ jsx8(SelectScrollUpButton, {}),
-        /* @__PURE__ */ jsx8(
+        /* @__PURE__ */ jsx10(SelectScrollUpButton, {}),
+        /* @__PURE__ */ jsx10(
           SelectPrimitive.Viewport,
           {
             className: cn(
@@ -1128,7 +1299,7 @@ function SelectContent({
             children
           }
         ),
-        /* @__PURE__ */ jsx8(SelectScrollDownButton, {})
+        /* @__PURE__ */ jsx10(SelectScrollDownButton, {})
       ]
     }
   ) });
@@ -1138,7 +1309,7 @@ function SelectItem({
   children,
   ...props
 }) {
-  return /* @__PURE__ */ jsxs4(
+  return /* @__PURE__ */ jsxs5(
     SelectPrimitive.Item,
     {
       "data-slot": "select-item",
@@ -1148,8 +1319,8 @@ function SelectItem({
       ),
       ...props,
       children: [
-        /* @__PURE__ */ jsx8("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx8(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx8(CheckIcon, { className: "size-4" }) }) }),
-        /* @__PURE__ */ jsx8(SelectPrimitive.ItemText, { children })
+        /* @__PURE__ */ jsx10("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx10(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx10(CheckIcon, { className: "size-4" }) }) }),
+        /* @__PURE__ */ jsx10(SelectPrimitive.ItemText, { children })
       ]
     }
   );
@@ -1158,16 +1329,13 @@ function SelectScrollUpButton({
   className,
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx10(
     SelectPrimitive.ScrollUpButton,
     {
       "data-slot": "select-scroll-up-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
+      className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
-      children: /* @__PURE__ */ jsx8(ChevronUpIcon, { className: "size-4" })
+      children: /* @__PURE__ */ jsx10(ChevronUpIcon, { className: "size-4" })
     }
   );
 }
@@ -1175,37 +1343,13 @@ function SelectScrollDownButton({
   className,
   ...props
 }) {
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx10(
     SelectPrimitive.ScrollDownButton,
     {
       "data-slot": "select-scroll-down-button",
-      className: cn(
-        "flex cursor-default items-center justify-center py-1",
-        className
-      ),
+      className: cn("flex cursor-default items-center justify-center py-1", className),
       ...props,
-      children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4" })
-    }
-  );
-}
-
-// src/ui/textarea.tsx
-import { jsx as jsx9 } from "react/jsx-runtime";
-function Textarea({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx9(
-    "textarea",
-    {
-      "data-slot": "textarea",
-      className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      ),
-      ...props
+      children: /* @__PURE__ */ jsx10(ChevronDownIcon, { className: "size-4" })
     }
   );
 }
@@ -1217,8 +1361,6 @@ export {
   useFeedbackDetailQuery,
   useUpdateFeedbackStatusMutation,
   useDeleteFeedbackMutation,
-  usePersonasQuery,
-  useUserStoriesQuery,
   createAdapter,
   FeedbackProvider,
   useFeedbackAdapter,
@@ -1241,10 +1383,11 @@ export {
   SheetDescription,
   Textarea,
   Rl3Mark,
+  CommentThread,
+  MyTicketsPanel,
+  useMyPendingActionCount,
   capturePageScreenshot,
   captureElementScreenshot,
-  describeElement,
-  MyTicketsPanel,
-  useMyPendingActionCount
+  describeElement
 };
-//# sourceMappingURL=chunk-2ALMQ6BZ.js.map
+//# sourceMappingURL=chunk-ZFZJOTGZ.js.map

@@ -20,9 +20,9 @@
  */
 
 export interface Rl3MarkProps {
-  className?: string
+  className?: string;
   /** Override the gradient ID so multiple marks on one page don't collide. */
-  gradientId?: string
+  gradientId?: string;
 }
 
 export function Rl3Mark({
@@ -65,5 +65,5 @@ export function Rl3Mark({
         RL3
       </text>
     </svg>
-  )
+  );
 }

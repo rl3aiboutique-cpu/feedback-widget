@@ -3,16 +3,17 @@
 Two tables:
 
 * ``feedback`` — one row per submission. Tenant-scoped (RLS), user-owned.
-  Type-specific fields live in the ``type_fields`` JSONB column so the
-  taxonomy can evolve in beta without a schema migration. Linked user
-  stories ride along in ``linked_user_stories`` JSONB.
-* ``feedback_attachment`` — one row per binary artefact (the screenshot in
-  MVP, future kinds reserved). Cascades on delete from feedback. Mirrors
+  v0.2.0 dropped the dynamic ``type_fields`` JSONB and the persona /
+  linked_user_stories / parent-ticket / acceptance-token apparatus in
+  favour of a uniform schema across the six feedback types.
+* ``feedback_attachment`` — one row per binary artefact. Mirrors
   ``tenant_id`` so the same RLS policy applies without a join.
 
-Both tables get RLS policies in the accompanying Alembic migration so a
-``MASTER_ADMIN`` of tenant A cannot list tenant B's feedback. RL3-internal
-cross-tenant visibility is the email distribution list, not a DB read.
+Both tables get RLS policies in the host's own migration (the package
+itself is host-agnostic).
+
+After v0.2.0 the schema is frozen: future destructive changes require
+non-destructive migrations with backwards compatibility.
 """
 
 from __future__ import annotations
@@ -44,37 +45,29 @@ def _utc_now() -> datetime:
 
 
 class FeedbackType(StrEnum):
-    """Eight first-class feedback flavours.
+    """Six first-class feedback flavours.
 
-    ``new_user_story`` and the persona-aware Bug / NewFeature / ExtendFeature
-    types double as a business-mapping mechanism: every submission either
-    *uses* an existing persona or *introduces* one.
+    The taxonomy is intentionally small. Each type renders the same
+    three-field form (title + description + expected_outcome) — the
+    type chip is just a triage hint, not a different schema.
     """
 
     BUG = "bug"
+    UI = "ui"
+    PERFORMANCE = "performance"
     NEW_FEATURE = "new_feature"
     EXTEND_FEATURE = "extend_feature"
-    NEW_USER_STORY = "new_user_story"
-    QUESTION = "question"
-    UX_POLISH = "ux_polish"
-    PERFORMANCE = "performance"
-    DATA_ISSUE = "data_issue"
+    OTHER = "other"
 
 
 class FeedbackStatus(StrEnum):
     """Triage lifecycle. Default ``new`` on insert.
 
-    The ticket workflow:
-
-      NEW                 — submitted, unread
-      TRIAGED             — admin acknowledged, in queue
-      IN_PROGRESS         — admin actively working on it
-      DONE                — admin finished + emailed submitter for confirmation
-      WONT_FIX            — admin closed without fixing (final)
-      ACCEPTED_BY_USER    — submitter clicked "accept" in the email
-      REJECTED_BY_USER    — submitter clicked "reject" in the email
-                            (typically followed by a child feedback
-                             linked via parent_feedback_id)
+    NEW          — submitted, unread
+    TRIAGED      — admin acknowledged, in queue
+    IN_PROGRESS  — admin actively working on it
+    DONE         — admin finished, submitter notified
+    WONT_FIX     — admin closed without fixing (final)
     """
 
     NEW = "new"
@@ -82,20 +75,29 @@ class FeedbackStatus(StrEnum):
     IN_PROGRESS = "in_progress"
     DONE = "done"
     WONT_FIX = "wont_fix"
-    ACCEPTED_BY_USER = "accepted_by_user"
-    REJECTED_BY_USER = "rejected_by_user"
 
 
 class FeedbackAttachmentKind(StrEnum):
     """Kind of binary attached to a feedback row.
 
-    ``screenshot`` is the only kind in MVP. ``log_dump`` is reserved for
-    a future v2 hook (e.g. attaching a console-log JSON blob as a file
-    rather than embedding it in metadata_bundle).
+    ``screenshot`` is the auto-captured page snapshot (at most one per
+    feedback). ``user_attachment`` is anything the user dropped in the
+    form themselves (wireframes, drawings, log files, notes — up to 5).
     """
 
     SCREENSHOT = "screenshot"
-    LOG_DUMP = "log_dump"
+    USER_ATTACHMENT = "user_attachment"
+
+
+class FeedbackCommentAuthorRole(StrEnum):
+    """Who wrote the comment.
+
+    ``submitter`` is the user who filed the original feedback row.
+    ``admin`` is anyone with the host's MASTER_ADMIN gate.
+    """
+
+    SUBMITTER = "submitter"
+    ADMIN = "admin"
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -118,10 +120,6 @@ class Feedback(SQLModel, table=True):
                 FeedbackType,
                 name="feedback_type",
                 create_constraint=True,
-                # Use the enum *value* (lowercase, matches the Postgres enum
-                # type the migration created), not the StrEnum member *name*
-                # (uppercase). Without this, INSERT sends "BUG" and Postgres
-                # rejects it with InvalidTextRepresentation.
                 values_callable=lambda enum_cls: [member.value for member in enum_cls],
             ),
             nullable=False,
@@ -142,7 +140,8 @@ class Feedback(SQLModel, table=True):
     )
 
     title: str = Field(max_length=200)
-    description: str  # markdown
+    description: str  # markdown — "What's happening?"
+    expected_outcome: str | None = Field(default=None)  # markdown — "How should it work?"
 
     # Where the user was when they submitted.
     url_captured: str = Field(max_length=2048)
@@ -155,33 +154,13 @@ class Feedback(SQLModel, table=True):
         default=None, sa_column=Column(JSONB, nullable=True)
     )
 
-    # Type-specific fields. JSONB so the taxonomy can evolve without a
-    # backend migration during the beta. Frequently-queried fields (e.g.
-    # severity, priority) graduate to columns once the schema settles.
-    type_fields: dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False, server_default="{}"),
-    )
-
-    # Persona block (markdown-friendly free text). Required only for
-    # NEW_FEATURE / EXTEND_FEATURE / NEW_USER_STORY at the schema level —
-    # validation is service-layer.
-    persona: str | None = Field(default=None)
-
-    # List of {story, acceptance_criteria, priority} objects.
-    linked_user_stories: list[dict[str, Any]] = Field(
-        default_factory=list,
-        sa_column=Column(JSONB, nullable=False, server_default="[]"),
-    )
-
     # Redacted technical metadata captured client-side (URL, viewport, console
-    # tail, network tail, breadcrumbs, etc.). The server-side redactor in
-    # app/feedback/redaction.py runs as defence-in-depth.
+    # tail, network tail, breadcrumbs, etc.). Server-side redactor runs as
+    # defence-in-depth.
     metadata_bundle: dict[str, Any] = Field(
         default_factory=dict,
         sa_column=Column(JSONB, nullable=False, server_default="{}"),
     )
-    consent_metadata_capture: bool = Field(default=True)
 
     # Build provenance — useful when triaging a bug against a specific build.
     app_version: str | None = Field(default=None, max_length=64)
@@ -204,34 +183,17 @@ class Feedback(SQLModel, table=True):
     )
     triage_note: str | None = Field(default=None)
 
-    # ──── Ticketing workflow (added in d7c4a8e91f23) ─────────────────
-    # Human-readable identifier ``FB-YYYY-NNNN`` unique per tenant.
-    # Generated by the service on insert so the row is meaningful in
-    # emails and deep links from day one.
+    # Human-readable identifier ``FB-YYYY-NNNN`` unique per tenant. Generated
+    # by the service on insert so the row is meaningful in emails and deep
+    # links from day one.
     ticket_code: str = Field(max_length=24, default="")
-    # Optional address the submitter wants status notifications routed
-    # to. NULL means the submitter opted out. The form pre-fills it
-    # with the user's account email but they can override.
-    follow_up_email: str | None = Field(default=None, max_length=320)
-    # Self-FK: when this feedback is filed in response to a previous
-    # submission (typical: user rejected a resolution), the parent's
-    # acceptance cascades here when this child is accepted.
-    parent_feedback_id: uuid.UUID | None = Field(default=None)
-    # Opaque single-use token for the magic-link accept/reject emails.
-    # Set when the row transitions to DONE; cleared on consumption.
-    acceptance_token: uuid.UUID | None = Field(default=None)
-    acceptance_token_expires_at: datetime | None = Field(
-        default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
 
 
 class FeedbackAttachment(SQLModel, table=True):
     """Binary artefact attached to a feedback row.
 
-    Screenshot only in MVP. ``bucket`` + ``object_key`` together identify
-    the underlying MinIO/S3 object so multi-bucket deployments are
-    straightforward to query.
+    ``bucket`` + ``object_key`` together identify the underlying MinIO/S3
+    object so multi-bucket deployments are straightforward to query.
     """
 
     __tablename__ = "feedback_attachment"
@@ -263,9 +225,59 @@ class FeedbackAttachment(SQLModel, table=True):
     content_type: str = Field(max_length=100)
     byte_size: int
 
+    # Original filename for user_attachments (sanitized before storage).
+    # NULL for auto-captured screenshots which derive their filename
+    # from the feedback id.
+    filename: str | None = Field(default=None, max_length=255)
+
     # Image-only metadata; null for non-image kinds.
     width: int | None = Field(default=None)
     height: int | None = Field(default=None)
+
+    created_at: datetime | None = Field(
+        default_factory=_utc_now,
+        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
+    )
+
+
+class FeedbackComment(SQLModel, table=True):
+    """One reply / note on a feedback ticket. (v0.2.2)
+
+    The conversation between submitter and admin lives here. There's no
+    edit / delete in v0.2.2 — just append-only — to keep the table cheap
+    and the audit trail clean. Soft delete + edit follow in a later
+    minor version once we see the moderation patterns we actually need.
+    """
+
+    __tablename__ = "feedback_comment"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    feedback_id: uuid.UUID = Field(
+        sa_column=Column(
+            ForeignKey("feedback.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    # Mirrored from the parent row so the RLS policy applies without a
+    # join. Single-tenant hosts may leave this NULL — match the parent
+    # ``feedback`` table's optional shape so the ORM model agrees with
+    # the migration's nullable=True column.
+    tenant_id: uuid.UUID | None = Field(default=None, index=True)
+
+    author_user_id: uuid.UUID = Field(index=True)
+    author_role: FeedbackCommentAuthorRole = Field(
+        sa_column=Column(
+            SAEnum(
+                FeedbackCommentAuthorRole,
+                name="feedback_comment_author_role",
+                create_constraint=True,
+                values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            ),
+            nullable=False,
+        )
+    )
+    body: str  # markdown — server redacts before insert
 
     created_at: datetime | None = Field(
         default_factory=_utc_now,

@@ -10,25 +10,14 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from feedback_widget.models import (
     FeedbackAttachmentKind,
+    FeedbackCommentAuthorRole,
     FeedbackStatus,
     FeedbackType,
 )
-
-
-class LinkedUserStory(BaseModel):
-    """One row in the feedback's linked_user_stories list."""
-
-    story: str = Field(min_length=1, max_length=500)
-    acceptance_criteria: str | None = Field(default=None, max_length=2000)
-    priority: str | None = Field(
-        default=None,
-        max_length=8,
-        description="MoSCoW priority: must / should / could / wont",
-    )
 
 
 class FeedbackElementInfo(BaseModel):
@@ -43,99 +32,30 @@ class FeedbackElementInfo(BaseModel):
 
 
 class FeedbackCreatePayload(BaseModel):
-    """JSON body of POST /feedback (sent alongside the screenshot file).
+    """JSON body of POST /feedback (sent alongside the optional screenshot
+    and zero-to-five user attachments).
 
-    Multipart structure: a single ``payload`` field carrying this JSON
-    plus a ``screenshot`` file part. The router parses both.
+    Multipart structure: a ``payload`` field carrying this JSON, an
+    optional ``screenshot`` file part (auto-captured), and zero-to-five
+    repeated ``attachments`` parts (user-uploaded). The router parses
+    all three.
     """
 
     type: FeedbackType
     title: str = Field(min_length=1, max_length=200)
     description: str = Field(min_length=1)
+    expected_outcome: str | None = Field(default=None)
     url_captured: str = Field(min_length=1, max_length=2048)
     route_name: str | None = Field(default=None, max_length=200)
     element: FeedbackElementInfo | None = None
-    type_fields: dict[str, Any] = Field(default_factory=dict)
-    persona: str | None = None
-    linked_user_stories: list[LinkedUserStory] = Field(default_factory=list)
     metadata_bundle: dict[str, Any] = Field(default_factory=dict)
-    consent_metadata_capture: bool = True
     app_version: str | None = Field(default=None, max_length=64)
     git_commit_sha: str | None = Field(default=None, max_length=40)
     user_agent: str | None = Field(default=None, max_length=512)
-    # ──── Ticketing workflow ──────────────────────────────────────────
-    # Submitter wants status notifications routed here. Empty/None ⇒
-    # opt-out (no transition emails sent). The frontend pre-fills with
-    # the current user's email but they can override. Pydantic ``EmailStr``
-    # rejects malformed values at 422 — defence-in-depth against an
-    # attacker submitting feedback with ``follow_up_email`` pointed at a
-    # third party to harvest the magic-link token + admin triage notes
-    # via the status-transition email. The router additionally enforces
-    # ``follow_up_email == current_user.email`` (see
-    # router._validate_follow_up_email) so an authenticated user cannot
-    # redirect notifications to an arbitrary recipient.
-    # NOTE: not EmailStr. Pydantic's EmailStr rejects ".local" TLDs as
-    # "reserved special-use names" — which kills any host using a dev
-    # seeding pattern like manager@sapphira.local. We accept any string
-    # that loosely matches an email shape (one @, non-empty parts).
-    # Hosts that want strict deliverability validation should layer their
-    # own check on the way out (e.g. before sending the magic-link).
-    follow_up_email: str | None = Field(default=None, max_length=320)
-    # Optional reference to a previous ticket. The form's reject flow
-    # auto-fills this when the user is filing a follow-up. The service
-    # resolves it to parent_feedback_id at create time and validates
-    # it belongs to the same tenant.
-    parent_ticket_code: str | None = Field(default=None, max_length=24)
-
-    @field_validator("follow_up_email", mode="before")
-    @classmethod
-    def _coerce_empty_to_none(cls, v: object) -> object:
-        """Treat blank-string opt-out as None so the email regex below
-        doesn't reject ``""``. Frontend sends empty string when the user
-        clears the pre-filled field.
-        """
-        if isinstance(v, str) and not v.strip():
-            return None
-        return v
-
-    @field_validator("follow_up_email", mode="after")
-    @classmethod
-    def _validate_email_shape(cls, v: str | None) -> str | None:
-        """Accept any string that has the basic email shape — including
-        .local / .test / other reserved TLDs that EmailStr rejects.
-
-        Defends against header injection (CR/LF/tab anywhere) and obvious
-        malformations (multiple @, empty parts, dot-at-edge in the domain).
-        Hosts that want strict deliverability validation should layer their
-        own check before sending the magic-link email.
-        """
-        if v is None:
-            return None
-        v = v.strip()
-        # CR/LF/TAB inside the value would be a header-injection vector once
-        # the email is concatenated into the magic-link transition email.
-        # EmailStr (which we're replacing) rejects these via RFC 5321 parsing;
-        # we replicate the security guarantee with an explicit reject.
-        if any(ch in v for ch in ("\r", "\n", "\t", "\0")):
-            raise ValueError("follow_up_email contains invalid control characters")
-        # Reject embedded whitespace (after .strip() removed the edges).
-        if any(ch.isspace() for ch in v):
-            raise ValueError("follow_up_email contains whitespace")
-        # Exactly one @ — split on it.
-        if v.count("@") != 1:
-            raise ValueError("follow_up_email must contain exactly one '@'")
-        local, _, domain = v.partition("@")
-        if not local or not domain:
-            raise ValueError("follow_up_email is not a valid email address")
-        # Domain must have at least one dot AND non-empty labels.
-        labels = domain.split(".")
-        if len(labels) < 2 or any(not lbl for lbl in labels):
-            raise ValueError("follow_up_email is not a valid email address")
-        return v
 
 
 class FeedbackAttachmentRead(BaseModel):
-    """One attachment row, with a presigned URL for the screenshot kind."""
+    """One attachment row, with a presigned URL for downloadable kinds."""
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -145,6 +65,7 @@ class FeedbackAttachmentRead(BaseModel):
     object_key: str
     content_type: str
     byte_size: int
+    filename: str | None = None
     width: int | None = None
     height: int | None = None
     created_at: datetime | None = None
@@ -170,16 +91,13 @@ class FeedbackRead(BaseModel):
     status: FeedbackStatus
     title: str
     description: str
+    expected_outcome: str | None = None
     url_captured: str
     route_name: str | None = None
     element_selector: str | None = None
     element_xpath: str | None = None
     element_bounding_box: dict[str, Any] | None = None
-    type_fields: dict[str, Any]
-    persona: str | None = None
-    linked_user_stories: list[dict[str, Any]]
     metadata_bundle: dict[str, Any]
-    consent_metadata_capture: bool
     app_version: str | None = None
     git_commit_sha: str | None = None
     user_agent: str | None = None
@@ -188,11 +106,7 @@ class FeedbackRead(BaseModel):
     triaged_by: uuid.UUID | None = None
     triaged_at: datetime | None = None
     triage_note: str | None = None
-    # Ticketing workflow
     ticket_code: str = ""
-    follow_up_email: str | None = None
-    parent_feedback_id: uuid.UUID | None = None
-    parent_ticket_code: str | None = None  # joined-in by the service
     attachments: list[FeedbackAttachmentRead] = Field(default_factory=list)
 
 
@@ -210,3 +124,29 @@ class FeedbackStatusUpdate(BaseModel):
 
     status: FeedbackStatus
     triage_note: str | None = Field(default=None, max_length=2000)
+
+
+class FeedbackCommentRead(BaseModel):
+    """One comment in the conversation thread."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    feedback_id: uuid.UUID
+    author_user_id: uuid.UUID
+    author_role: FeedbackCommentAuthorRole
+    body: str
+    created_at: datetime | None = None
+
+
+class FeedbackCommentCreatePayload(BaseModel):
+    """Body of POST /feedback/{id}/comments."""
+
+    body: str = Field(min_length=1, max_length=5000)
+
+
+class FeedbackCommentListResponse(BaseModel):
+    """List of comments on one feedback ticket, oldest first."""
+
+    data: list[FeedbackCommentRead]
+    count: int

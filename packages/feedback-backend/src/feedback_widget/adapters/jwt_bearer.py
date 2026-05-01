@@ -70,9 +70,7 @@ class JWTBearerAuth:
         # Resolve roles: explicit list > legacy single > env > default.
         roles: list[str]
         if master_roles is not None:
-            roles = (
-                [master_roles] if isinstance(master_roles, str) else list(master_roles)
-            )
+            roles = [master_roles] if isinstance(master_roles, str) else list(master_roles)
         elif master_role is not None:
             roles = [master_role]
         else:
@@ -131,9 +129,7 @@ class JWTBearerAuth:
             # spraying `Token <random>` at /feedback/* would amplify log
             # volume at INFO. Operators investigating wrong_scheme issues
             # can re-enable via `--log-level debug`.
-            logger.debug(
-                "feedback_widget jwt rejected: reason=wrong_scheme scheme=%r", scheme
-            )
+            logger.debug("feedback_widget jwt rejected: reason=wrong_scheme scheme=%r", scheme)
             return None
         if not token:
             logger.debug("feedback_widget jwt rejected: reason=empty_token")
@@ -147,9 +143,7 @@ class JWTBearerAuth:
             # INFO: legitimate users hit this after token TTL — operators
             # debugging "401 only after a few hours" benefit from this
             # being on by default.
-            logger.info(
-                "feedback_widget jwt rejected: reason=expired alg=%s", self._algorithm
-            )
+            logger.info("feedback_widget jwt rejected: reason=expired alg=%s", self._algorithm)
             return None
         except JWTClaimsError as exc:
             # INFO: claim shape mismatch points at host misconfig (issuer,

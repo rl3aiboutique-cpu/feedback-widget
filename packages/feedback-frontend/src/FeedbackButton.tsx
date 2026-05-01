@@ -22,102 +22,67 @@
  * filters them out before snapshotting the page.
  */
 
-import { lazy, Suspense, useCallback, useEffect, useState } from "react"
-import type { SelectedElementInfo } from "./capture/metadata"
-import { describeElement, type ScreenshotResult } from "./capture/screenshot"
-import { ElementSelector } from "./ElementSelector"
-import { useFeedbackAdapter, useFeedbackConfig } from "./FeedbackProvider"
-import { useMyPendingActionCount } from "./MyTicketsPanel"
-import { Rl3Mark } from "./Rl3Mark"
+import { Suspense, lazy, useCallback, useState } from "react";
+import { ElementSelector } from "./ElementSelector";
+import { useFeedbackAdapter, useFeedbackConfig } from "./FeedbackProvider";
+import { useMyPendingActionCount } from "./MyTicketsPanel";
+import { Rl3Mark } from "./Rl3Mark";
+import type { SelectedElementInfo } from "./capture/metadata";
+import { type ScreenshotResult, describeElement } from "./capture/screenshot";
 
-const FeedbackPanelLazy = lazy(() => import("./FeedbackPanel"))
+const FeedbackPanelLazy = lazy(() => import("./FeedbackPanel"));
 
 const POSITION_CLASSES: Record<string, string> = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
   top_right: "top-6 right-6",
   top_left: "top-6 left-6",
-}
+};
 
 export interface LockedElement {
-  el: HTMLElement
-  info: SelectedElementInfo
+  el: HTMLElement;
+  info: SelectedElementInfo;
 }
 
 export function FeedbackButton(): React.ReactElement | null {
-  const config = useFeedbackConfig()
-  const adapter = useFeedbackAdapter()
-  const t = adapter.useTranslation()
+  const config = useFeedbackConfig();
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
 
-  const [open, setOpen] = useState(false)
-  const [pickerActive, setPickerActive] = useState(false)
-  const [locked, setLocked] = useState<LockedElement | null>(null)
-  // ``initialParentTicket`` is set when the page is loaded with a
-  // ``?parent=FB-…`` query param — typically after the user clicked
-  // "Submit a follow-up" on the public reject landing page. Cleared
-  // after the panel reads it so closing+reopening doesn't re-prefill.
-  const [initialParentTicket, setInitialParentTicket] = useState<string | null>(
-    null,
-  )
+  const [open, setOpen] = useState(false);
+  const [pickerActive, setPickerActive] = useState(false);
+  const [locked, setLocked] = useState<LockedElement | null>(null);
 
   const handlePickerLock = useCallback((el: HTMLElement) => {
-    setLocked({ el, info: describeElement(el) })
-    setPickerActive(false)
-    // Re-open the panel so the user can finish the form.
-    setOpen(true)
-  }, [])
+    setLocked({ el, info: describeElement(el) });
+    setPickerActive(false);
+    setOpen(true);
+  }, []);
 
   const handlePickerCancel = useCallback(() => {
-    setPickerActive(false)
-    // Re-open the panel even on cancel — the user may have already
-    // filled half the form before deciding the element wasn't worth
-    // pinning.
-    setOpen(true)
-  }, [])
+    setPickerActive(false);
+    setOpen(true);
+  }, []);
 
   const handleActivatePicker = useCallback(() => {
-    setPickerActive(true)
-    // Hide the Sheet visually so the user can interact with the page;
-    // the panel stays MOUNTED because pickerActive=true keeps the
-    // suspense boundary alive — the user's form state is preserved.
-    setOpen(false)
-  }, [])
+    setPickerActive(true);
+    setOpen(false);
+  }, []);
 
   const handleClearLocked = useCallback(() => {
-    setLocked(null)
-  }, [])
+    setLocked(null);
+  }, []);
 
-  // On mount, look for ?parent=FB-YYYY-NNNN in the URL. When found,
-  // open the panel pre-filled with the parent ticket. This is the
-  // bridge from the public reject-landing page back into the app.
-  useEffect(() => {
-    if (typeof window === "undefined") return
-    const params = new URLSearchParams(window.location.search)
-    const parent = params.get("parent")
-    if (!parent || !/^FB-\d{4}-\d{4}$/.test(parent)) return
-    setInitialParentTicket(parent)
-    setOpen(true)
-    // Strip the query param from the URL so a refresh / share doesn't
-    // re-trigger the prefill. ``replaceState`` keeps the user where
-    // they are without a navigation.
-    params.delete("parent")
-    const cleanQuery = params.toString()
-    const cleanUrl =
-      window.location.pathname + (cleanQuery ? `?${cleanQuery}` : "")
-    window.history.replaceState(null, "", cleanUrl + window.location.hash)
-  }, [])
-
-  // Number of "DONE — please confirm" tickets the user owns. Drives
+  // Pending tickets — DONE rows in the user's "mine" list. Drives
   // the notification dot on the floating button.
-  const pendingCount = useMyPendingActionCount()
+  const pendingCount = useMyPendingActionCount();
 
-  if (!config.enabled) return null
+  if (!config.enabled) return null;
 
-  const cornerClass =
-    POSITION_CLASSES[config.position] ?? POSITION_CLASSES.bottom_right
+  const cornerClass = POSITION_CLASSES[config.position] ?? POSITION_CLASSES.bottom_right;
   const accentStyle = config.brandPrimaryHex
     ? ({ "--feedback-brand": config.brandPrimaryHex } as React.CSSProperties)
-    : undefined
+    : undefined;
 
   return (
     <div data-feedback-widget-root="true">
@@ -151,9 +116,7 @@ export function FeedbackButton(): React.ReactElement | null {
             </span>
           ) : null}
         </span>
-        <span className="text-sm font-semibold">
-          {t("feedback.button_label")}
-        </span>
+        <span className="text-sm font-semibold">{t("feedback.button_label")}</span>
       </button>
 
       {/* Keep the panel mounted as long as either flag is true.
@@ -162,14 +125,10 @@ export function FeedbackButton(): React.ReactElement | null {
         <Suspense fallback={null}>
           <FeedbackPanelLazy
             open={open && !pickerActive}
-            onOpenChange={(v) => {
-              setOpen(v)
-              if (!v) setInitialParentTicket(null)
-            }}
+            onOpenChange={setOpen}
             locked={locked}
             onActivatePicker={handleActivatePicker}
             onClearLocked={handleClearLocked}
-            initialParentTicket={initialParentTicket}
             onScreenshotCaptured={(_: ScreenshotResult | null) => {
               /* future v2 hook — annotation overlay would go here */
             }}
@@ -178,13 +137,10 @@ export function FeedbackButton(): React.ReactElement | null {
       ) : null}
 
       {pickerActive ? (
-        <ElementSelector
-          onLock={handlePickerLock}
-          onCancel={handlePickerCancel}
-        />
+        <ElementSelector onLock={handlePickerLock} onCancel={handlePickerCancel} />
       ) : null}
     </div>
-  )
+  );
 }
 
-export default FeedbackButton
+export default FeedbackButton;

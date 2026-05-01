@@ -8,30 +8,30 @@ endpoint then 500'd with ``PydanticUserError: ... is not fully defined``.
 
 Hosts hitting Swagger UI or regenerating the SDK from OpenAPI rely on this.
 """
+
 from __future__ import annotations
 
 import uuid
+from unittest.mock import MagicMock
 
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from unittest.mock import MagicMock
-
 from feedback_widget import build_dependencies
 from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.router import build_router
 from feedback_widget.settings import FeedbackSettings
+from sqlalchemy import create_engine
 
 
 class _FakeAuth:
-    def get_current_user(self, request: Request) -> CurrentUserSnapshot | None:  # noqa: ARG002
+    def get_current_user(self, request: Request) -> CurrentUserSnapshot | None:
         return CurrentUserSnapshot(
             user_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
             email="user@test.local",
             role="MASTER_ADMIN",
         )
 
-    def is_master_admin(self, user: CurrentUserSnapshot) -> bool:  # noqa: ARG002
+    def is_master_admin(self, user: CurrentUserSnapshot) -> bool:
         return True
 
 

@@ -48,7 +48,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Sync dependencies
-        run: uv sync --all-packages --extra test
+        run: uv sync --all-packages --extra test --group dev
 
       - name: Lint
         run: |
@@ -66,7 +66,7 @@ jobs:
 
       - name: Test (unit)
         env:
-          FEEDBACK_DATABASE_URL: postgresql://feedback:feedback@localhost:5432/feedback_test
+          FEEDBACK_DATABASE_URL: postgresql+psycopg://feedback:feedback@localhost:5432/feedback_test
         run: |
           uv run pytest packages/feedback-backend/tests/unit \
             --cov=feedback_widget \
@@ -75,7 +75,7 @@ jobs:
 
       - name: Test (integration)
         env:
-          FEEDBACK_DATABASE_URL: postgresql://feedback:feedback@localhost:5432/feedback_test
+          FEEDBACK_DATABASE_URL: postgresql+psycopg://feedback:feedback@localhost:5432/feedback_test
         run: |
           uv run pytest packages/feedback-backend/tests/integration \
             --cov=feedback_widget \

@@ -37,6 +37,7 @@ class WidgetDependencies:
     get_current_admin: Callable[..., CurrentUserSnapshot]
     get_session: Callable[..., Generator[Session, None, None]]
     get_settings: Callable[..., FeedbackSettings]
+    auth: FeedbackAuthAdapter
 
 
 def build_dependencies(
@@ -83,4 +84,5 @@ def build_dependencies(
         get_current_admin=_get_current_admin,
         get_session=_get_session,
         get_settings=_get_settings,
+        auth=auth,
     )

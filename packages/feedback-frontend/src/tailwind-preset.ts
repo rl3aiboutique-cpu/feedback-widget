@@ -18,7 +18,7 @@
  * widget inherits them.
  */
 
-import type { Config } from "tailwindcss"
+import type { Config } from "tailwindcss";
 
 const preset: Partial<Config> = {
   theme: {
@@ -65,6 +65,6 @@ const preset: Partial<Config> = {
       },
     },
   },
-}
+};
 
-export default preset
+export default preset;

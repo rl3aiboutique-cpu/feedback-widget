@@ -48,9 +48,8 @@ Thumbs.db
 .env.*.local
 !.env.example
 
-# Build / SDK artefacts (will be regenerated)
-packages/feedback-frontend/src/client/*
-!packages/feedback-frontend/src/client/.gitkeep
+# Build / SDK artefacts. (Note: src/client/ types are hand-maintained
+# for now — were originally meant to be openapi-ts regenerated.)
 
 # Sandbox runtime
 apps/sandbox-host/**/data/

@@ -7,7 +7,6 @@
  *     FeedbackProvider,
  *     FeedbackButton,
  *     FeedbackTriagePage,
- *     FeedbackActionPage,
  *     type FeedbackHostBindings,
  *   } from "@rl3/feedback-widget"
  *   import "@rl3/feedback-widget/styles.css"
@@ -17,15 +16,14 @@
  * package's API stable across versions.
  */
 
-export { VERSION } from "./version"
-export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback"
+export { VERSION } from "./version";
+export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback";
 
-export { FeedbackTriagePage } from "./admin/FeedbackTriagePage"
+export { FeedbackTriagePage } from "./admin/FeedbackTriagePage";
 export {
   default as FeedbackButtonDefault,
   FeedbackButton,
-} from "./FeedbackButton"
-export { FeedbackActionPage } from "./public/FeedbackActionPage"
+} from "./FeedbackButton";
 
 export {
   type FeedbackConfig,
@@ -34,15 +32,14 @@ export {
   useFeedbackAdapter,
   useFeedbackBindings,
   useFeedbackConfig,
-} from "./FeedbackProvider"
+} from "./FeedbackProvider";
 
 export {
   createAdapter,
   type FeedbackAdapter,
   type FeedbackHostBindings,
-  type PublicActionResult,
   SubmitFeedbackError,
-} from "./adapter"
+} from "./adapter";
 
 export type {
   CurrentUserSnapshot,
@@ -52,14 +49,13 @@ export type {
   ToastApi,
   ToastOptions,
   Translator,
-} from "./types"
+} from "./types";
 
-export {
-  type FeedbackAttachmentRead,
-  type FeedbackListResponse,
-  type FeedbackRead,
-  type FeedbackStatus,
-  type FeedbackStatusUpdate,
-  type FeedbackType,
-  type LinkedUserStory,
-} from "./client"
+export type {
+  FeedbackAttachmentRead,
+  FeedbackListResponse,
+  FeedbackRead,
+  FeedbackStatus,
+  FeedbackStatusUpdate,
+  FeedbackType,
+} from "./client";

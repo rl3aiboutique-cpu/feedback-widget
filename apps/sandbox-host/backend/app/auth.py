@@ -17,7 +17,6 @@ from __future__ import annotations
 import uuid
 
 from fastapi import Request
-
 from feedback_widget import CurrentUserSnapshot, FeedbackAuthAdapter
 
 # A stable demo user UUID so seeded rows survive container restarts.

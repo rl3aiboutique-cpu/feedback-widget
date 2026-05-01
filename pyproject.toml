@@ -10,16 +10,68 @@ members = [
     "apps/sandbox-host/backend",
 ]
 
+[dependency-groups]
+dev = [
+    "ruff>=0.13",
+    "mypy>=1.13",
+    "bandit[toml]>=1.7",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "httpx>=0.28",
+    "asgi-lifespan>=2.1",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "W", "F", "I", "N", "UP", "B", "C4", "SIM", "RUF", "ARG001"]
-ignore = []
+ignore = [
+    # Standard FastAPI Depends/Query/Form pattern (false-positive).
+    "B008",
+    # FastAPI dependency injection idiom — local Dep handles are PascalCase
+    # by convention so the route signature reads `param = SessionDep`.
+    "N806",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test fixtures often take args for their side effects; ignore unused-arg.
+"packages/feedback-backend/tests/**/*.py" = ["ARG001", "RUF043"]
+# Alembic env.py callback signature is fixed by the Alembic API.
+"packages/feedback-backend/src/feedback_widget/alembic/env.py" = ["ARG001"]
+# router.py keeps `settings` arg for API parity even when unused inside.
+"packages/feedback-backend/src/feedback_widget/router.py" = ["ARG001"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 warn_unused_configs = true
 plugins = ["pydantic.mypy"]
+
+# boto3 / botocore / jose / aiosmtplib ship no type stubs — wrappers
+# the widget consumes are ours, not the underlying clients.
+[[tool.mypy.overrides]]
+module = [
+    "boto3",
+    "boto3.*",
+    "botocore",
+    "botocore.*",
+    "jose",
+    "jose.*",
+    "aiosmtplib",
+    "aiosmtplib.*",
+]
+ignore_missing_imports = true
+
+# SQLModel column operators (count, ilike, asc, desc, like) are dynamic
+# and not typed strictly; match the host CRM's posture.
+[[tool.mypy.overrides]]
+module = [
+    "feedback_widget.service",
+    "feedback_widget.router",
+    "feedback_widget.adapters.*",
+]
+warn_unused_ignores = false
+disable_error_code = ["attr-defined", "union-attr", "arg-type", "operator", "no-any-return"]

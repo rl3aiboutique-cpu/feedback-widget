@@ -5,14 +5,12 @@ Endpoints (under whatever prefix the host passes to
 
 * ``POST   /``                 — create (any authenticated)
 * ``GET    /``                 — list, filterable (MASTER_ADMIN)
-* ``GET    /{id}``             — detail with presigned screenshot URL (MASTER_ADMIN)
+* ``GET    /{id}``             — detail with presigned attachment URLs (MASTER_ADMIN)
 * ``GET    /{id}/download``    — LLM-handoff ZIP (MASTER_ADMIN)
 * ``PATCH  /{id}/status``      — change status / triage note (MASTER_ADMIN)
 * ``DELETE /{id}``             — hard delete + storage cleanup (MASTER_ADMIN)
-* ``GET    /personas``         — autocomplete source (any authenticated)
-* ``GET    /user-stories``     — autocomplete source (any authenticated)
 * ``GET    /mine``             — submitter's own recent rows
-* ``POST   /action/{token}``   — magic-link accept/reject (PUBLIC — token IS the auth)
+* ``GET    /health``           — version check
 
 This module exposes :func:`build_router` rather than a module-level
 ``router`` because every host configures its own auth adapter, engine,
@@ -35,8 +33,7 @@ from fastapi import (
     Response,
     status,
 )
-from pydantic import BaseModel, ValidationError
-from sqlalchemy import text
+from pydantic import ValidationError
 from sqlmodel import Session
 from starlette.datastructures import FormData
 from starlette.datastructures import UploadFile as StarletteUploadFile
@@ -52,15 +49,18 @@ from feedback_widget.exceptions import (
     FeedbackError,
     FeedbackNotFoundError,
     FeedbackRateLimitExceededError,
-    FeedbackTypeRequiresFieldError,
 )
 from feedback_widget.helpers import (
     enqueue_notification,
     parse_feedback_form,
+    read_attachments,
     read_screenshot,
 )
 from feedback_widget.models import FeedbackStatus, FeedbackType
 from feedback_widget.schemas import (
+    FeedbackCommentCreatePayload,
+    FeedbackCommentListResponse,
+    FeedbackCommentRead,
     FeedbackCreatePayload,
     FeedbackListResponse,
     FeedbackRead,
@@ -71,15 +71,6 @@ from feedback_widget.settings import FeedbackSettings
 from feedback_widget.storage import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-
-class _ActionResponse(BaseModel):
-    """Public response for the accept/reject endpoints."""
-
-    status: str
-    ticket_code: str
-    message: str
-    cascade_count: int = 0
 
 
 def build_router(
@@ -101,9 +92,7 @@ def build_router(
     # classic `param: T = Depends(callable)` pattern). Using
     # ``Annotated[T, Depends(...)]`` declared inside this closure does
     # NOT work — FastAPI's introspection treats the metadata as opaque
-    # and the param shows up as a plain query parameter. Bound the
-    # ``Depends`` objects to module-equivalent locals here and use them
-    # as defaults below.
+    # and the param shows up as a plain query parameter.
     SessionDep = Depends(deps.get_session)
     UserDep = Depends(deps.get_current_user)
     AdminDep = Depends(deps.get_current_admin)
@@ -145,6 +134,17 @@ def build_router(
                                     "type": "string",
                                     "format": "binary",
                                     "nullable": True,
+                                    "description": "Auto-captured page screenshot.",
+                                },
+                                "attachments": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "format": "binary",
+                                    },
+                                    "description": (
+                                        "Up to 5 user-uploaded files (images, PDF, text, logs)."
+                                    ),
                                 },
                             },
                         }
@@ -162,7 +162,7 @@ def build_router(
         cfg: FeedbackSettings = SettingsDep,
         form: FormData = Depends(parse_feedback_form),
     ) -> FeedbackRead:
-        """Submit one feedback row + optional screenshot."""
+        """Submit one feedback row + optional screenshot + N user attachments."""
         try:
             if not cfg.ENABLED:
                 raise HTTPException(
@@ -186,10 +186,12 @@ def build_router(
             payload: str = payload_value
             screenshot_value = form.get("screenshot")
             screenshot: StarletteUploadFile | None = (
-                screenshot_value
-                if isinstance(screenshot_value, StarletteUploadFile)
-                else None
+                screenshot_value if isinstance(screenshot_value, StarletteUploadFile) else None
             )
+            attachment_values = form.getlist("attachments")
+            attachment_uploads: list[StarletteUploadFile] = [
+                v for v in attachment_values if isinstance(v, StarletteUploadFile)
+            ]
 
             try:
                 parsed = FeedbackCreatePayload.model_validate_json(payload)
@@ -199,31 +201,8 @@ def build_router(
                     detail=exc.errors(),
                 ) from exc
 
-            # Anti-harassment: a submitter MAY only route status-transition
-            # notifications to their own account email. Without this an
-            # authenticated user could direct the magic-link email to an
-            # arbitrary recipient.
-            #
-            # When the host's CurrentUserSnapshot does not carry an email
-            # (e.g. minimal JWTs without the email claim — see ADR-006bis),
-            # the widget cannot enforce the match. In that mode we accept
-            # whatever the submitter types: the host opted into a more
-            # permissive auth surface by not exposing email, and the
-            # follow_up_email shape validator (schemas.py) still keeps
-            # garbage out.
-            if (
-                current_user.email is not None
-                and parsed.follow_up_email is not None
-                and parsed.follow_up_email.strip().lower() != current_user.email.strip().lower()
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        "follow_up_email must match the authenticated user's email."
-                    ),
-                )
-
             screenshot_upload = await read_screenshot(screenshot, settings=cfg)
+            attachments_uploaded = await read_attachments(attachment_uploads, settings=cfg)
 
             service = FeedbackService(
                 session=session,
@@ -248,12 +227,8 @@ def build_router(
                     user_id=current_user.user_id,
                     payload=parsed,
                     screenshot=screenshot_upload,
+                    attachments=attachments_uploaded,
                 )
-            except FeedbackTypeRequiresFieldError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"missing_field": exc.field_name, "message": str(exc)},
-                ) from exc
             except FeedbackError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -263,20 +238,27 @@ def build_router(
             session.commit()
             session.refresh(feedback)
 
-            attachments = service.list_attachments(feedback.id)
+            attachment_rows = service.list_attachments(feedback.id)
+            screenshot_row = next(
+                (a for a in attachment_rows if a.kind.value == "screenshot"),
+                None,
+            )
             presigned_url: str | None = None
-            if attachments:
-                first = attachments[0]
+            if screenshot_row is not None:
                 presigned_url = s3.presigned_url(
-                    key=first.object_key,
+                    key=screenshot_row.object_key,
                     expires=cfg.PRESIGNED_TTL_SECONDS,
-                    bucket=first.bucket,
+                    bucket=screenshot_row.bucket,
                 )
+            extra_attachment_count = sum(
+                1 for a in attachment_rows if a.kind.value == "user_attachment"
+            )
 
             subject, html, text_body = build_feedback_email(
                 feedback=feedback,
-                submitter_email=current_user.email,
+                submitter_email=current_user.email or "(unknown)",
                 presigned_url=presigned_url,
+                extra_attachment_count=extra_attachment_count,
                 settings=cfg,
             )
 
@@ -293,7 +275,7 @@ def build_router(
                 settings=cfg,
             )
 
-            return service.to_read(feedback, attachments=attachments, sign_urls=True)
+            return service.to_read(feedback, attachments=attachment_rows, sign_urls=True)
         except HTTPException:
             raise
         except Exception as exc:
@@ -334,9 +316,7 @@ def build_router(
                 page_size=page_size,
             )
             data = [service.to_read(r, sign_urls=False) for r in rows]
-            return FeedbackListResponse(
-                data=data, count=total, page=page, page_size=page_size
-            )
+            return FeedbackListResponse(data=data, count=total, page=page, page_size=page_size)
         except HTTPException:
             raise
         except Exception as exc:
@@ -347,58 +327,8 @@ def build_router(
             ) from exc
 
     # ────────────────────────────────────────────────────────────────
-    # GET /personas, /user-stories, /mine — declared BEFORE /{id}
+    # GET /mine — declared BEFORE /{id}
     # ────────────────────────────────────────────────────────────────
-
-    @router.get("/personas", response_model=list[str])
-    def list_personas(
-        session: Session = SessionDep,
-        current_user: CurrentUserSnapshot = UserDep,
-        s3: StorageBackend = StorageDep,
-        cfg: FeedbackSettings = SettingsDep,
-        limit: int = Query(default=50, ge=1, le=200),
-    ) -> list[str]:
-        try:
-            service = FeedbackService(
-                session=session,
-                storage=s3,
-                tenant_id=current_user.tenant_id,
-                settings=cfg,
-            )
-            return service.list_distinct_personas(limit=limit)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.exception("list_personas failed unexpectedly")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error.",
-            ) from exc
-
-    @router.get("/user-stories")
-    def list_user_stories(
-        session: Session = SessionDep,
-        current_user: CurrentUserSnapshot = UserDep,
-        s3: StorageBackend = StorageDep,
-        cfg: FeedbackSettings = SettingsDep,
-        limit: int = Query(default=100, ge=1, le=500),
-    ) -> list[dict[str, str | None]]:
-        try:
-            service = FeedbackService(
-                session=session,
-                storage=s3,
-                tenant_id=current_user.tenant_id,
-                settings=cfg,
-            )
-            return service.list_distinct_user_stories(limit=limit)
-        except HTTPException:
-            raise
-        except Exception as exc:
-            logger.exception("list_user_stories failed unexpectedly")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Internal server error.",
-            ) from exc
 
     @router.get("/mine", response_model=list[FeedbackRead])
     def list_my_feedback(
@@ -416,7 +346,10 @@ def build_router(
                 settings=cfg,
             )
             rows = service.list_mine(user_id=current_user.user_id, limit=limit)
-            return [service.to_read(r, sign_urls=False) for r in rows]
+            # Sign URLs so the submitter can preview their own
+            # screenshots + attachments without going through admin
+            # triage. The list is already user-scoped.
+            return [service.to_read(r, sign_urls=True) for r in rows]
         except HTTPException:
             raise
         except Exception as exc:
@@ -448,9 +381,7 @@ def build_router(
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             return service.to_read(feedback, sign_urls=True)
         except HTTPException:
             raise
@@ -484,31 +415,15 @@ def build_router(
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as fnf:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(fnf)
-                ) from fnf
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(fnf)) from fnf
 
             attachments = service.list_attachments(feedback.id)
-            parents = (
-                service.walk_parent_chain(feedback.parent_feedback_id)
-                if feedback.parent_feedback_id is not None
-                else []
-            )
-
-            # Submitter info: in the package version we use only the
-            # follow_up_email recorded on the row. Hosts that want richer
-            # submitter metadata (e.g. role / tenant assignment) can extend
-            # the bundle in their own integration code.
-            submitter_email: str | None = feedback.follow_up_email
-            submitter_role: str | None = None
 
             zip_bytes = build_feedback_bundle(
                 fb=feedback,
                 attachments=attachments,
-                parent_chain=parents,
                 storage=s3,
-                deep_link_base=cfg.ADMIN_DEEP_LINK_BASE,
-                submitter={"email": submitter_email, "role": submitter_role},
+                submitter={"email": None, "role": None},
                 repo_url=cfg.REPO_URL,
             )
             filename = _bundle_filename(feedback.ticket_code, feedback.created_at)
@@ -528,9 +443,7 @@ def build_router(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "download_feedback_bundle failed unexpectedly (id=%s)", feedback_id
-            )
+            logger.exception("download_feedback_bundle failed unexpectedly (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",
@@ -564,78 +477,63 @@ def build_router(
                     update=body,
                 )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             except FeedbackError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
                 ) from exc
 
-            accept_url: str | None = None
-            reject_url: str | None = None
-            if feedback.status == FeedbackStatus.DONE:
-                token = service.issue_acceptance_token(feedback_id=feedback.id)
-                configured_base = cfg.ADMIN_DEEP_LINK_BASE.rstrip("/")
-                if not configured_base:
-                    logger.warning(
-                        "FEEDBACK_ADMIN_DEEP_LINK_BASE is empty — magic-link "
-                        "emails will be skipped (no accept/reject URLs)"
-                    )
-                else:
-                    accept_url = f"{configured_base}/feedback/accept?token={token}"
-                    reject_url = f"{configured_base}/feedback/reject?token={token}"
-
             session.commit()
             session.refresh(feedback)
 
+            # Informational status-transition email — no magic-link
+            # accept/reject. The submitter's email is the one on their
+            # current account; if the host doesn't expose an email on
+            # CurrentUserSnapshot we just skip the notification.
             notify_states = (
                 FeedbackStatus.DONE,
                 FeedbackStatus.WONT_FIX,
-                FeedbackStatus.ACCEPTED_BY_USER,
-                FeedbackStatus.REJECTED_BY_USER,
+                FeedbackStatus.TRIAGED,
+                FeedbackStatus.IN_PROGRESS,
             )
-            if (
-                feedback.follow_up_email
-                and feedback.status in notify_states
-                and (feedback.status != FeedbackStatus.DONE or accept_url is not None)
-            ):
-                subject, html, text_body = build_status_transition_email(
-                    feedback=feedback,
-                    accept_url=accept_url,
-                    reject_url=reject_url,
-                    settings=cfg,
-                )
-                recipient = feedback.follow_up_email
-                feedback_id_for_log = feedback.id
-                from feedback_widget.email import send_email
+            if feedback.status in notify_states:
+                # Look up the submitter's email by their user_id is the
+                # host's job — the widget doesn't store user records.
+                # Hosts that want submitter-facing transition emails
+                # implement it via their own observer hook. Out of the
+                # box we only mail the NOTIFY_EMAILS list (admin), as
+                # an audit trail of what the triage queue is doing.
+                recipients = cfg.notify_emails_list
+                if recipients:
+                    subject, html, text_body = build_status_transition_email(
+                        feedback=feedback,
+                        settings=cfg,
+                    )
+                    feedback_id_for_log = feedback.id
+                    from feedback_widget.email import send_email
 
-                def _task() -> None:
-                    if not recipient:
-                        return
-                    try:
-                        send_email(
-                            to=[recipient],
-                            subject=subject,
-                            html=html,
-                            text=text_body,
-                            settings=cfg,
-                        )
-                    except (OSError, RuntimeError):
-                        logger.exception(
-                            "feedback status-transition email failed (id=%s)",
-                            feedback_id_for_log,
-                        )
+                    def _task() -> None:
+                        try:
+                            send_email(
+                                to=recipients,
+                                subject=subject,
+                                html=html,
+                                text=text_body,
+                                settings=cfg,
+                            )
+                        except (OSError, RuntimeError):
+                            logger.exception(
+                                "feedback status-transition email failed (id=%s)",
+                                feedback_id_for_log,
+                            )
 
-                background.add_task(_task)
+                    background.add_task(_task)
 
             return service.to_read(feedback, sign_urls=True)
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "update_feedback_status failed unexpectedly (id=%s)", feedback_id
-            )
+            logger.exception("update_feedback_status failed unexpectedly (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",
@@ -663,9 +561,7 @@ def build_router(
             try:
                 service.delete(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             session.commit()
         except HTTPException:
             raise
@@ -677,101 +573,90 @@ def build_router(
             ) from exc
 
     # ────────────────────────────────────────────────────────────────
-    # POST /action/{token} — magic-link accept/reject (PUBLIC)
+    # GET /{id}/comments — list (submitter for own ticket OR MASTER_ADMIN)
     # ────────────────────────────────────────────────────────────────
 
-    @router.post(
-        "/action/{token}",
-        response_model=_ActionResponse,
-        status_code=status.HTTP_200_OK,
-    )
-    def consume_action_token(
-        token: uuid.UUID,
-        action: str = Query(pattern="^(accept|reject)$"),
+    @router.get("/{feedback_id}/comments", response_model=FeedbackCommentListResponse)
+    def list_feedback_comments(
+        feedback_id: uuid.UUID,
         session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
         s3: StorageBackend = StorageDep,
         cfg: FeedbackSettings = SettingsDep,
-    ) -> _ActionResponse:
-        """Apply the user's accept/reject choice via the magic link.
-
-        No tenant filter on the lookup — the token is the sole credential.
-        The service enforces single-use (token cleared after consumption).
-        """
+    ) -> FeedbackCommentListResponse:
         try:
-            # When the host runs Postgres RLS for multi-tenant isolation,
-            # this endpoint has to bypass the tenant GUC because the
-            # caller carries no tenant context. ``RESET ROLE`` + ``SET
-            # LOCAL row_security = off`` does that; both are scoped to
-            # the current transaction. Skip when the host is single-tenant.
-            if cfg.MULTI_TENANT_MODE:
-                session.execute(text("RESET ROLE"))
-                session.execute(text("SET LOCAL row_security = off"))
-
+            is_admin = deps.auth.is_master_admin(current_user)
             service = FeedbackService(
                 session=session,
                 storage=s3,
-                tenant_id=None,
+                tenant_id=current_user.tenant_id,
                 settings=cfg,
             )
             try:
-                feedback = service.consume_acceptance_token(token=token, action=action)
+                rows = service.list_comments(
+                    feedback_id=feedback_id,
+                    is_admin=is_admin,
+                    current_user_id=current_user.user_id,
+                )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="This link is invalid, already used, or has expired.",
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+            data = [FeedbackCommentRead.model_validate(r) for r in rows]
+            return FeedbackCommentListResponse(data=data, count=len(data))
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception("list_feedback_comments failed (id=%s)", feedback_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
+    # POST /{id}/comments — append (submitter for own OR MASTER_ADMIN)
+    # ────────────────────────────────────────────────────────────────
+
+    @router.post(
+        "/{feedback_id}/comments",
+        response_model=FeedbackCommentRead,
+        status_code=status.HTTP_201_CREATED,
+    )
+    def create_feedback_comment(
+        feedback_id: uuid.UUID,
+        body: FeedbackCommentCreatePayload,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> FeedbackCommentRead:
+        try:
+            is_admin = deps.auth.is_master_admin(current_user)
+            service = FeedbackService(
+                session=session,
+                storage=s3,
+                tenant_id=current_user.tenant_id,
+                settings=cfg,
+            )
+            try:
+                comment = service.create_comment(
+                    feedback_id=feedback_id,
+                    is_admin=is_admin,
+                    current_user_id=current_user.user_id,
+                    payload=body,
+                )
+            except FeedbackNotFoundError as exc:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             except FeedbackError as exc:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
                 ) from exc
 
-            cascade_count = 0
-            if action == "accept":
-                cur_id = feedback.parent_feedback_id
-                seen: set[uuid.UUID] = {feedback.id}
-                while cur_id is not None and cur_id not in seen:
-                    seen.add(cur_id)
-                    parent = session.get(type(feedback), cur_id)
-                    if (
-                        parent is None
-                        or parent.tenant_id != feedback.tenant_id
-                        or parent.status != FeedbackStatus.ACCEPTED_BY_USER
-                    ):
-                        break
-                    cascade_count += 1
-                    cur_id = parent.parent_feedback_id
-
-            ticket_code = feedback.ticket_code
             session.commit()
-
-            if action == "accept":
-                cascade_note = (
-                    f" {cascade_count} linked ticket"
-                    + ("s" if cascade_count != 1 else "")
-                    + " also auto-accepted."
-                    if cascade_count
-                    else ""
-                )
-                return _ActionResponse(
-                    status="accepted",
-                    ticket_code=ticket_code,
-                    message=f"Thanks — {ticket_code} is now closed.{cascade_note}",
-                    cascade_count=cascade_count,
-                )
-            return _ActionResponse(
-                status="rejected",
-                ticket_code=ticket_code,
-                message=(
-                    f"Got it — {ticket_code} marked as not resolved. "
-                    "Please file a follow-up linked to this ticket so we can iterate."
-                ),
-            )
+            session.refresh(comment)
+            return FeedbackCommentRead.model_validate(comment)
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "consume_action_token failed unexpectedly (action=%s)", action
-            )
+            logger.exception("create_feedback_comment failed (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",

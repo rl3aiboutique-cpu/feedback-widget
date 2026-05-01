@@ -17,13 +17,11 @@ from feedback_widget.settings import FeedbackSettings, get_settings
 
 _TYPE_LABELS = {
     "bug": "BUG",
+    "ui": "UI",
+    "performance": "PERFORMANCE",
     "new_feature": "NEW FEATURE",
     "extend_feature": "EXTEND FEATURE",
-    "new_user_story": "NEW USER STORY",
-    "question": "QUESTION",
-    "ux_polish": "UX POLISH",
-    "performance": "PERFORMANCE",
-    "data_issue": "DATA ISSUE",
+    "other": "OTHER",
 }
 
 _STATUS_LABELS = {
@@ -32,8 +30,6 @@ _STATUS_LABELS = {
     "in_progress": "In progress",
     "done": "Resolved",
     "wont_fix": "Won't fix",
-    "accepted_by_user": "Accepted",
-    "rejected_by_user": "Rejected",
 }
 
 _STATUS_INTROS = {
@@ -43,18 +39,13 @@ _STATUS_INTROS = {
     ),
     "in_progress": "Someone's actively working on this now.",
     "done": (
-        "We believe this is fixed. Click <strong>Accept</strong> below if you "
-        "agree — or <strong>Reject</strong> if it's still not right and we'll "
-        "open a follow-up linked to this ticket."
+        "We believe this is fixed. Reply to this email or submit a fresh "
+        "feedback if it's still not right."
     ),
     "wont_fix": (
         "We've decided not to act on this for now. The team's note explains "
         "why; you can submit a fresh feedback if you want to make the case "
         "again."
-    ),
-    "accepted_by_user": "Confirmed — thanks for closing the loop.",
-    "rejected_by_user": (
-        "Got it — please use the link below to file the follow-up so we can iterate."
     ),
 }
 
@@ -76,11 +67,17 @@ def build_feedback_email(
     feedback: Feedback,
     submitter_email: str,
     presigned_url: str | None,
+    extra_attachment_count: int = 0,
     settings: FeedbackSettings | None = None,
 ) -> tuple[str, str, str]:
     """Render the notification email for one feedback row.
 
     Returns ``(subject, html_body, text_body)``.
+
+    ``presigned_url`` points at the auto-captured screenshot (inlined
+    into the email). ``extra_attachment_count`` reports the number of
+    user-uploaded attachments, which are not inlined — the body just
+    mentions them and points the reader at the bundle ZIP.
     """
     cfg = settings or get_settings()
     type_label = _TYPE_LABELS.get(feedback.type.value, feedback.type.value.upper())
@@ -101,6 +98,7 @@ def build_feedback_email(
         "type_label": type_label,
         "submitter_email": submitter_email,
         "presigned_url": presigned_url,
+        "extra_attachment_count": extra_attachment_count,
         "deep_link": deep_link,
         "metadata_pretty": metadata_pretty,
     }
@@ -113,12 +111,14 @@ def build_feedback_email(
 def build_status_transition_email(
     *,
     feedback: Feedback,
-    accept_url: str | None,
-    reject_url: str | None,
-    expiry_days: int = 30,
     settings: FeedbackSettings | None = None,
 ) -> tuple[str, str, str]:
-    """Render the email sent to the submitter when feedback status transitions."""
+    """Render the email sent to the submitter when feedback status transitions.
+
+    Informational only — v0.2.0 dropped the magic-link accept/reject
+    flow. The submitter learns the new state and can reply by email
+    or file fresh feedback in the app.
+    """
     cfg = settings or get_settings()
     brand = cfg.BRAND_NAME or "Feedback"
     status_value = feedback.status.value
@@ -139,9 +139,6 @@ def build_status_transition_email(
         "status_label": status_label,
         "intro_html": intro_html,
         "triage_note": feedback.triage_note,
-        "accept_url": accept_url,
-        "reject_url": reject_url,
-        "expiry_days": expiry_days,
         "deep_link": deep_link,
     }
 

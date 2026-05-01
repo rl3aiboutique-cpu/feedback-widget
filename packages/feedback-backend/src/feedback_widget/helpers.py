@@ -12,29 +12,59 @@ back via the router keeps the public surface area unchanged.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 
 from fastapi import BackgroundTasks, HTTPException, Request, status
 from starlette.datastructures import FormData
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-from feedback_widget.dto import ScreenshotUpload
+from feedback_widget.dto import AttachmentUpload, ScreenshotUpload
 from feedback_widget.email import EmailAttachment, send_email
 from feedback_widget.settings import FeedbackSettings
 
 logger = logging.getLogger(__name__)
 
 
-# Magic-byte signatures for image content-types we accept. The
-# Content-Type header is attacker-controlled, so we sniff the first
-# bytes to confirm. SVG is intentionally NOT in this list — SVG can
-# carry inline JavaScript that would run when an admin opens the
-# screenshot's presigned URL in a browser.
+# Maximum number of user-uploaded attachments per submission. The
+# auto-captured screenshot is independent of this cap.
+MAX_USER_ATTACHMENTS = 5
+
+
+# Magic-byte signatures for image content-types we accept on the
+# auto-captured screenshot. The Content-Type header is attacker-
+# controlled, so we sniff the first bytes to confirm. SVG is
+# intentionally NOT in this list — SVG can carry inline JavaScript
+# that would run when an admin opens the screenshot's presigned URL.
 _ALLOWED_SCREENSHOT_TYPES: frozenset[str] = frozenset({"image/png", "image/jpeg", "image/webp"})
 _PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 _JPEG_MAGIC = b"\xff\xd8\xff"
 _WEBP_RIFF = b"RIFF"
 _WEBP_TAG = b"WEBP"
+_GIF_MAGIC_87 = b"GIF87a"
+_GIF_MAGIC_89 = b"GIF89a"
+_PDF_MAGIC = b"%PDF-"
+
+# User-uploaded attachments allow a wider set: still no SVG, no
+# executables, no archives, no HTML. Text formats have to UTF-8 decode
+# cleanly. Octet-stream uploads with a ``.log`` / ``.txt`` extension
+# are remapped to ``text/plain`` before this check (see read_attachments).
+_ALLOWED_ATTACHMENT_TYPES: frozenset[str] = frozenset(
+    {
+        "image/png",
+        "image/jpeg",
+        "image/gif",
+        "image/webp",
+        "application/pdf",
+        "text/plain",
+        "text/markdown",
+        "application/json",
+        "application/x-ndjson",
+    }
+)
+_TEXT_ATTACHMENT_TYPES: frozenset[str] = frozenset(
+    {"text/plain", "text/markdown", "application/json", "application/x-ndjson"}
+)
 
 
 def sniff_image_type(data: bytes) -> str | None:
@@ -48,6 +78,51 @@ def sniff_image_type(data: bytes) -> str | None:
     if len(data) >= 12 and data[:4] == _WEBP_RIFF and data[8:12] == _WEBP_TAG:
         return "image/webp"
     return None
+
+
+def sniff_attachment_type(data: bytes, declared: str) -> str | None:
+    """Return the canonical content-type if ``data`` matches the declared
+    type via magic bytes (images, PDFs) or a clean UTF-8 decode (text).
+    Returns None on mismatch.
+    """
+    declared = declared.lower().strip()
+    if declared.startswith("image/"):
+        if declared == "image/gif":
+            if data.startswith(_GIF_MAGIC_87) or data.startswith(_GIF_MAGIC_89):
+                return "image/gif"
+            return None
+        sniffed = sniff_image_type(data)
+        return sniffed if sniffed == declared else None
+    if declared == "application/pdf":
+        return "application/pdf" if data.startswith(_PDF_MAGIC) else None
+    if declared in _TEXT_ATTACHMENT_TYPES:
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return declared
+    return None
+
+
+_FILENAME_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def sanitize_filename(filename: str, *, max_length: int = 200) -> str:
+    """Reduce a user-supplied filename to alphanumerics + ``._-`` so it
+    can sit safely inside an S3 object key and inside a ZIP path. Empty
+    or all-stripped names fall back to ``attachment``.
+    """
+    safe = _FILENAME_SAFE_RE.sub("_", filename).strip("._-")
+    if not safe:
+        safe = "attachment"
+    if len(safe) > max_length:
+        if "." in safe:
+            base, _, ext = safe.rpartition(".")
+            keep = max_length - len(ext) - 1
+            safe = f"{base[:keep]}.{ext}" if keep > 0 else safe[:max_length]
+        else:
+            safe = safe[:max_length]
+    return safe
 
 
 async def read_screenshot(
@@ -92,6 +167,88 @@ async def read_screenshot(
             ),
         )
     return ScreenshotUpload(content=data, content_type=sniffed)
+
+
+async def read_attachments(
+    uploads: list[StarletteUploadFile],
+    *,
+    settings: FeedbackSettings,
+) -> list[AttachmentUpload]:
+    """Pull up to ``MAX_USER_ATTACHMENTS`` files off the wire, validate,
+    and wrap them.
+
+    Enforces:
+
+    * Count cap (``MAX_USER_ATTACHMENTS``) → 400.
+    * Size cap per file (``settings.MAX_SCREENSHOT_BYTES``) → 413.
+    * MIME allowlist (images, PDF, text/log/json/markdown) → 415.
+    * Magic-byte sniff (images, PDF) or UTF-8 decode (text) → 415.
+    """
+    if not uploads:
+        return []
+    if len(uploads) > MAX_USER_ATTACHMENTS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Up to {MAX_USER_ATTACHMENTS} attachments allowed per submission.",
+        )
+    results: list[AttachmentUpload] = []
+    for upload in uploads:
+        original_filename = upload.filename or "attachment"
+        data = await upload.read()
+        if not data:
+            # Surface empty files instead of silently dropping them —
+            # users otherwise see "fewer attachments than I uploaded"
+            # with no signal why.
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Attachment '{original_filename}' is empty.",
+            )
+        if len(data) > settings.MAX_SCREENSHOT_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    f"Attachment '{original_filename}' exceeds the "
+                    f"{settings.MAX_SCREENSHOT_BYTES} byte cap."
+                ),
+            )
+        declared = (upload.content_type or "").lower().strip()
+        # Browsers sometimes send octet-stream for plain text/log files.
+        # If the filename extension is a known text-like one, remap to
+        # text/plain so the allowlist + UTF-8 check apply.
+        if declared in {"application/octet-stream", ""}:
+            lower_name = original_filename.lower()
+            if lower_name.endswith(".log") or lower_name.endswith(".txt"):
+                declared = "text/plain"
+            elif lower_name.endswith(".md"):
+                declared = "text/markdown"
+            elif lower_name.endswith(".json"):
+                declared = "application/json"
+        if declared not in _ALLOWED_ATTACHMENT_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=(
+                    f"Attachment '{original_filename}' has unsupported type "
+                    f"{declared or '(none)'}. Allowed: images (PNG/JPEG/GIF/WebP), "
+                    "PDF, plain text, markdown, JSON."
+                ),
+            )
+        sniffed = sniff_attachment_type(data, declared)
+        if sniffed is None:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=(
+                    f"Attachment '{original_filename}' bytes do not match the "
+                    f"declared content-type {declared!r}."
+                ),
+            )
+        results.append(
+            AttachmentUpload(
+                content=data,
+                content_type=sniffed,
+                filename=sanitize_filename(original_filename),
+            )
+        )
+    return results
 
 
 def enqueue_notification(
@@ -154,9 +311,12 @@ async def parse_feedback_form(request: Request) -> FormData:
     body params. Owning the body via the dep alone keeps FastAPI's
     body-handling shortcut out of the way and lets
     ``request.form(max_part_size=12 MB)`` run first.
+
+    File parts: 1 ``payload`` + 1 ``screenshot`` + up to
+    ``MAX_USER_ATTACHMENTS`` ``attachments``.
     """
     return await request.form(
-        max_files=2,
+        max_files=2 + MAX_USER_ATTACHMENTS,
         max_fields=16,
         max_part_size=12 * 1024 * 1024,
     )

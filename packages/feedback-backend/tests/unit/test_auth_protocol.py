@@ -8,14 +8,13 @@ from __future__ import annotations
 import uuid
 
 from fastapi import Request
-
 from feedback_widget.auth import CurrentUserSnapshot, FeedbackAuthAdapter
 
 
 class DuckTypedAdapter:
     """Implements the Protocol shape without inheriting from it."""
 
-    def get_current_user(self, request: Request) -> CurrentUserSnapshot | None:  # noqa: ARG002
+    def get_current_user(self, request: Request) -> CurrentUserSnapshot | None:
         return CurrentUserSnapshot(
             user_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
             email="duck@test.local",

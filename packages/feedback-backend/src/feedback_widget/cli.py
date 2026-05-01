@@ -132,7 +132,7 @@ def cmd_verify() -> None:
             with eng.connect() as c:
                 c.execute(text("SELECT 1"))
             table.add_row("postgres", "[green]OK[/green]", "SELECT 1 succeeded")
-        except Exception as exc:  # noqa: BLE001 — surface any connectivity error to user
+        except Exception as exc:
             table.add_row("postgres", "[red]FAIL[/red]", str(exc)[:120])
             failures.append("postgres")
 
@@ -159,19 +159,13 @@ def cmd_verify() -> None:
             aws_access_key_id=settings.S3_ACCESS_KEY,
             aws_secret_access_key=settings.S3_SECRET_KEY,
             region_name=settings.S3_REGION,
-            config=BotoCoreConfig(
-                connect_timeout=5, read_timeout=5, retries={"max_attempts": 1}
-            ),
+            config=BotoCoreConfig(connect_timeout=5, read_timeout=5, retries={"max_attempts": 1}),
         )
         try:
             s3.head_bucket(Bucket=settings.BUCKET)
-            table.add_row(
-                "s3 bucket", "[green]OK[/green]", f"head_bucket {settings.BUCKET}"
-            )
+            table.add_row("s3 bucket", "[green]OK[/green]", f"head_bucket {settings.BUCKET}")
         except EndpointConnectionError as exc:
-            table.add_row(
-                "s3 bucket", "[red]FAIL[/red]", f"endpoint unreachable: {exc}"[:200]
-            )
+            table.add_row("s3 bucket", "[red]FAIL[/red]", f"endpoint unreachable: {exc}"[:200])
             failures.append("s3")
         except ClientError as exc:
             code = exc.response.get("Error", {}).get("Code", "Unknown")
@@ -195,17 +189,13 @@ def cmd_verify() -> None:
                 )
                 failures.append("s3")
             else:
-                table.add_row(
-                    "s3 bucket", "[red]FAIL[/red]", f"{code}: {exc}"[:200]
-                )
+                table.add_row("s3 bucket", "[red]FAIL[/red]", f"{code}: {exc}"[:200])
                 failures.append("s3")
         except (NoCredentialsError, PartialCredentialsError) as exc:
             table.add_row(
                 "s3 bucket",
                 "[red]FAIL[/red]",
-                f"credentials not configured — set FEEDBACK_S3_ACCESS_KEY/SECRET ({exc})"[
-                    :200
-                ],
+                f"credentials not configured — set FEEDBACK_S3_ACCESS_KEY/SECRET ({exc})"[:200],
             )
             failures.append("s3")
         except BotoCoreError as exc:
@@ -219,7 +209,7 @@ def cmd_verify() -> None:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=5) as smtp:
             smtp.noop()
         table.add_row("smtp", "[green]OK[/green]", f"{settings.SMTP_HOST}:{settings.SMTP_PORT}")
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         table.add_row("smtp", "[red]FAIL[/red]", str(exc)[:120])
         failures.append("smtp")
 
