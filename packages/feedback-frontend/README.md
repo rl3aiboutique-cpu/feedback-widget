@@ -1,13 +1,13 @@
 # `@rl3/feedback-widget` (TypeScript / React)
 
-React feedback widget: floating button, panel with 8 form types, redacted screenshot capture, admin triage page, magic-link landing pages.
+React feedback widget: floating button, panel with multiple form types, redacted screenshot capture, admin triage page, ticket comments, magic-link landing pages.
 
 Vendors its own shadcn/ui primitives — host doesn't need to ship them. Generates its own typed SDK from the package backend's OpenAPI.
 
 ## Install
 
 ```bash
-pnpm add github:rl3-ai/feedback-widget#v0.1.0
+pnpm add "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.2.4"
 ```
 
 ## Public API
@@ -18,13 +18,14 @@ import {
   FeedbackButton,
   FeedbackTriagePage,
   FeedbackActionPage,
+  useCanTriageFeedback,
   type FeedbackHostBindings,
 } from "@rl3/feedback-widget"
 import "@rl3/feedback-widget/styles.css"
 ```
 
-See top-level [`docs/INTEGRATION-GUIDE.md`](../../docs/INTEGRATION-GUIDE.md).
+See top-level [`docs/INSTALL.md`](../../docs/INSTALL.md) for the full guide and [`QUICKSTART.md`](../../QUICKSTART.md) for the bindings shape.
 
 ## Status
 
-`v0.1.0` — under construction. See top-level CHANGELOG.
+`v0.2.4` — beta. See top-level [`CHANGELOG.md`](../../CHANGELOG.md).

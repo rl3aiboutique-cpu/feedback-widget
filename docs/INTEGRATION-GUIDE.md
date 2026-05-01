@@ -1,14 +1,10 @@
 # Integration Guide
 
-> **Canonical install guide → [`INSTALL.md`](./INSTALL.md)** — host↔widget responsibility matrix, full env reference, Docker BuildKit secret pattern, troubleshooting.
->
-> Host-specific walkthroughs:
-> - sapphira-clinic → [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md)
-> - CRM (Compliance Brain) → [`INSTALL-CRM.md`](./INSTALL-CRM.md)
+> **Canonical install guide → [`INSTALL.md`](./INSTALL.md)** — host↔widget responsibility matrix, full env reference, troubleshooting.
 >
 > Architecture decisions → [`adr/000-index.md`](./adr/000-index.md).
 
-The skeleton below predates `INSTALL.md` and is kept only as historical reference; treat `INSTALL.md` as the source of truth.
+This file is the high-level checklist. Treat `INSTALL.md` as the source of truth.
 
 ---
 
@@ -16,36 +12,48 @@ The skeleton below predates `INSTALL.md` and is kept only as historical referenc
 
 - Python ≥ 3.12, FastAPI ≥ 0.115, async DB driver (asyncpg).
 - Postgres ≥ 16.
-- An S3-compatible blob store (MinIO works in dev).
-- An SMTP relay (MailHog for dev).
+- An S3-compatible blob store (MinIO works in dev; AWS S3 / R2 / B2 / Wasabi in prod).
+- An SMTP relay (MailHog for dev; SendGrid / SES / Mailgun in prod).
 - React ≥ 18, Tailwind CSS ≥ 4 in the host frontend.
 
-## Backend (5 steps)
+## Backend (4 steps)
 
 1. Add the dependency to your `pyproject.toml`.
-2. Run `python -m feedback_widget migrate`.
-3. Implement `FeedbackAuthAdapter` against your existing auth.
-4. Set `FEEDBACK_*` env vars (see [`.env.example`](../apps/sandbox-host/backend/.env.example)).
-5. Call `register_feedback_router(app, auth, settings)` from your API aggregator.
+2. Set the `FEEDBACK_*` env vars (see [`.env.example`](../apps/sandbox-host/backend/.env.example) and the full reference in `INSTALL.md`).
+3. Call once from your API aggregator:
 
-## Frontend (4 steps)
+   ```python
+   from feedback_widget import mount_feedback_widget_for_async_host
+
+   mount_feedback_widget_for_async_host(
+       app,
+       secret_key=settings.SECRET_KEY,
+       algorithm="HS256",
+       prefix="/api/v1/feedback",
+   )
+   ```
+4. Run `feedback-widget migrate` once during boot.
+
+## Frontend (3 steps)
 
 1. Add the dependency to your `package.json`.
-2. Implement `FeedbackHostBindings` against your existing auth hook + CSRF.
-3. Mount `<FeedbackProvider bindings={...}><FeedbackButton /></FeedbackProvider>` inside your authenticated layout root.
-4. Add three thin route wrappers (admin triage, magic-link accept, magic-link reject).
+2. Implement `FeedbackHostBindings` against your existing auth hook + CSRF (see `QUICKSTART.md` for the shape).
+3. Mount `<FeedbackProvider bindings={...}><FeedbackButton /></FeedbackProvider>` inside your authenticated layout root. For the admin triage UI, render `<FeedbackTriagePage />` on a protected route.
 
-## Verification (4 commands)
+## Verification
 
 ```bash
+# CLI probes (DB / S3 / SMTP)
+feedback-widget verify
+
 # Backend health
 curl $API_BASE/api/v1/feedback/health
+
 # OpenAPI lists feedback endpoints
-curl $API_BASE/openapi.json | jq '.paths | keys[] | select(startswith("/feedback"))'
+curl $API_BASE/openapi.json | jq '.paths | keys[] | select(startswith("/api/v1/feedback"))'
+
 # Submit a test ticket via the floating button (browser)
 # Email lands in MailHog at $SMTP_UI
 ```
 
-Full battery for sapphira-clinic: [`INSTALL-SAPPHIRA.md`](./INSTALL-SAPPHIRA.md).
-CRM migration plan: [`INSTALL-CRM.md`](./INSTALL-CRM.md).
-Architecture decisions: [`adr/000-index.md`](./adr/000-index.md).
+For host-specific integration nuances (multi-tenant + RLS, single-tenant Bearer auth, single-tenant cookies + CSRF) see the responsibility matrix in [`INSTALL.md`](./INSTALL.md) and the configuration flags listed there.

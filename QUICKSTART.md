@@ -11,26 +11,26 @@ Plug-and-play feedback widget para cualquier app FastAPI + React. La guía compl
 ### Backend (FastAPI):
 
 ```bash
-pip install "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.13#subdirectory=packages/feedback-backend"
+pip install "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.2.4#subdirectory=packages/feedback-backend"
 ```
 
 O en `pyproject.toml`:
 ```toml
 dependencies = [
   ...,
-  "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.1.13#subdirectory=packages/feedback-backend",
+  "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.2.4#subdirectory=packages/feedback-backend",
 ]
 ```
 
 ### Frontend (React + Vite/Next):
 
 ```bash
-npm install "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.13"
+npm install "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.2.4"
 ```
 
 O en `package.json`:
 ```json
-"@rl3/feedback-widget": "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.1.13"
+"@rl3/feedback-widget": "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.2.4"
 ```
 
 ---
@@ -129,9 +129,9 @@ function FeedbackAdminPage() {
 ## 4) Run — una vez después de cada install/update
 
 ```bash
-# Si tu app está corriendo en Docker (sapphira, capellai):
+# Si tu app está corriendo en Docker:
 docker compose exec backend feedback-widget verify    # probe DB / S3 / SMTP
-docker compose exec backend feedback-widget migrate   # crea/actualiza las 2 tablas (idempotente)
+docker compose exec backend feedback-widget migrate   # crea/actualiza las tablas (idempotente)
 
 # Si está en bare-metal (uvicorn / gunicorn):
 feedback-widget verify
@@ -155,11 +155,4 @@ Reinicia el backend (que el cambio de `mount_feedback_widget_for_async_host` hag
 
 ## Cuándo usar Docker vs no
 
-El widget **no necesita Docker**. Funciona igual en `uvicorn` / `gunicorn` / Lambda / lo que sea — porque es solo un paquete pip + npm. Hosts dockerizados (sapphira, etc.) hacen el `pip install` / `npm ci` dentro del Dockerfile sin trucos: el repo es público y no necesita auth.
-
----
-
-## Hosts de referencia
-
-- **sapphira-clinic** (single-tenant) — ver `backend/app/feedback_integration.py` y `frontend/src/feedback-bindings.ts` después de `feat/feedback-plugin-pat-docker`.
-- **capellai-ai-crm** (multi-tenant + RLS) — pendiente de bumpear desde la versión inline a `@rl3/feedback-widget` v0.1.11.
+El widget **no necesita Docker**. Funciona igual en `uvicorn` / `gunicorn` / Lambda / lo que sea — porque es solo un paquete pip + npm. Los hosts dockerizados hacen el `pip install` / `npm ci` dentro del Dockerfile sin trucos: el repo es público y no necesita auth.

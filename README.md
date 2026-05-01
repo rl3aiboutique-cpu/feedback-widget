@@ -1,22 +1,20 @@
 # RL3 Feedback Widget
 
-In-app feedback module that ships as **two installable packages** plus a **sandbox host** that doubles as demo and extraction validator. Drop it into any RL3 / Capellai web app and you get bug + persona capture, redacted screenshots, magic-link triage, and a per-tenant ticket workflow — without copy-paste.
+In-app feedback module that ships as **two installable packages** plus a **sandbox host** that doubles as demo and extraction validator. Drop it into any FastAPI + React app and you get bug + persona capture, redacted screenshots, magic-link triage, ticket comments and a per-tenant ticket workflow — without copy-paste.
 
-> **Integrating into your project? → Read [`docs/INSTALL.md`](./docs/INSTALL.md)** — canonical guide with host↔widget responsibility matrix.
-
-> First validation host: `sapphira-clinic` (single-tenant FastAPI + Vite). Second: `capellai-ai-crm` (multi-tenant + RLS).
+> **Integrating into your project? → Read [`docs/INSTALL.md`](./docs/INSTALL.md)** — canonical guide with the host↔widget responsibility matrix, env reference and troubleshooting.
 
 ## Layout
 
 ```
 feedback-widget/
 ├── packages/
-│   ├── feedback-backend/   # Python package: rl3-feedback-widget (async-only)
+│   ├── feedback-backend/   # Python package: rl3-feedback-widget
 │   └── feedback-frontend/  # JS package:    @rl3/feedback-widget
 ├── apps/
 │   └── sandbox-host/       # demo host — also produces the OpenAPI used to gen the JS SDK
-├── docs/                   # integration guides + ADRs
-└── tests/sapphira-e2e/     # the full battery that proves the install works in sapphira
+├── docs/                   # integration guide + ADRs
+└── tests/                  # e2e / contract suites
 ```
 
 ## Quickstart (5 minutes)
@@ -35,25 +33,24 @@ make sandbox-up
 **Backend (Python)**:
 
 ```bash
-pip install "git+https://github.com/rl3-ai/feedback-widget.git@v0.1.0#subdirectory=packages/feedback-backend"
-python -m feedback_widget migrate --database-url=postgresql+asyncpg://...
+pip install "rl3-feedback-widget @ git+https://github.com/rl3aiboutique-cpu/feedback-widget.git@v0.2.4#subdirectory=packages/feedback-backend"
 ```
 
 ```python
-from feedback_widget import register_feedback_router, FeedbackAuthAdapter, FeedbackSettings
+from feedback_widget import mount_feedback_widget_for_async_host
 
-class MyHostAuth(FeedbackAuthAdapter):
-    async def get_current_user(self, request): ...
-    async def get_tenant_id(self, request): ...
-    def is_master_admin(self, user): ...
-
-register_feedback_router(app, auth=MyHostAuth(), settings=FeedbackSettings())
+mount_feedback_widget_for_async_host(
+    app,
+    secret_key=settings.SECRET_KEY,   # same SECRET_KEY that signs your JWTs
+    algorithm="HS256",
+    prefix="/api/v1/feedback",
+)
 ```
 
 **Frontend (TS/React)**:
 
 ```bash
-pnpm add github:rl3-ai/feedback-widget#v0.1.0
+pnpm add "git+https://github.com/rl3aiboutique-cpu/feedback-widget.git#v0.2.4"
 ```
 
 ```tsx
@@ -64,32 +61,32 @@ import "@rl3/feedback-widget/styles.css"
   useCurrentUser: () => useAuth().user,
   getCsrfToken: async () => "",
   apiBaseUrl: import.meta.env.VITE_API_URL,
+  apiPathPrefix: "/api/v1/feedback",
 }}>
   <FeedbackButton />
   <YourApp />
 </FeedbackProvider>
 ```
 
-Full integration guide: [`docs/INTEGRATION-GUIDE.md`](./docs/INTEGRATION-GUIDE.md).
-Sapphira-specific walkthrough: [`docs/INSTALL-SAPPHIRA.md`](./docs/INSTALL-SAPPHIRA.md).
+Full guide: [`docs/INSTALL.md`](./docs/INSTALL.md). Short version: [`QUICKSTART.md`](./QUICKSTART.md).
 
 ## Status
 
-`v0.1.0` — work in progress. See [`CHANGELOG.md`](./CHANGELOG.md).
+Current release: **`v0.2.4`** — see [`CHANGELOG.md`](./CHANGELOG.md).
 
-The success criterion of v0.1.0 is `make verify-sapphira` returning 29/29 green: install + e2e flow + coupling + regression + CRM-sanity.
+The widget is in beta: the schema may still change between minor releases. Pin to an exact tag and bump deliberately.
 
 ## Architecture decisions
 
 See `docs/adr/` — every meaningful design choice has a record.
 
 - ADR-001: workspace structure (pnpm + uv).
-- ADR-002: vendoring shadcn primitives inside the widget (pays the original CRM ADR-042 debt).
+- ADR-002: vendoring shadcn primitives inside the widget.
 - ADR-003: backend auth adapter as Protocol.
 - ADR-004: package owns its Alembic chain (`version_table_schema="feedback_widget"`).
-- ADR-005: distribution via git tags (no NPM/PyPI for v0.x — see CRM ADR-043).
-- ADR-006: async-only backend (asyncpg + AsyncSession).
+- ADR-005: distribution via git tags (no NPM/PyPI for v0.x).
+- ADR-006: sync-initially, async follow-up.
 
 ## License
 
-Internal RL3 / Capellai use. UNLICENSED for now.
+UNLICENSED — internal use.
