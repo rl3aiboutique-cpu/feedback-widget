@@ -26,6 +26,11 @@ pnpm-debug.log*
 *.tsbuildinfo
 .turbo/
 
+# npm pack output — produced ephemerally by the release workflow.
+# Never commit these; if one slips into the repo, the release workflow's
+# `mv rl3-feedback-widget-*.tgz` glob matches two files and fails.
+*.tgz
+
 # Build artefacts — dist is gitignored EXCEPT for the published package
 # (consumers install from git URL and need the prebuilt artefact).
 dist/

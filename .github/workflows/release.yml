@@ -29,6 +29,7 @@ jobs:
         id: pack
         run: |
           cd packages/feedback-frontend
+          rm -f rl3-feedback-widget-*.tgz
           npm pack
           mv rl3-feedback-widget-*.tgz ../../rl3-feedback-widget.tgz
           echo "tarball=$PWD/../../rl3-feedback-widget.tgz" >> $GITHUB_OUTPUT
