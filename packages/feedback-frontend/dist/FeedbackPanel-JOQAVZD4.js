@@ -1,5 +1,4 @@
 import {
-  Button,
   Input,
   MyTicketsPanel,
   Rl3Mark,
@@ -14,14 +13,17 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  captureElementScreenshot,
+  capturePageScreenshot
+} from "./chunk-Q5UBLLIC.js";
+import {
+  Button,
   SubmitFeedbackError,
   Textarea,
-  captureElementScreenshot,
-  capturePageScreenshot,
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-ZFZJOTGZ.js";
+} from "./chunk-G7QBSJFP.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
@@ -842,4 +844,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-YBO5HVE2.js.map
+//# sourceMappingURL=FeedbackPanel-JOQAVZD4.js.map

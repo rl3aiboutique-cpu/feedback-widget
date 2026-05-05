@@ -1,6 +1,6 @@
 {
 	"name": "@rl3/feedback-widget",
-	"version": "0.2.4",
+	"version": "0.3.0-rc.1",
 	"description": "RL3 in-app feedback widget — React provider, floating button, multi-file attachments, admin triage.",
 	"license": "UNLICENSED",
 	"type": "module",
@@ -36,6 +36,7 @@
 		"clsx": "^2.1.1",
 		"html-to-image": "^1.11.13",
 		"lucide-react": "^0.469.0",
+		"markdown-it": "^14.1.0",
 		"tailwind-merge": "^2.6.0"
 	},
 	"peerDependencies": {
@@ -49,6 +50,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@tanstack/react-query": "^5.62.0",
+		"@types/markdown-it": "^14.1.2",
 		"@types/react": "^19.0.0",
 		"@types/react-dom": "^19.0.0",
 		"react": "^19.0.0",

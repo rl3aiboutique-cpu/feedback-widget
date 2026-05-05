@@ -94,3 +94,153 @@ export interface FeedbackCommentListResponse {
 export interface FeedbackCommentCreatePayload {
   body: string
 }
+
+// ─────────────────────────────────────────────────────────────────
+// Iterate-with-AI module — wire types
+// (mirrors `feedback_widget.iter_schemas` on the backend)
+// ─────────────────────────────────────────────────────────────────
+
+export type IterSessionStatus =
+  | "draft"
+  | "iterating"
+  | "finalized"
+  | "abandoned"
+
+export type IterCallStatus =
+  | "success"
+  | "json_invalid"
+  | "timeout"
+  | "provider_error"
+  | "cancelled"
+
+export type IterAssumptionKind = "technical" | "business" | "ux" | "scope"
+export type IterAssumptionStatus =
+  | "open"
+  | "confirmed"
+  | "corrected"
+  | "irrelevant"
+
+export interface IterSessionRead {
+  id: string
+  feedback_id: string
+  created_by_user_id: string
+  status: IterSessionStatus
+  model_id: string
+  model_provider: string
+  language: string
+  current_iteration_id: string | null
+  final_package_id: string | null
+  created_at: string
+  updated_at: string
+  finalized_at: string | null
+}
+
+export type IterDiffOp =
+  | { op: "add"; path: string; value: unknown; note?: string | null }
+  | {
+      op: "modify"
+      path: string
+      before: unknown
+      after: unknown
+      note?: string | null
+    }
+  | { op: "remove"; path: string; before: unknown; note: string }
+  | { op: "mark_obsolete"; path: string; reason: string }
+
+export interface IterVersionRead {
+  id: string
+  session_id: string
+  version_number: number
+  parent_version_id: string | null
+  user_message: string
+  restructure_allowed: boolean
+  output_markdown: string
+  diff_json: IterDiffOp[]
+  changes_summary: string
+  created_at: string
+}
+
+export interface IterAssumptionRead {
+  id: string
+  version_id: string
+  slot_key: string
+  kind: IterAssumptionKind
+  statement: string
+  rationale: string
+  confidence: number
+  status: IterAssumptionStatus
+  user_response: string | null
+  resolved_at: string | null
+  resolved_by_user_id: string | null
+  created_at: string
+}
+
+export interface IterCallRead {
+  id: string
+  session_id: string
+  version_id: string | null
+  model_id: string
+  model_provider: string
+  input_tokens: number
+  output_tokens: number
+  cost_usd: string | null
+  latency_ms: number
+  status: IterCallStatus
+  attempt_number: number
+  error_message: string | null
+  prompt_sha256: string
+  created_at: string
+}
+
+export interface IterPackageRead {
+  id: string
+  session_id: string
+  final_version_id: string
+  minio_zip_key: string
+  minio_folder_prefix: string
+  byte_size_zip: number
+  created_at: string
+  presigned_zip_url: string | null
+}
+
+export interface IterUsageRead {
+  user_id: string
+  used_this_week: number
+  weekly_limit: number
+  remaining_this_week: number
+  window_resets_at: string
+}
+
+export interface IterStartRequest {
+  feedback_id: string
+}
+
+export interface IterRunRequest {
+  user_message: string
+  restructure_allowed: boolean
+}
+
+export interface IterAssumptionResolveRequest {
+  status: "confirmed" | "corrected" | "irrelevant"
+  user_response?: string | null
+}
+
+export interface IterRateLimitErrorBody {
+  error: "rate_limited"
+  scope: "session" | "user_week"
+  limit: number
+  current: number
+  retry_after_seconds: number
+}
+
+// Discriminated union of SSE events the run-iteration endpoint
+// streams. The frontend reducer uses the `type` field to route.
+export type IterStreamEvent =
+  | { type: "token"; chunk: string }
+  | {
+      type: "section"
+      section: "personas" | "user_stories" | "spec" | "diagram" | "assumptions"
+    }
+  | { type: "done"; version_id: string; version_number: number }
+  | { type: "error"; error_code: string; message: string }
+  | { type: "heartbeat" }

@@ -1,0 +1,25 @@
+{% extends "base.txt" %}
+{% block body %}
+[Iterate-with-AI finalized] {{ feedback.title }}
+
+A user has finalized an "Iterate with AI" session and the package
+is ready for download.
+
+Submitter:   {{ submitter_email }}
+Tenant:      {{ feedback.tenant_id }}
+Feedback id: {{ feedback.id }}
+Versions:    {{ version_count }}
+LLM calls:   {{ call_count }}
+Model:       {{ model_id }}
+
+--- Package download (presigned, expires per FEEDBACK_PRESIGNED_TTL_SECONDS) ---
+{{ presigned_zip_url }}
+
+The package contains a folder of role-tagged Markdown files plus
+the original feedback's attachments. Hand the ZIP (or the folder)
+to {{ consumer_model }} for downstream implementation.
+
+{% if deep_link %}Open the iter session in {{ brand_name }} admin:
+{{ deep_link }}
+{% endif %}
+{% endblock %}
