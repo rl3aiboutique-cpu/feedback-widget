@@ -106,18 +106,25 @@ def _build_parts(
 
 
 def _build_config(
-    _settings: FeedbackSettings,
+    settings: FeedbackSettings,
     max_output_tokens: int,
 ) -> gtypes.GenerateContentConfig:
-    # ``_settings`` is reserved for future per-host knobs (thinking
-    # mode, top_k, ...). Keeping it on the signature avoids churn
-    # at every call site when those knobs land.
-    return gtypes.GenerateContentConfig(
-        temperature=0.2,
-        top_p=0.95,
-        max_output_tokens=max_output_tokens,
-        response_mime_type="application/json",
-    )
+    # Gemma 3/4 instruction-tuned models do NOT honour
+    # ``response_mime_type="application/json"`` — they fall through to
+    # free-form text (often with chain-of-thought tokens) which then
+    # 500s when combined with the larger system prompt. Detect by
+    # model id and only pass the JSON-mode hint for true Gemini
+    # models. The parser already strips code fences and validates
+    # JSON regardless, so the hint is best-effort.
+    is_gemma = settings.ITER_GEMINI_MODEL.lower().startswith("gemma")
+    cfg_kwargs: dict[str, object] = {
+        "temperature": 0.2,
+        "top_p": 0.95,
+        "max_output_tokens": max_output_tokens,
+    }
+    if not is_gemma:
+        cfg_kwargs["response_mime_type"] = "application/json"
+    return gtypes.GenerateContentConfig(**cfg_kwargs)  # type: ignore[arg-type]
 
 
 def _wrap_provider_error(exc: BaseException) -> LLMProviderError:
