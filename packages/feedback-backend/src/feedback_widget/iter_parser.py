@@ -67,6 +67,43 @@ def _parse_json(raw: str) -> Any:
         ) from exc
 
 
+# Common aliases models reach for when they don't follow the schema
+# verbatim. Coerce them in-place before Pydantic validation rather
+# than burning a retry round-trip.
+_DIFF_OP_ALIASES: dict[str, str] = {
+    "replace": "modify",
+    "update": "modify",
+    "change": "modify",
+    "edit": "modify",
+    "delete": "remove",
+    "obsolete": "mark_obsolete",
+    "deprecate": "mark_obsolete",
+}
+
+
+def _coerce_diff_aliases(payload: Any) -> None:
+    """Rewrite well-known diff-op aliases to the canonical names."""
+    if not isinstance(payload, dict):
+        return
+    diff = payload.get("diff")
+    if not isinstance(diff, list):
+        return
+    for op in diff:
+        if isinstance(op, dict):
+            current = op.get("op")
+            if isinstance(current, str):
+                canonical = _DIFF_OP_ALIASES.get(current.lower())
+                if canonical:
+                    op["op"] = canonical
+                    # ``replace``/``update``-style ops often arrive with
+                    # ``value`` instead of the {before, after} pair the
+                    # ``modify`` shape requires. Move the field over so
+                    # the schema validator accepts it.
+                    if canonical == "modify" and "value" in op and "after" not in op:
+                        op["after"] = op.pop("value")
+                        op.setdefault("before", None)
+
+
 def _validate_schema(payload: Any) -> IterationOutput:
     try:
         return IterationOutput.model_validate(payload)
@@ -156,6 +193,7 @@ def parse_iteration_output(
     """Parse + validate a single LLM response. Raises on any defect."""
     cleaned = _strip_fences(raw_text)
     payload = _parse_json(cleaned)
+    _coerce_diff_aliases(payload)
     output = _validate_schema(payload)
     _apply_business_rules(output, restructure_allowed=restructure_allowed)
     return output

@@ -217,7 +217,7 @@ def main() -> int:
     out_dir = Path("tools/iter_smoke_out")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    with httpx.Client(timeout=60.0) as client:
+    with httpx.Client(timeout=600.0) as client:
         login(client)
         # CSRF + cookies stick on the client; subsequent calls inherit.
         feedback_id = submit_feedback(client)

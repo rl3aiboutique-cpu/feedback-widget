@@ -204,4 +204,14 @@ Worked example (return JSON identical in shape, vary the content):
   "changes_summary": "",
   "archived": []
 }
+
+For iterations after v1, ``diff`` entries use ONLY these op tags:
+  - {"op": "add",     "path": "<json-pointer>", "value": <new>}
+  - {"op": "modify",  "path": "<json-pointer>", "before": <old>, "after": <new>}
+  - {"op": "remove",  "path": "<json-pointer>", "before": <old>, "note": "..."}
+  - {"op": "mark_obsolete", "path": "<json-pointer>", "reason": "..."}
+
+Do NOT use "replace", "update", "change", or "delete" — those tags
+are not in the schema and will be rejected. Use "modify" for any
+in-place change.
 """
