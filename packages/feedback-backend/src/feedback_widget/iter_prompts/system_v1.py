@@ -124,24 +124,84 @@ follow in any order.
       No Markdown around the JSON. No explanations before or after
       the JSON object.
 
-# Output schema (informal — see service-side validator for the
-# authoritative shape)
+# Output schema (concrete example — match this shape EXACTLY)
+
+The fields below are mandatory and the keys/types are NOT
+negotiable. Extra keys are rejected. Field names use snake_case.
+
+  - personas[i] requires: id, name, role, goals[], pain_points[], context
+  - user_stories[i] requires: id, persona_id (must match a personas[i].id),
+    title, story.{as_a, i_want, so_that}, acceptance_criteria[i].{
+    scenario, given[], when[], then[]}
+  - spec requires: title, summary, sections[i].{id, heading, body_markdown}
+  - diagram requires: format ("ascii" or "mermaid"), source, caption
+  - assumptions[i] requires: slot_key (e.g. "asm_buyer_role"), kind
+    (technical|business|ux|scope), statement, rationale, confidence (0..1)
+
+Worked example (return JSON identical in shape, vary the content):
 
 {
   "schema_version": "1",
   "language": "en",
-  "personas": [...],
-  "user_stories": [...],
-  "spec": {"title": "...", "summary": "...", "sections": [...]},
-  "diagram": {"format": "ascii"|"mermaid", "source": "...", "caption": "..."},
-  "assumptions": [
-    {"slot_key": "asm_...", "kind": "technical|business|ux|scope",
-     "statement": "...", "rationale": "...", "confidence": 0.0..1.0}
+  "markdown_rendered": "# Personas\\n\\n## Buyer Admin — Procurement lead\\n...\\n# User Stories\\n\\n## Buyer Admin\\n\\n### Approve a PO\\n...\\n# Spec\\n\\n# Demo Spec\\n...\\n# Diagram\\n\\n```text\\n[a]->[b]\\n```\\n",
+  "personas": [
+    {
+      "id": "p_buyer_admin",
+      "name": "Buyer Admin",
+      "role": "Procurement lead",
+      "goals": ["Approve POs quickly", "Spot exceptions"],
+      "pain_points": ["Too many tabs", "Slow loading"],
+      "context": "Spends most of the day in the procurement console approving routine POs."
+    }
   ],
-  "unresolved_questions": ["..."],
-  "diff": [...],
-  "changes_summary": "...",
-  "archived": [...],
-  "markdown_rendered": "..."
+  "user_stories": [
+    {
+      "id": "us_buyer_approve_po",
+      "persona_id": "p_buyer_admin",
+      "title": "Approve a PO",
+      "story": {
+        "as_a": "buyer admin",
+        "i_want": "to approve a PO from the inbox",
+        "so_that": "the order moves to the supplier same-day"
+      },
+      "acceptance_criteria": [
+        {
+          "scenario": "Happy path",
+          "given": ["a pending PO is in my inbox"],
+          "when": ["I click Approve"],
+          "then": ["the PO status flips to APPROVED", "the supplier is notified"]
+        }
+      ]
+    }
+  ],
+  "spec": {
+    "title": "PO inbox approve action",
+    "summary": "Add a one-click Approve button to the PO inbox.",
+    "sections": [
+      {
+        "id": "sec_data_model",
+        "heading": "Data model",
+        "body_markdown": "Add a `status` enum on the PO row..."
+      }
+    ]
+  },
+  "diagram": {
+    "format": "ascii",
+    "source": "[inbox]->[detail]->[approved]",
+    "caption": "Approval flow"
+  },
+  "assumptions": [
+    {
+      "slot_key": "asm_actor_default",
+      "kind": "ux",
+      "statement": "Only buyer admins use this flow; suppliers do not.",
+      "rationale": "Feedback mentions 'buyer admin' but does not enumerate other actors.",
+      "confidence": 0.8
+    }
+  ],
+  "unresolved_questions": [],
+  "diff": [],
+  "changes_summary": "",
+  "archived": []
 }
 """

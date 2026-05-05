@@ -342,9 +342,11 @@ class IterService:
                 attempts = 2
                 latency_ms += second.usage.latency_ms
             except (IterationParseError, LLMProviderError) as second_err:
+                detail = _format_parse_error(second_err, raw_text=raw_text)
+                logger.warning("iter run_iteration JSON-invalid retry failed: %s", detail)
                 yield SSEEventError(
                     error_code="json_invalid",
-                    message=str(second_err),
+                    message=detail[:1_000],
                 )
                 await asyncio.to_thread(
                     self._persist_failed_call,
@@ -353,7 +355,7 @@ class IterService:
                     user=caller,
                     attempt=2,
                     status=FeedbackIterCallStatus.JSON_INVALID,
-                    err=str(second_err),
+                    err=detail,
                     prompt_hash=ph,
                     idempotency_key=idempotency_key,
                     latency_ms=latency_ms,
@@ -1152,3 +1154,16 @@ def _map_provider_error(exc: Exception) -> FeedbackIterCallStatus:
     if "RateLimited" in name:
         return FeedbackIterCallStatus.PROVIDER_ERROR
     return FeedbackIterCallStatus.PROVIDER_ERROR
+
+
+def _format_parse_error(exc: Exception, *, raw_text: str) -> str:
+    """Render a parser failure with the validator-error list AND the
+    first 2 KB of the raw model response, so the call audit row has
+    enough context to debug a misbehaving model without re-running."""
+    if isinstance(exc, IterationParseError):
+        bullets = "\n".join(f"  - {e}" for e in exc.errors)
+        head = f"{exc.args[0] if exc.args else 'parse error'}\n{bullets}"
+    else:
+        head = f"{type(exc).__name__}: {exc}"
+    snippet = (raw_text or "")[:2_000]
+    return f"{head}\n--- raw model response (first 2KB) ---\n{snippet}"
