@@ -209,7 +209,27 @@ class GeminiProvider:
         timeout_seconds: int,
         max_output_tokens: int,
     ) -> AsyncIterator[str]:
-        del timeout_seconds  # SDK enforces its own; outer task wraps if needed
+        # Gemma 3/4 instruction-tuned models on the v1beta endpoint
+        # routinely block the streaming endpoint for the full
+        # generation latency without ever yielding a chunk (the
+        # model emits internal reasoning tokens that ``chunk.text``
+        # filters out, then returns the whole answer at the end).
+        # Detect by model id and fall back to a non-streaming
+        # ``generate()`` chunked into N equal slices so the SSE
+        # pipeline still feels alive on the client. Real Gemini
+        # models keep native streaming.
+        if self._model.lower().startswith("gemma"):
+            async for piece in self._fake_stream_via_generate(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                attachments=attachments,
+                timeout_seconds=timeout_seconds,
+                max_output_tokens=max_output_tokens,
+            ):
+                yield piece
+            return
+
+        del timeout_seconds  # real Gemini SDK enforces its own
         combined = _combine_prompts(system_prompt, user_prompt)
         parts = _build_parts(combined, attachments)
         cfg = _build_config(self._settings, max_output_tokens)
@@ -226,6 +246,29 @@ class GeminiProvider:
                     yield text
         except BaseException as exc:
             raise _wrap_provider_error(exc) from exc
+
+    async def _fake_stream_via_generate(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        attachments: list[LLMAttachment],
+        timeout_seconds: int,
+        max_output_tokens: int,
+    ) -> AsyncIterator[str]:
+        """Non-streaming generate() chunked into 256-char slices —
+        used for Gemma where native streaming is unreliable."""
+        result = await self.generate(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            attachments=attachments,
+            timeout_seconds=timeout_seconds,
+            max_output_tokens=max_output_tokens,
+        )
+        text = result.raw_text
+        slice_size = 256
+        for i in range(0, len(text), slice_size):
+            yield text[i : i + slice_size]
 
     def estimate_cost_usd(self, usage: LLMUsage) -> float | None:
         for prefix, (price_in, price_out) in _GEMINI_PRICES_USD_PER_M.items():

@@ -120,7 +120,7 @@ def run_iteration(
         f"{BASE}/feedback/iterate/sessions/{session_id}/iterations",
         json=body,
         headers=headers,
-        timeout=180.0,
+        timeout=600.0,
     ) as resp:
         if resp.status_code != 200:
             text = resp.read().decode("utf-8", "replace")
