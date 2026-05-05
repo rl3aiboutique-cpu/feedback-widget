@@ -15,7 +15,7 @@ import {
   SheetTitle,
   captureElementScreenshot,
   capturePageScreenshot
-} from "./chunk-X6XXH27U.js";
+} from "./chunk-GZ25FTZP.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -26,6 +26,7 @@ import {
 } from "./chunk-MXDE3JO7.js";
 
 // src/FeedbackPanel.tsx
+import { Sparkles } from "lucide-react";
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
 
 // src/capture/breadcrumbs.ts
@@ -540,8 +541,10 @@ function FeedbackPanel({
   }));
   const [mode, setMode] = useState2(locked ? "element" : "page");
   const [submitting, setSubmitting] = useState2(false);
+  const [submittingWithIter, setSubmittingWithIter] = useState2(false);
   const [hasOpenedOnce, setHasOpenedOnce] = useState2(open);
   const [tab, setTab] = useState2("submit");
+  const [autoIterId, setAutoIterId] = useState2(null);
   useEffect2(() => {
     if (open) setHasOpenedOnce(true);
   }, [open]);
@@ -611,7 +614,8 @@ function FeedbackPanel({
       return null;
     }
   };
-  const onSubmit = async () => {
+  const onSubmit = async (opts) => {
+    const thenIterate = opts?.thenIterate ?? false;
     const v = validate();
     if (!v.ok) {
       const reason = v.reason;
@@ -636,6 +640,7 @@ function FeedbackPanel({
     }
     setFieldErrors({});
     setSubmitting(true);
+    setSubmittingWithIter(thenIterate);
     try {
       const shotPromise = (async () => {
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -684,7 +689,13 @@ function FeedbackPanel({
         url: link,
         actionLabel: t("feedback.toast_success_link")
       });
-      onOpenChange(false);
+      setValues({ ...EMPTY_FORM });
+      setTab("mine");
+      if (thenIterate) {
+        setAutoIterId(created.id);
+      } else {
+        setAutoIterId(null);
+      }
     } catch (err) {
       if (err instanceof SubmitFeedbackError && err.status === 429) {
         const seconds = err.retryAfter ?? "?";
@@ -694,6 +705,7 @@ function FeedbackPanel({
       }
     } finally {
       setSubmitting(false);
+      setSubmittingWithIter(false);
     }
   };
   return /* @__PURE__ */ jsx4(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs3(
@@ -744,7 +756,7 @@ function FeedbackPanel({
               ]
             }
           ),
-          tab === "mine" ? /* @__PURE__ */ jsx4(MyTicketsPanel, {}) : null,
+          tab === "mine" ? /* @__PURE__ */ jsx4(MyTicketsPanel, { autoOpenIterFor: autoIterId }) : null,
           tab === "submit" ? /* @__PURE__ */ jsxs3(Fragment2, { children: [
             /* @__PURE__ */ jsxs3("div", { className: "rounded-md border border-input p-3 space-y-2", children: [
               /* @__PURE__ */ jsx4("div", { className: "text-xs uppercase tracking-wide text-muted-foreground", children: t("feedback.mode_label") }),
@@ -824,16 +836,33 @@ function FeedbackPanel({
               children: t("feedback.cancel")
             }
           ),
-          tab === "submit" ? /* @__PURE__ */ jsx4(
-            Button,
-            {
-              type: "button",
-              onClick: onSubmit,
-              disabled: submitting || !values.type,
-              "data-feedback-id": "feedback.submit",
-              children: submitting ? t("feedback.submitting") : t("feedback.submit")
-            }
-          ) : null
+          tab === "submit" ? /* @__PURE__ */ jsxs3(Fragment2, { children: [
+            /* @__PURE__ */ jsx4(
+              Button,
+              {
+                type: "button",
+                variant: "outline",
+                onClick: () => onSubmit({ thenIterate: false }),
+                disabled: submitting || !values.type,
+                "data-feedback-id": "feedback.submit",
+                children: submitting && !submittingWithIter ? t("feedback.submitting") : t("feedback.submit")
+              }
+            ),
+            /* @__PURE__ */ jsxs3(
+              Button,
+              {
+                type: "button",
+                onClick: () => onSubmit({ thenIterate: true }),
+                disabled: submitting || !values.type,
+                "data-feedback-id": "feedback.submit-and-iterate",
+                title: "Submit the feedback and immediately open the Iterate-with-AI workspace",
+                children: [
+                  /* @__PURE__ */ jsx4(Sparkles, { className: "h-3.5 w-3.5" }),
+                  submitting && submittingWithIter ? "Submitting\u2026" : "Send and Iterate"
+                ]
+              }
+            )
+          ] }) : null
         ] })
       ]
     }
@@ -844,4 +873,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-6VABPDK6.js.map
+//# sourceMappingURL=FeedbackPanel-DNT4LOBP.js.map

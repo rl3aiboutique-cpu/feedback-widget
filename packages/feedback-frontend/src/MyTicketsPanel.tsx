@@ -12,7 +12,7 @@
  */
 
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "./FeedbackProvider";
 import { useMyFeedbackQuery } from "./adapter";
@@ -54,9 +54,17 @@ interface MyTicketsPanelProps {
    * tenant-internal admin view. When omitted, the row stays inside the
    * panel. */
   onSelectTicket?: (row: FeedbackReadShape) => void;
+  /** When set, the matching ticket row auto-expands on mount and
+   * the iter workspace auto-launches. Used by FeedbackPanel after a
+   * successful submission so the user lands directly in the iter
+   * flow. */
+  autoOpenIterFor?: string | null;
 }
 
-export function MyTicketsPanel({ onSelectTicket }: MyTicketsPanelProps): React.ReactElement {
+export function MyTicketsPanel({
+  onSelectTicket,
+  autoOpenIterFor,
+}: MyTicketsPanelProps): React.ReactElement {
   const adapter = useFeedbackAdapter();
   const bindings = useFeedbackBindings();
   const t = adapter.useTranslation();
@@ -82,6 +90,18 @@ export function MyTicketsPanel({ onSelectTicket }: MyTicketsPanelProps): React.R
     },
     [bindings],
   );
+
+  // Auto-launch the iter workspace when the parent passes a fresh
+  // feedback id. Tracked in a ref so reopening the same panel after
+  // closing the workspace doesn't auto-relaunch.
+  const autoOpenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoOpenIterFor) return;
+    if (autoOpenedRef.current === autoOpenIterFor) return;
+    autoOpenedRef.current = autoOpenIterFor;
+    setExpandedId(autoOpenIterFor);
+    void openIter(autoOpenIterFor);
+  }, [autoOpenIterFor, openIter]);
 
   if (query.isLoading) {
     return <p className="text-sm text-muted-foreground">{t("feedback.mine.loading")}</p>;
@@ -113,34 +133,52 @@ export function MyTicketsPanel({ onSelectTicket }: MyTicketsPanelProps): React.R
                   recentlyResolved ? "border-primary bg-primary/5" : "border-input"
                 }`}
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedId(isOpen ? null : r.id)}
-                  className="w-full text-left p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md"
-                  aria-expanded={isOpen}
-                  aria-controls={`ticket-detail-${r.id}`}
-                  data-feedback-id="feedback.mine.row"
-                >
+                <div className="w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md">
                   <div className="flex items-center gap-2">
-                    <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0">
-                      {r.ticket_code || "—"}
-                    </code>
-                    <Badge variant={statusVariant(r.status)} className="shrink-0">
-                      {humanStatus(r.status)}
-                    </Badge>
-                    <span className="truncate flex-1 font-medium">{r.title}</span>
-                    {isOpen ? (
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(isOpen ? null : r.id)}
+                      className="flex flex-1 items-center gap-2 text-left"
+                      aria-expanded={isOpen}
+                      aria-controls={`ticket-detail-${r.id}`}
+                      data-feedback-id="feedback.mine.row"
+                    >
+                      <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0">
+                        {r.ticket_code || "—"}
+                      </code>
+                      <Badge variant={statusVariant(r.status)} className="shrink-0">
+                        {humanStatus(r.status)}
+                      </Badge>
+                      <span className="truncate flex-1 font-medium">{r.title}</span>
+                      {isOpen ? (
+                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      )}
+                    </button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="default"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void openIter(r.id);
+                      }}
+                      disabled={iterStarting === r.id}
+                      className="shrink-0"
+                      data-feedback-id="feedback.mine.iterate-collapsed"
+                      title="Iterate with AI"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {iterStarting === r.id ? "Opening…" : "Iterate"}
+                    </Button>
                   </div>
                   {recentlyResolved && !isOpen ? (
                     <span className="text-[11px] text-primary">
                       {t("feedback.mine.action_hint")}
                     </span>
                   ) : null}
-                </button>
+                </div>
 
                 {isOpen ? (
                   <div

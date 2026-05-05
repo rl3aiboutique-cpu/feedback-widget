@@ -168,7 +168,7 @@ function Rl3Mark({
 import { Suspense, lazy } from "react";
 import { jsx as jsx3 } from "react/jsx-runtime";
 var _Inner = lazy(async () => {
-  const mod = await import("./IterWorkspace-NCRTWJFU.js");
+  const mod = await import("./IterWorkspace-IHOGGX5S.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
@@ -183,7 +183,7 @@ function IterWorkspaceLazy(props) {
 
 // src/MyTicketsPanel.tsx
 import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
-import { useCallback, useState as useState2 } from "react";
+import { useCallback, useEffect, useRef, useState as useState2 } from "react";
 
 // src/comments/CommentThread.tsx
 import { Send } from "lucide-react";
@@ -340,7 +340,10 @@ function humanStatus(s) {
       return s;
   }
 }
-function MyTicketsPanel({ onSelectTicket }) {
+function MyTicketsPanel({
+  onSelectTicket,
+  autoOpenIterFor
+}) {
   const adapter = useFeedbackAdapter();
   const bindings = useFeedbackBindings();
   const t = adapter.useTranslation();
@@ -365,6 +368,14 @@ function MyTicketsPanel({ onSelectTicket }) {
     },
     [bindings]
   );
+  const autoOpenedRef = useRef(null);
+  useEffect(() => {
+    if (!autoOpenIterFor) return;
+    if (autoOpenedRef.current === autoOpenIterFor) return;
+    autoOpenedRef.current = autoOpenIterFor;
+    setExpandedId(autoOpenIterFor);
+    void openIter(autoOpenIterFor);
+  }, [autoOpenIterFor, openIter]);
   if (query.isLoading) {
     return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") });
   }
@@ -385,26 +396,48 @@ function MyTicketsPanel({ onSelectTicket }) {
         {
           className: `rounded-md border ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}`,
           children: [
-            /* @__PURE__ */ jsxs4(
-              "button",
-              {
-                type: "button",
-                onClick: () => setExpandedId(isOpen ? null : r.id),
-                className: "w-full text-left p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md",
-                "aria-expanded": isOpen,
-                "aria-controls": `ticket-detail-${r.id}`,
-                "data-feedback-id": "feedback.mine.row",
-                children: [
-                  /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-                    /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-                    /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title }),
-                    isOpen ? /* @__PURE__ */ jsx6(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
-                  ] }),
-                  recentlyResolved && !isOpen ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
-                ]
-              }
-            ),
+            /* @__PURE__ */ jsxs4("div", { className: "w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md", children: [
+              /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsxs4(
+                  "button",
+                  {
+                    type: "button",
+                    onClick: () => setExpandedId(isOpen ? null : r.id),
+                    className: "flex flex-1 items-center gap-2 text-left",
+                    "aria-expanded": isOpen,
+                    "aria-controls": `ticket-detail-${r.id}`,
+                    "data-feedback-id": "feedback.mine.row",
+                    children: [
+                      /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+                      /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                      /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title }),
+                      isOpen ? /* @__PURE__ */ jsx6(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsxs4(
+                  Button,
+                  {
+                    type: "button",
+                    size: "sm",
+                    variant: "default",
+                    onClick: (e) => {
+                      e.stopPropagation();
+                      void openIter(r.id);
+                    },
+                    disabled: iterStarting === r.id,
+                    className: "shrink-0",
+                    "data-feedback-id": "feedback.mine.iterate-collapsed",
+                    title: "Iterate with AI",
+                    children: [
+                      /* @__PURE__ */ jsx6(Sparkles, { className: "h-3.5 w-3.5" }),
+                      iterStarting === r.id ? "Opening\u2026" : "Iterate"
+                    ]
+                  }
+                )
+              ] }),
+              recentlyResolved && !isOpen ? /* @__PURE__ */ jsx6("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+            ] }),
             isOpen ? /* @__PURE__ */ jsxs4(
               "div",
               {
@@ -824,4 +857,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-X6XXH27U.js.map
+//# sourceMappingURL=chunk-GZ25FTZP.js.map

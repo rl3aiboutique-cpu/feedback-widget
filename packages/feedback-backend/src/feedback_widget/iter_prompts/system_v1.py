@@ -143,7 +143,7 @@ Worked example (return JSON identical in shape, vary the content):
 {
   "schema_version": "1",
   "language": "en",
-  "markdown_rendered": "# Personas\\n\\n## Buyer Admin — Procurement lead\\n...\\n# User Stories\\n\\n## Buyer Admin\\n\\n### Approve a PO\\n...\\n# Spec\\n\\n# Demo Spec\\n...\\n# Diagram\\n\\n```text\\n[a]->[b]\\n```\\n",
+  "markdown_rendered": "# Personas\\n## Buyer\\n# User Stories\\n# Spec\\n# Diagram",
   "personas": [
     {
       "id": "p_buyer_admin",
