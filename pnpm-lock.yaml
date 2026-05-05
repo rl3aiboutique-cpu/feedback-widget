@@ -41,6 +41,9 @@ importers:
       lucide-react:
         specifier: ^0.469.0
         version: 0.469.0(react@19.2.5)
+      markdown-it:
+        specifier: ^14.1.0
+        version: 14.1.1
       react:
         specifier: '>=18.2 <20'
         version: 19.2.5
