@@ -15,7 +15,7 @@ import {
   SheetTitle,
   captureElementScreenshot,
   capturePageScreenshot
-} from "./chunk-Q5UBLLIC.js";
+} from "./chunk-X6XXH27U.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -23,7 +23,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-G7QBSJFP.js";
+} from "./chunk-MXDE3JO7.js";
 
 // src/FeedbackPanel.tsx
 import { useEffect as useEffect2, useMemo as useMemo2, useState as useState2 } from "react";
@@ -844,4 +844,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-JOQAVZD4.js.map
+//# sourceMappingURL=FeedbackPanel-6VABPDK6.js.map

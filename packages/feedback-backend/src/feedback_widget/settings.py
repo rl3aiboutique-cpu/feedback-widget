@@ -122,8 +122,12 @@ class FeedbackSettings(BaseSettings):
     # Anthropic "extended thinking", OpenAI reasoning effort).
     ITER_THINKING_MODE: Literal["off", "low", "medium", "high"] = "medium"
 
-    # Per-call generation knobs.
-    ITER_REQUEST_TIMEOUT_SECONDS: int = 120
+    # Per-call generation knobs. Bumped from 120 to 240 because real
+    # Gemma calls with a non-trivial prompt (system + worked example +
+    # prior versions) can take 130-200s on the free tier; the
+    # retry-on-invalid path doubles that since it issues a second
+    # generate. Hosts can lower this for production-grade providers.
+    ITER_REQUEST_TIMEOUT_SECONDS: int = 240
     ITER_STREAM_HEARTBEAT_SECONDS: int = 15
     ITER_MAX_OUTPUT_TOKENS: int = 16_000
 

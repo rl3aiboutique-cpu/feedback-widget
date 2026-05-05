@@ -2,6 +2,7 @@ import {
   Badge,
   CommentThread,
   Input,
+  IterWorkspaceLazy,
   Rl3Mark,
   Select,
   SelectContent,
@@ -15,10 +16,16 @@ import {
   SheetTitle,
   describeElement,
   useMyPendingActionCount
-} from "./chunk-Q5UBLLIC.js";
+} from "./chunk-X6XXH27U.js";
 import {
+  Button,
+  FeedbackProvider,
   IterApiError,
+  SubmitFeedbackError,
+  Textarea,
   abandonIterSession,
+  cn,
+  createAdapter,
   finalizeIterSession,
   getIterPackage,
   getIterSession,
@@ -26,15 +33,7 @@ import {
   listIterVersions,
   newIdempotencyKey,
   resolveIterAssumption,
-  startIterSession
-} from "./chunk-GHTX6J36.js";
-import {
-  Button,
-  FeedbackProvider,
-  SubmitFeedbackError,
-  Textarea,
-  cn,
-  createAdapter,
+  startIterSession,
   useDeleteFeedbackMutation,
   useFeedbackAdapter,
   useFeedbackBindings,
@@ -42,7 +41,7 @@ import {
   useFeedbackDetailQuery,
   useFeedbackListQuery,
   useUpdateFeedbackStatusMutation
-} from "./chunk-G7QBSJFP.js";
+} from "./chunk-MXDE3JO7.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -632,7 +631,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-JOQAVZD4.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-6VABPDK6.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -715,23 +714,6 @@ function FeedbackButton() {
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
-
-// src/iter/IterWorkspace.lazy.tsx
-import { Suspense as Suspense2, lazy as lazy2 } from "react";
-import { jsx as jsx5 } from "react/jsx-runtime";
-var _Inner = lazy2(async () => {
-  const mod = await import("./IterWorkspace-PRNGAN6L.js");
-  return { default: mod.default };
-});
-function IterWorkspaceLazy(props) {
-  return /* @__PURE__ */ jsx5(
-    Suspense2,
-    {
-      fallback: /* @__PURE__ */ jsx5("div", { className: "fixed inset-0 z-[60] flex items-center justify-center bg-background text-sm text-muted-foreground", children: "Loading workspace\u2026" }),
-      children: /* @__PURE__ */ jsx5(_Inner, { ...props })
-    }
-  );
-}
 export {
   FeedbackButton,
   FeedbackButton_default as FeedbackButtonDefault,
