@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.3.0-rc.13"
+__version__ = "0.3.0-rc.14"
 
 logger = logging.getLogger(__name__)
 
