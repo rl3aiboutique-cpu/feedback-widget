@@ -308,6 +308,87 @@ def render_assumptions(items: Sequence[AssumptionResolution]) -> str:
     return "\n".join(out) + "\n"
 
 
+def render_readme(
+    feedback: FeedbackContext,
+    attachments: Sequence[AttachmentRef],
+    iteration_log: Sequence[IterationLogEntry],
+    *,
+    consumer_model: str,
+) -> str:
+    """Top-level human-readable index of the package contents.
+
+    Distinct from ``_AI_INSTRUCTIONS.md`` (which primes a downstream
+    LLM consumer); this is what an admin sees first when they open
+    the ZIP. Lists every file with a one-line role, separates the
+    raw user inputs from the AI-generated artifacts, and shows the
+    attachment manifest with byte sizes for completeness checks.
+    """
+    iter_count = len(iteration_log)
+    final_iter = iteration_log[-1] if iteration_log else None
+    final_summary = (final_iter.changes_summary if final_iter else "").strip()
+    attachments_block = (
+        "\n".join(
+            f"- `attachments/{a.filename}` &mdash; "
+            f"`{a.content_type}`, {a.byte_size:,} bytes"
+            for a in attachments
+        )
+        or "(no attachments on the original feedback)"
+    )
+
+    return (
+        "# Iterate-with-AI Package\n\n"
+        f"_Generated from feedback **{feedback.title}** "
+        f"(`{feedback.feedback_id}`) after {iter_count} "
+        f"iteration{'s' if iter_count != 1 else ''}._\n\n"
+        "This ZIP bundles **everything** about one feedback session "
+        "in a single, durable hand-off:\n\n"
+        "- The user's original report (free text + technical "
+        "metadata + every attachment they uploaded).\n"
+        "- The AI-iterated working document the user reviewed and "
+        "approved (personas, user stories, spec, diagram, "
+        "assumptions).\n"
+        "- A complete iteration log + the prompt that primes the "
+        "downstream consumer model.\n\n"
+        "## File index\n\n"
+        "### Read first\n\n"
+        "- `README.md` &mdash; this file.\n"
+        "- `_AI_INSTRUCTIONS.md` &mdash; the prompt for the "
+        f"downstream consumer (currently `{consumer_model}`). "
+        "Hand the consumer this file plus everything else.\n\n"
+        "### Raw user input\n\n"
+        "- `00_context.md` &mdash; original feedback text, "
+        "expected outcome, technical metadata bundle, and the "
+        "attachment manifest.\n"
+        "- `attachments/` &mdash; every file the user uploaded "
+        "with the original feedback, in its original format.\n\n"
+        "### AI-generated specification\n\n"
+        "- `01_personas.md` &mdash; user personas the AI proposed.\n"
+        "- `02_user_stories.md` &mdash; Gherkin-style user stories "
+        "linked to the personas.\n"
+        "- `03_spec.md` &mdash; the implementation contract.\n"
+        "- `04_diagram.md` &mdash; ASCII (or Mermaid) diagram of "
+        "the flow.\n"
+        "- `05_assumptions_resolved.md` &mdash; every assumption "
+        "the AI made + the user's resolution.\n\n"
+        "### Audit trail\n\n"
+        "- `06_iteration_log.md` &mdash; chronological log of each "
+        "iteration with the user's notes.\n\n"
+        "## Attachment manifest\n\n"
+        f"{attachments_block}\n\n"
+        + (
+            f"## Final iteration summary\n\n{final_summary}\n\n"
+            if final_summary
+            else ""
+        )
+        + "## Provenance\n\n"
+        f"- Feedback id: `{feedback.feedback_id}`\n"
+        f"- URL captured: `{feedback.url_captured}`\n"
+        f"- App version: `{feedback.app_version or '(unknown)'}`\n"
+        f"- Git SHA: `{feedback.git_commit_sha or '(unknown)'}`\n"
+        f"- Iterations: {iter_count}\n"
+    )
+
+
 def render_iteration_log(entries: Sequence[IterationLogEntry]) -> str:
     if not entries:
         return "# Iteration Log\n\n(none)\n"
@@ -359,6 +440,12 @@ def _render_all_files(inputs: PackageBuildInputs, *, consumer_model: str) -> dic
     the package (everything except attachments)."""
     out = inputs.final_output
     return {
+        "README.md": render_readme(
+            inputs.feedback,
+            inputs.attachments,
+            inputs.iteration_log,
+            consumer_model=consumer_model,
+        ),
         "_AI_INSTRUCTIONS.md": render_ai_instructions(
             consumer_model=consumer_model
         ),

@@ -150,6 +150,7 @@ def test_package_builds_all_required_files() -> None:
         k for k in storage.objects if k.startswith(f"{result.folder_prefix}/folder/")
     ]
     expected = {
+        f"{result.folder_prefix}/folder/README.md",
         f"{result.folder_prefix}/folder/_AI_INSTRUCTIONS.md",
         f"{result.folder_prefix}/folder/00_context.md",
         f"{result.folder_prefix}/folder/01_personas.md",
@@ -171,6 +172,7 @@ def test_package_builds_all_required_files() -> None:
     zip_bytes = storage.objects[result.zip_key]
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
         names = set(z.namelist())
+    assert "README.md" in names
     assert "_AI_INSTRUCTIONS.md" in names
     assert "00_context.md" in names
     assert "06_iteration_log.md" in names
