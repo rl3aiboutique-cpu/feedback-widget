@@ -17,6 +17,14 @@
     "lineWidth": 100
   },
   "files": {
-    "ignore": ["dist/**", "node_modules/**", "src/client/**"]
+    "ignore": [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/src/client/index.ts",
+      "**/.venv/**",
+      "**/coverage/**",
+      "**/playwright-report/**",
+      "**/test-results/**"
+    ]
   }
 }

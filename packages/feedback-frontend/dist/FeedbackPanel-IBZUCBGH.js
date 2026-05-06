@@ -15,7 +15,7 @@ import {
   SheetTitle,
   captureElementScreenshot,
   capturePageScreenshot
-} from "./chunk-HMRJNM2O.js";
+} from "./chunk-UWNGSMXG.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -23,7 +23,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-BT4XEAHY.js";
+} from "./chunk-RUMDEDKD.js";
 
 // src/FeedbackPanel.tsx
 import { Sparkles } from "lucide-react";
@@ -89,10 +89,7 @@ function buildMetadataBundle(args) {
 // src/ui/label.tsx
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { jsx } from "react/jsx-runtime";
-function Label({
-  className,
-  ...props
-}) {
+function Label({ className, ...props }) {
   return /* @__PURE__ */ jsx(
     LabelPrimitive.Root,
     {
@@ -210,9 +207,7 @@ function AttachmentsField({
     const accepted = [];
     const room = MAX_ATTACHMENTS - value.length;
     if (room <= 0) {
-      adapter.toast.error(
-        t("feedback.attachments.too_many", { max: String(MAX_ATTACHMENTS) })
-      );
+      adapter.toast.error(t("feedback.attachments.too_many", { max: String(MAX_ATTACHMENTS) }));
       return;
     }
     let truncated = false;
@@ -231,17 +226,13 @@ function AttachmentsField({
         continue;
       }
       if (!_isMimeAllowed(file)) {
-        adapter.toast.error(
-          t("feedback.attachments.bad_type", { name: file.name })
-        );
+        adapter.toast.error(t("feedback.attachments.bad_type", { name: file.name }));
         continue;
       }
       accepted.push(file);
     }
     if (truncated) {
-      adapter.toast.error(
-        t("feedback.attachments.too_many", { max: String(MAX_ATTACHMENTS) })
-      );
+      adapter.toast.error(t("feedback.attachments.too_many", { max: String(MAX_ATTACHMENTS) }));
     }
     if (accepted.length > 0) {
       onChange([...value, ...accepted]);
@@ -277,24 +268,17 @@ function AttachmentsField({
     onChange(next);
   };
   return /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-    /* @__PURE__ */ jsxs(
-      Label,
-      {
-        htmlFor: "feedback-attachments",
-        title: t("feedback.attachments.hint"),
-        children: [
-          t("feedback.attachments.label"),
-          /* @__PURE__ */ jsx2(
-            "span",
-            {
-              className: "ml-1 cursor-help text-[11px] text-muted-foreground",
-              "aria-label": t("feedback.attachments.hint"),
-              children: "\u24D8"
-            }
-          )
-        ]
-      }
-    ),
+    /* @__PURE__ */ jsxs(Label, { htmlFor: "feedback-attachments", title: t("feedback.attachments.hint"), children: [
+      t("feedback.attachments.label"),
+      /* @__PURE__ */ jsx2(
+        "span",
+        {
+          className: "ml-1 cursor-help text-[11px] text-muted-foreground",
+          "aria-label": t("feedback.attachments.hint"),
+          children: "\u24D8"
+        }
+      )
+    ] }),
     /* @__PURE__ */ jsxs(
       "button",
       {
@@ -466,17 +450,10 @@ function FeedbackForm({
     ] }),
     values.type ? /* @__PURE__ */ jsxs2(Fragment, { children: [
       /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
-        /* @__PURE__ */ jsxs2(
-          Label,
-          {
-            htmlFor: "feedback-title",
-            title: t("feedback.field.title_hint"),
-            children: [
-              t("feedback.field.title"),
-              /* @__PURE__ */ jsx3(_RequiredMark, {})
-            ]
-          }
-        ),
+        /* @__PURE__ */ jsxs2(Label, { htmlFor: "feedback-title", title: t("feedback.field.title_hint"), children: [
+          t("feedback.field.title"),
+          /* @__PURE__ */ jsx3(_RequiredMark, {})
+        ] }),
         /* @__PURE__ */ jsx3(
           Input,
           {
@@ -693,10 +670,7 @@ function FeedbackPanel({
       const payloadJson = JSON.stringify(payload);
       const payloadBytes = new Blob([payloadJson]).size;
       const screenshotBytes = shot?.blob.size ?? 0;
-      const attachmentBytes = values.attachments.reduce(
-        (sum, f) => sum + f.size,
-        0
-      );
+      const attachmentBytes = values.attachments.reduce((sum, f) => sum + f.size, 0);
       console.info("[feedback] submit", {
         payloadBytes,
         screenshotBytes,
@@ -725,9 +699,7 @@ function FeedbackPanel({
     } catch (err) {
       if (err instanceof SubmitFeedbackError && err.status === 429) {
         const seconds = err.retryAfter ?? "?";
-        adapter.toast.error(
-          t("feedback.toast_error_429", { seconds: String(seconds) })
-        );
+        adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
       } else {
         adapter.toast.error(t("feedback.toast_error_generic"));
       }
@@ -832,14 +804,7 @@ function FeedbackPanel({
                 )
               ] }) : null
             ] }),
-            /* @__PURE__ */ jsx4(
-              FeedbackForm,
-              {
-                values,
-                onChange: setValues,
-                errors: fieldErrors
-              }
-            )
+            /* @__PURE__ */ jsx4(FeedbackForm, { values, onChange: setValues, errors: fieldErrors })
           ] }) : null,
           /* @__PURE__ */ jsxs3(
             "a",
@@ -908,4 +873,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-EHKGZWST.js.map
+//# sourceMappingURL=FeedbackPanel-IBZUCBGH.js.map
