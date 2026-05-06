@@ -81,6 +81,7 @@ export {
 	getIterSession,
 	IterApiError,
 	listIterAssumptions,
+	listIterSessionsForFeedback,
 	listIterVersions,
 	newIdempotencyKey,
 	resolveIterAssumption,

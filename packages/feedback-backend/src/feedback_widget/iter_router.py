@@ -553,6 +553,38 @@ def build_iter_router(
         return _to_package_read(package, presigned)
 
     @router.get(
+        "/iterate/feedbacks/{feedback_id}/sessions",
+        response_model=list[IterSessionRead],
+    )
+    def list_sessions_for_feedback(
+        feedback_id: Annotated[uuid.UUID, Path()],
+        db: SessionDep,
+        user: UserDep,
+    ) -> list[IterSessionRead]:
+        """List every iter session for a feedback id, newest first.
+
+        Used by the admin triage detail panel so an admin can see how
+        many AI iterations exist for a ticket, jump back into one, or
+        download the package for a finalized session.
+        """
+        try:
+            rows = service.list_sessions_for_feedback(
+                db,
+                feedback_id=feedback_id,
+                caller=_caller_from(user, deps),
+            )
+        except IterServiceError as exc:
+            raise _service_error_to_http(exc) from exc
+        return [
+            _to_session_read(
+                r,
+                last_call_model_id=service.get_last_call_model_id(db, session_id=r.id),
+                current_primary_model_id=service.get_current_primary_model_id(),
+            )
+            for r in rows
+        ]
+
+    @router.get(
         "/iterate/sessions/{session_id}/package",
         response_model=IterPackageRead,
     )

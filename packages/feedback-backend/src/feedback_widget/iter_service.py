@@ -590,6 +590,32 @@ class IterService:
         )
         return list(rows)
 
+    def list_sessions_for_feedback(
+        self,
+        db: Session,
+        *,
+        feedback_id: uuid.UUID,
+        caller: CallerIdentity,
+    ) -> list[FeedbackIterSession]:
+        """Return every iter session attached to a feedback row, newest
+        first. Admin-only — the triage page uses this to surface all
+        AI iterations on a feedback ticket plus their finalized
+        package, if any. Tenant scoping is handled by the per-request
+        RLS settings; we additionally filter by ``feedback_id`` which
+        is the only thing the caller knows.
+        """
+        del caller  # ownership is enforced via tenant RLS on the row
+        rows = (
+            db.execute(
+                select(FeedbackIterSession)
+                .where(FeedbackIterSession.feedback_id == feedback_id)
+                .order_by(FeedbackIterSession.created_at.desc())
+            )
+            .scalars()
+            .all()
+        )
+        return list(rows)
+
     def list_calls(
         self,
         db: Session,

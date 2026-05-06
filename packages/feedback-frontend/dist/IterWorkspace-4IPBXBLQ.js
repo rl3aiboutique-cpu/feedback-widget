@@ -12,7 +12,7 @@ import {
   resolveIterAssumption,
   runIterationStream,
   useFeedbackBindings
-} from "./chunk-YJ4HQXXL.js";
+} from "./chunk-4JYIKY4G.js";
 
 // src/iter/IterWorkspace.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,11 +34,7 @@ var _STATUS_BADGE = {
   corrected: "bg-blue-100 text-blue-900",
   irrelevant: "bg-gray-100 text-gray-700"
 };
-function AssumptionCard({
-  assumption,
-  onResolve,
-  disabled
-}) {
+function AssumptionCard({ assumption, onResolve, disabled }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -78,14 +74,7 @@ function AssumptionCard({
     ] }),
     /* @__PURE__ */ jsx("p", { className: "mb-1 font-medium leading-snug", children: assumption.statement }),
     /* @__PURE__ */ jsx("p", { className: "mb-2 text-[12px] leading-snug text-muted-foreground", children: assumption.rationale }),
-    /* @__PURE__ */ jsx(
-      "p",
-      {
-        className: "sr-only",
-        "aria-label": "Internal correlation key, hidden from view",
-        children: assumption.slot_key
-      }
-    ),
+    /* @__PURE__ */ jsx("p", { className: "sr-only", "aria-label": "Internal correlation key, hidden from view", children: assumption.slot_key }),
     assumption.status === "corrected" && assumption.user_response && /* @__PURE__ */ jsxs("div", { className: "mb-2 rounded bg-muted p-2 text-[12px]", children: [
       /* @__PURE__ */ jsx("div", { className: "mb-1 font-semibold", children: "Your correction:" }),
       assumption.user_response
@@ -100,15 +89,7 @@ function AssumptionCard({
       }
     ),
     isOpen && !editing && /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-2", children: [
-      /* @__PURE__ */ jsx(
-        Button,
-        {
-          size: "sm",
-          disabled: busy || disabled,
-          onClick: () => click("confirmed"),
-          children: "Confirm"
-        }
-      ),
+      /* @__PURE__ */ jsx(Button, { size: "sm", disabled: busy || disabled, onClick: () => click("confirmed"), children: "Confirm" }),
       /* @__PURE__ */ jsx(
         Button,
         {
@@ -204,9 +185,7 @@ function useIterRunStream(bindings, sessionId) {
             setState((cur) => _reduce(cur, ev));
           }
         });
-        setState(
-          (cur) => cur.status === "running" ? { ...cur, status: "done" } : cur
-        );
+        setState((cur) => cur.status === "running" ? { ...cur, status: "done" } : cur);
       } catch (err) {
         const apiErr = err;
         setState((cur) => ({
@@ -252,10 +231,7 @@ function _reduce(cur, ev) {
 
 // src/iter/IterWorkspace.tsx
 import { Fragment, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
-function IterWorkspace({
-  sessionId,
-  onClose
-}) {
+function IterWorkspace({ sessionId, onClose }) {
   const bindings = useFeedbackBindings();
   const qc = useQueryClient();
   const session = useQuery({
@@ -318,15 +294,11 @@ function IterWorkspace({
       qc.invalidateQueries({ queryKey: ["iter-assumptions", sessionId] });
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
-  const latestVersion = useMemo(
-    () => _pickLatest(versions.data ?? []),
-    [versions.data]
-  );
+  const latestVersion = useMemo(() => _pickLatest(versions.data ?? []), [versions.data]);
   const isStreaming = stream.state.status === "running";
   const renderedMarkdown = isStreaming ? "" : latestVersion?.output_markdown ?? "";
-  const openAssumptionCount = (assumptions.data ?? []).filter(
-    (a) => a.status === "open"
-  ).length;
+  const userFacingAssumptions = (assumptions.data ?? []).filter((a) => a.kind !== "technical");
+  const openAssumptionCount = userFacingAssumptions.filter((a) => a.status === "open").length;
   const latestResolvedAt = useMemo(() => {
     let max = 0;
     for (const a of assumptions.data ?? []) {
@@ -340,12 +312,10 @@ function IterWorkspace({
   const latestVersionAt = latestVersion ? Date.parse(latestVersion.created_at) : 0;
   const needsReviewIteration = !!latestVersion && openAssumptionCount === 0 && latestResolvedAt > 0 && latestResolvedAt > latestVersionAt;
   const canFinalize = !!latestVersion && openAssumptionCount === 0 && !needsReviewIteration;
-  const totalAssumptions = (assumptions.data ?? []).length;
+  const totalAssumptions = userFacingAssumptions.length;
   const resolvedAssumptions = totalAssumptions - openAssumptionCount;
   const progress = totalAssumptions > 0 ? Math.round(resolvedAssumptions / totalAssumptions * 100) : 0;
-  const [tab, setTab] = useState3(
-    "document"
-  );
+  const [tab, setTab] = useState3("document");
   const [seenAssumptionsBadge, setSeenAssumptionsBadge] = useState3(false);
   useEffect(() => {
     if (!seenAssumptionsBadge && openAssumptionCount > 0 && tab === "document") {
@@ -476,37 +446,30 @@ function TabBar(props) {
       badge: props.versionCount > 0 ? `v${props.versionCount}` : null
     }
   ];
-  return /* @__PURE__ */ jsx2(
-    "div",
-    {
-      className: "flex items-center gap-1 border-b bg-card px-3",
-      role: "tablist",
-      children: tabs.map((t) => {
-        const active = props.tab === t.key;
-        return /* @__PURE__ */ jsxs2(
-          "button",
-          {
-            type: "button",
-            role: "tab",
-            "aria-selected": active,
-            onClick: () => props.onChange(t.key),
-            className: `flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`,
-            children: [
-              t.label,
-              t.badge && /* @__PURE__ */ jsx2(
-                "span",
-                {
-                  className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`,
-                  children: t.badge
-                }
-              )
-            ]
-          },
-          t.key
-        );
-      })
-    }
-  );
+  return /* @__PURE__ */ jsx2("div", { className: "flex items-center gap-1 border-b bg-card px-3", role: "tablist", children: tabs.map((t) => {
+    const active = props.tab === t.key;
+    return /* @__PURE__ */ jsxs2(
+      "button",
+      {
+        type: "button",
+        role: "tab",
+        "aria-selected": active,
+        onClick: () => props.onChange(t.key),
+        className: `flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`,
+        children: [
+          t.label,
+          t.badge && /* @__PURE__ */ jsx2(
+            "span",
+            {
+              className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`,
+              children: t.badge
+            }
+          )
+        ]
+      },
+      t.key
+    );
+  }) });
 }
 function DocumentTab(props) {
   return /* @__PURE__ */ jsxs2("div", { className: "mx-auto flex w-full max-w-[1400px] flex-row gap-6 p-4 lg:p-6", children: [
@@ -525,13 +488,7 @@ function DocumentTab(props) {
           modelHint: props.modelHint
         }
       ),
-      props.streamStatus === "error" && /* @__PURE__ */ jsx2(
-        ErrorBanner,
-        {
-          code: props.streamErrorCode,
-          message: props.streamErrorMessage
-        }
-      )
+      props.streamStatus === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: props.streamErrorCode, message: props.streamErrorMessage })
     ] })
   ] });
 }
@@ -552,39 +509,25 @@ function DocumentTOC({ markdown }) {
   if (headings.length < 2) return null;
   return /* @__PURE__ */ jsx2("aside", { className: "hidden w-56 shrink-0 lg:block", children: /* @__PURE__ */ jsxs2("div", { className: "sticky top-2", children: [
     /* @__PURE__ */ jsx2("h4", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: "On this page" }),
-    /* @__PURE__ */ jsx2("ul", { className: "space-y-1 text-sm", children: headings.map((h) => /* @__PURE__ */ jsx2(
-      "li",
+    /* @__PURE__ */ jsx2("ul", { className: "space-y-1 text-sm", children: headings.map((h) => /* @__PURE__ */ jsx2("li", { className: h.level === 2 ? "ml-3 text-xs text-muted-foreground" : "", children: /* @__PURE__ */ jsx2(
+      "a",
       {
-        className: h.level === 2 ? "ml-3 text-xs text-muted-foreground" : "",
-        children: /* @__PURE__ */ jsx2(
-          "a",
-          {
-            href: `#${h.id}`,
-            className: "block rounded px-2 py-1 hover:bg-accent hover:text-accent-foreground",
-            onClick: (e) => {
-              e.preventDefault();
-              document.getElementById(h.id)?.scrollIntoView({
-                behavior: "smooth",
-                block: "start"
-              });
-            },
-            children: h.text
-          }
-        )
-      },
-      h.id
-    )) })
+        href: `#${h.id}`,
+        className: "block rounded px-2 py-1 hover:bg-accent hover:text-accent-foreground",
+        onClick: (e) => {
+          e.preventDefault();
+          document.getElementById(h.id)?.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        },
+        children: h.text
+      }
+    ) }, h.id)) })
   ] }) });
 }
 function AssumptionsTab(props) {
-  return /* @__PURE__ */ jsx2("div", { className: "mx-auto w-full max-w-[1600px] p-4 lg:p-6", children: /* @__PURE__ */ jsx2(
-    AssumptionsGrid,
-    {
-      items: props.items,
-      onResolve: props.onResolve,
-      disabled: props.disabled
-    }
-  ) });
+  return /* @__PURE__ */ jsx2("div", { className: "mx-auto w-full max-w-[1600px] p-4 lg:p-6", children: /* @__PURE__ */ jsx2(AssumptionsGrid, { items: props.items, onResolve: props.onResolve, disabled: props.disabled }) });
 }
 function ActivityTab({ versions }) {
   return /* @__PURE__ */ jsxs2("div", { className: "mx-auto w-full max-w-[1100px] p-4 lg:p-6", children: [
@@ -599,15 +542,7 @@ function Footer(props) {
   if (status === "finalized") {
     return /* @__PURE__ */ jsx2("footer", { className: "border-t bg-card px-4 py-3 text-sm", children: /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-3", children: [
       /* @__PURE__ */ jsx2("span", { className: "font-semibold", children: "Session finalized." }),
-      props.package?.presigned_zip_url && /* @__PURE__ */ jsx2(
-        "a",
-        {
-          href: props.package.presigned_zip_url,
-          className: "text-primary underline",
-          download: true,
-          children: "Download package ZIP"
-        }
-      )
+      props.package?.presigned_zip_url && /* @__PURE__ */ jsx2("a", { href: props.package.presigned_zip_url, className: "text-primary underline", download: true, children: "Download package ZIP" })
     ] }) });
   }
   if (status === "abandoned") {
@@ -632,8 +567,7 @@ function Footer(props) {
     props.needsReviewIteration && /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200", children: [
       /* @__PURE__ */ jsx2("p", { className: "font-semibold", children: "All assumptions resolved." }),
       /* @__PURE__ */ jsxs2("p", { children: [
-        "Add a comment below if you want, then press",
-        " ",
+        "Add a comment below if you want, then press ",
         /* @__PURE__ */ jsx2("strong", { children: "Run iteration" }),
         " so the AI rewrites the working document with your answers baked in. Once you review that version, you can finalize."
       ] })
@@ -742,7 +676,8 @@ function FinalizeWarningModal(props) {
             /* @__PURE__ */ jsx2("strong", { children: props.openAssumptions }),
             " assumption",
             props.openAssumptions === 1 ? " is" : "s are",
-            " still open and will be packaged as ",
+            " still open and will be packaged as",
+            " ",
             /* @__PURE__ */ jsx2("em", { children: "unresolved" }),
             "."
           ] }),
@@ -799,86 +734,79 @@ var _KIND_BAND = {
     band: "border-l-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/10"
   }
 };
-var _KIND_ORDER = [
-  "technical",
-  "ux",
-  "business",
-  "scope"
-];
+var _KIND_ORDER = ["ux", "business", "scope"];
 function AssumptionsGrid(props) {
   if (!props.items.length) {
     return /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "No assumptions on the current version yet." });
   }
-  const open = props.items.filter((a) => a.status === "open");
-  const resolved = props.items.filter((a) => a.status !== "open");
+  const userFacingOpen = props.items.filter((a) => a.status === "open" && a.kind !== "technical");
+  const userFacingDone = props.items.filter((a) => a.status !== "open" && a.kind !== "technical");
+  const internalNotes = props.items.filter((a) => a.kind === "technical");
   const grouped = {
     technical: [],
     ux: [],
     business: [],
     scope: []
   };
-  for (const a of open) grouped[a.kind].push(a);
+  for (const a of userFacingOpen) grouped[a.kind].push(a);
   return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
     _KIND_ORDER.map((kind) => {
       const items = grouped[kind];
       if (!items.length) return null;
       const meta = _KIND_BAND[kind];
-      const dotColor = (meta.band.split(" ")[0] ?? "").replace(
-        "border-l-",
-        "bg-"
-      );
+      const dotColor = (meta.band.split(" ")[0] ?? "").replace("border-l-", "bg-");
       return /* @__PURE__ */ jsxs2("section", { children: [
         /* @__PURE__ */ jsxs2("div", { className: "mb-1.5 flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx2(
-            "span",
-            {
-              className: `inline-block h-2 w-2 rounded-full ${dotColor}`
-            }
-          ),
+          /* @__PURE__ */ jsx2("span", { className: `inline-block h-2 w-2 rounded-full ${dotColor}` }),
           /* @__PURE__ */ jsx2("h4", { className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: meta.name }),
           /* @__PURE__ */ jsx2("span", { className: "rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground", children: items.length })
         ] }),
-        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: items.map((a) => /* @__PURE__ */ jsx2(
-          "div",
+        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: items.map((a) => /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+          AssumptionCard,
           {
-            className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`,
-            children: /* @__PURE__ */ jsx2(
-              AssumptionCard,
-              {
-                assumption: a,
-                disabled: props.disabled,
-                onResolve: (body) => props.onResolve(a.id, body)
-              }
-            )
-          },
-          a.id
-        )) })
+            assumption: a,
+            disabled: props.disabled,
+            onResolve: (body) => props.onResolve(a.id, body)
+          }
+        ) }, a.id)) })
       ] }, kind);
     }),
-    resolved.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-3", open: true, children: [
+    userFacingDone.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-3", open: true, children: [
       /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold", children: [
         "Resolved (",
-        resolved.length,
+        userFacingDone.length,
         ")"
       ] }),
-      /* @__PURE__ */ jsx2("div", { className: "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: resolved.map((a) => {
+      /* @__PURE__ */ jsx2("div", { className: "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: userFacingDone.map((a) => {
         const meta = _KIND_BAND[a.kind];
-        return /* @__PURE__ */ jsx2(
-          "div",
+        return /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+          AssumptionCard,
           {
-            className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`,
-            children: /* @__PURE__ */ jsx2(
-              AssumptionCard,
-              {
-                assumption: a,
-                disabled: props.disabled,
-                onResolve: (body) => props.onResolve(a.id, body)
-              }
-            )
-          },
-          a.id
-        );
+            assumption: a,
+            disabled: props.disabled,
+            onResolve: (body) => props.onResolve(a.id, body)
+          }
+        ) }, a.id);
       }) })
+    ] }),
+    internalNotes.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10", children: [
+      /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold text-blue-900 dark:text-blue-200", children: [
+        "AI-internal notes (",
+        internalNotes.length,
+        ") \u2014 no action required"
+      ] }),
+      /* @__PURE__ */ jsx2("p", { className: "mt-2 text-[11px] text-muted-foreground", children: "These are notes the AI is leaving for the downstream developer agent that will read your finalized package. They describe implementation details (architecture, code patterns, framework choices) that you wouldn't typically know \u2014 they ship with the package automatically." }),
+      /* @__PURE__ */ jsx2("ul", { className: "mt-3 space-y-2", children: internalNotes.map((a) => /* @__PURE__ */ jsxs2(
+        "li",
+        {
+          className: "rounded border border-blue-200 bg-white/60 p-2 text-xs dark:border-blue-900/50 dark:bg-blue-950/20",
+          children: [
+            /* @__PURE__ */ jsx2("div", { className: "font-medium text-foreground/90", children: a.statement }),
+            a.rationale && /* @__PURE__ */ jsx2("div", { className: "mt-1 text-muted-foreground", children: a.rationale })
+          ]
+        },
+        a.id
+      )) })
     ] })
   ] });
 }
@@ -964,26 +892,19 @@ function StreamingSkeleton({
       const cardClass = isActive ? "border-primary bg-primary/5" : isPast ? "border-emerald-200 bg-emerald-50/40" : "border-input bg-muted/30";
       const titleClass = isActive ? "text-primary" : isPast ? "text-emerald-700" : "";
       const barBaseClass = isActive ? "animate-pulse bg-primary/30" : "bg-muted";
-      return /* @__PURE__ */ jsxs2(
-        "div",
-        {
-          className: `rounded-md border p-4 transition-colors ${cardClass}`,
-          children: [
-            /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2", children: [
-              /* @__PURE__ */ jsx2("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
-              isActive && /* @__PURE__ */ jsx2("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
-              isPast && /* @__PURE__ */ jsx2("span", { className: "text-xs text-emerald-700", children: "done" })
-            ] }),
-            /* @__PURE__ */ jsx2("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
-            /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
-              /* @__PURE__ */ jsx2("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
-              /* @__PURE__ */ jsx2("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
-              /* @__PURE__ */ jsx2("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
-            ] })
-          ]
-        },
-        s.key
-      );
+      return /* @__PURE__ */ jsxs2("div", { className: `rounded-md border p-4 transition-colors ${cardClass}`, children: [
+        /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx2("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
+          isActive && /* @__PURE__ */ jsx2("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
+          isPast && /* @__PURE__ */ jsx2("span", { className: "text-xs text-emerald-700", children: "done" })
+        ] }),
+        /* @__PURE__ */ jsx2("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
+        /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
+        ] })
+      ] }, s.key);
     })
   ] });
 }
@@ -1029,13 +950,7 @@ function WorkingDocumentPanel(props) {
     setEditing(false);
   };
   if (props.streaming) {
-    return /* @__PURE__ */ jsx2(
-      StreamingSkeleton,
-      {
-        activeSection: props.activeSection,
-        modelHint: props.modelHint
-      }
-    );
+    return /* @__PURE__ */ jsx2(StreamingSkeleton, { activeSection: props.activeSection, modelHint: props.modelHint });
   }
   if (!props.markdown) {
     return /* @__PURE__ */ jsx2("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
@@ -1047,31 +962,14 @@ function WorkingDocumentPanel(props) {
         " Edit"
       ] }),
       editing && /* @__PURE__ */ jsxs2(Fragment, { children: [
-        /* @__PURE__ */ jsxs2(
-          Button,
-          {
-            size: "sm",
-            variant: "outline",
-            onClick: cancelEditing,
-            disabled: props.saving,
-            children: [
-              /* @__PURE__ */ jsx2(X, { className: "h-3 w-3" }),
-              " Cancel"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs2(
-          Button,
-          {
-            size: "sm",
-            onClick: save,
-            disabled: props.saving || !draft.trim(),
-            children: [
-              /* @__PURE__ */ jsx2(Save, { className: "h-3 w-3" }),
-              props.saving ? "Saving\u2026" : "Save edits"
-            ]
-          }
-        )
+        /* @__PURE__ */ jsxs2(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx2(X, { className: "h-3 w-3" }),
+          " Cancel"
+        ] }),
+        /* @__PURE__ */ jsxs2(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx2(Save, { className: "h-3 w-3" }),
+          props.saving ? "Saving\u2026" : "Save edits"
+        ] })
       ] })
     ] }),
     editing ? /* @__PURE__ */ jsx2(
@@ -1140,9 +1038,7 @@ function _modelLatencyHint(modelId) {
 }
 function _pickLatest(versions) {
   if (!versions.length) return null;
-  const sorted = [...versions].sort(
-    (a, b) => b.version_number - a.version_number
-  );
+  const sorted = [...versions].sort((a, b) => b.version_number - a.version_number);
   return sorted[0] ?? null;
 }
 function IterWorkspaceNamed(props) {
@@ -1154,4 +1050,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-RRUD464B.js.map
+//# sourceMappingURL=IterWorkspace-4IPBXBLQ.js.map

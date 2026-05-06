@@ -128,6 +128,19 @@ export async function getIterSession(
 	return resp.json();
 }
 
+export async function listIterSessionsForFeedback(
+	bindings: FeedbackHostBindings,
+	feedbackId: string,
+): Promise<IterSessionRead[]> {
+	const url = `${_base(bindings)}${_prefix(bindings)}/iterate/feedbacks/${feedbackId}/sessions`;
+	const resp = await fetch(url, {
+		credentials: "include",
+		headers: await _headers(bindings),
+	});
+	if (!resp.ok) await _throwOn(url, resp);
+	return resp.json();
+}
+
 export async function abandonIterSession(
 	bindings: FeedbackHostBindings,
 	sessionId: string,

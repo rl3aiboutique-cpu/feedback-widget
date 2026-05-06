@@ -145,7 +145,16 @@ export default function IterWorkspace({
 		? ""
 		: (latestVersion?.output_markdown ?? "");
 
-	const openAssumptionCount = (assumptions.data ?? []).filter(
+	// User-facing assumptions (kind in business|ux|scope) are the only
+	// ones that block iteration / finalize. ``kind === "technical"`` is
+	// reserved for notes the AI is making for the downstream consumer
+	// (architecture, code patterns, framework choices) — the user can't
+	// reasonably answer those, so we surface them in a separate
+	// "AI-internal notes" pane and never gate the workflow on them.
+	const userFacingAssumptions = (assumptions.data ?? []).filter(
+		(a) => a.kind !== "technical",
+	);
+	const openAssumptionCount = userFacingAssumptions.filter(
 		(a) => a.status === "open",
 	).length;
 
@@ -176,7 +185,9 @@ export default function IterWorkspace({
 		!!latestVersion && openAssumptionCount === 0 && !needsReviewIteration;
 
 	// Total / resolved counts for the progress rail in the header.
-	const totalAssumptions = (assumptions.data ?? []).length;
+	// We only count user-facing assumptions because the user has no
+	// action to take on AI-internal technical notes.
+	const totalAssumptions = userFacingAssumptions.length;
 	const resolvedAssumptions = totalAssumptions - openAssumptionCount;
 	const progress =
 		totalAssumptions > 0
@@ -856,8 +867,9 @@ const _KIND_BAND: Record<
 		band: "border-l-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/10",
 	},
 };
+// Technical kind is intentionally excluded from the user-facing grid;
+// it ends up in the "AI-internal notes" pane below the resolved list.
 const _KIND_ORDER: Array<IterAssumptionRead["kind"]> = [
-	"technical",
 	"ux",
 	"business",
 	"scope",
@@ -881,8 +893,17 @@ function AssumptionsGrid(props: {
 			</p>
 		);
 	}
-	const open = props.items.filter((a) => a.status === "open");
-	const resolved = props.items.filter((a) => a.status !== "open");
+	// Split into three buckets:
+	//   userFacingOpen:  status==="open"  && kind in [ux,business,scope]  → resolve grid
+	//   userFacingDone:  status!=="open"  && kind in [ux,business,scope]  → "Resolved" group
+	//   internalNotes:   kind==="technical"  (any status)                  → "AI-internal notes" pane
+	const userFacingOpen = props.items.filter(
+		(a) => a.status === "open" && a.kind !== "technical",
+	);
+	const userFacingDone = props.items.filter(
+		(a) => a.status !== "open" && a.kind !== "technical",
+	);
+	const internalNotes = props.items.filter((a) => a.kind === "technical");
 
 	// Group open assumptions by kind, preserving the canonical order.
 	const grouped: Record<IterAssumptionRead["kind"], IterAssumptionRead[]> = {
@@ -891,7 +912,7 @@ function AssumptionsGrid(props: {
 		business: [],
 		scope: [],
 	};
-	for (const a of open) grouped[a.kind].push(a);
+	for (const a of userFacingOpen) grouped[a.kind].push(a);
 
 	return (
 		<div className="space-y-4">
@@ -933,13 +954,13 @@ function AssumptionsGrid(props: {
 					</section>
 				);
 			})}
-			{resolved.length > 0 && (
+			{userFacingDone.length > 0 && (
 				<details className="rounded border bg-muted/40 p-3" open>
 					<summary className="cursor-pointer text-xs font-semibold">
-						Resolved ({resolved.length})
+						Resolved ({userFacingDone.length})
 					</summary>
 					<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-						{resolved.map((a) => {
+						{userFacingDone.map((a) => {
 							const meta = _KIND_BAND[a.kind];
 							return (
 								<div
@@ -955,6 +976,36 @@ function AssumptionsGrid(props: {
 							);
 						})}
 					</div>
+				</details>
+			)}
+			{internalNotes.length > 0 && (
+				<details className="rounded border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10">
+					<summary className="cursor-pointer text-xs font-semibold text-blue-900 dark:text-blue-200">
+						AI-internal notes ({internalNotes.length}) — no action required
+					</summary>
+					<p className="mt-2 text-[11px] text-muted-foreground">
+						These are notes the AI is leaving for the downstream developer agent
+						that will read your finalized package. They describe implementation
+						details (architecture, code patterns, framework choices) that you
+						wouldn't typically know — they ship with the package automatically.
+					</p>
+					<ul className="mt-3 space-y-2">
+						{internalNotes.map((a) => (
+							<li
+								key={a.id}
+								className="rounded border border-blue-200 bg-white/60 p-2 text-xs dark:border-blue-900/50 dark:bg-blue-950/20"
+							>
+								<div className="font-medium text-foreground/90">
+									{a.statement}
+								</div>
+								{a.rationale && (
+									<div className="mt-1 text-muted-foreground">
+										{a.rationale}
+									</div>
+								)}
+							</li>
+						))}
+					</ul>
 				</details>
 			)}
 		</div>

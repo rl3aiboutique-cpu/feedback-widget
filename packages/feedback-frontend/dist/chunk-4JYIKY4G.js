@@ -20,12 +20,7 @@ var DEFAULT_CONFIG = Object.freeze({
   locale: _ENV_LOCALE
 });
 var FeedbackContext = createContext(null);
-function FeedbackProvider({
-  children,
-  bindings,
-  adapter,
-  config
-}) {
+function FeedbackProvider({ children, bindings, adapter, config }) {
   if (!bindings || typeof bindings.useCurrentUser !== "function") {
     throw new Error(
       "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
@@ -285,12 +280,7 @@ async function _throwApiError(path, resp) {
   } catch {
     detail = await resp.text().catch(() => "");
   }
-  throw new FeedbackApiError(
-    resp.status,
-    path,
-    detail,
-    resp.headers.get("Retry-After")
-  );
+  throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
 }
 function _resolvePrefix(b) {
   return b.apiPathPrefix ?? "/api/v1/feedback";
@@ -305,10 +295,7 @@ async function _buildHeaders(bindings, base = {}) {
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   } catch (err) {
     if (typeof console !== "undefined") {
-      console.warn(
-        "[feedback] getCsrfToken threw, proceeding without CSRF token",
-        err
-      );
+      console.warn("[feedback] getCsrfToken threw, proceeding without CSRF token", err);
     }
   }
   if (bindings.authHeader) {
@@ -317,10 +304,7 @@ async function _buildHeaders(bindings, base = {}) {
       if (auth) headers.Authorization = auth;
     } catch (err) {
       if (typeof console !== "undefined") {
-        console.warn(
-          "[feedback] authHeader threw, proceeding without Authorization",
-          err
-        );
+        console.warn("[feedback] authHeader threw, proceeding without Authorization", err);
       }
     }
   }
@@ -372,9 +356,7 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(
-      `GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`
-    );
+    throw new Error(`GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`);
   }
   const cd = resp.headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
@@ -382,9 +364,7 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   return { blob: await resp.blob(), filename };
 }
 async function _getJson(bindings, path, query) {
-  const url = new URL(
-    `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
-  );
+  const url = new URL(`${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== void 0 && v !== null && v !== "") {
@@ -445,10 +425,7 @@ function getDefaultRedactionSelectors() {
 }
 function useTranslation() {
   const config = useFeedbackConfig();
-  return useMemo2(
-    () => createTranslator({ locale: config.locale }),
-    [config.locale]
-  );
+  return useMemo2(() => createTranslator({ locale: config.locale }), [config.locale]);
 }
 var APP_VERSION = ENV_APP_VERSION;
 var GIT_COMMIT_SHA = ENV_GIT_SHA;
@@ -486,14 +463,10 @@ function useUpdateFeedbackStatusMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input) => _patchJson(
-      bindings,
-      `/${encodeURIComponent(input.id)}/status`,
-      {
-        status: input.status,
-        triage_note: input.triage_note ?? null
-      }
-    ),
+    mutationFn: (input) => _patchJson(bindings, `/${encodeURIComponent(input.id)}/status`, {
+      status: input.status,
+      triage_note: input.triage_note ?? null
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
     }
@@ -573,82 +546,6 @@ function createAdapter(bindings) {
   return Object.freeze(adapter);
 }
 
-// src/ui/button.tsx
-import { Slot } from "@radix-ui/react-slot";
-import { cva } from "class-variance-authority";
-
-// src/lib/utils.ts
-import { clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-function cn(...inputs) {
-  return twMerge(clsx(inputs));
-}
-
-// src/ui/button.tsx
-import { jsx as jsx2 } from "react/jsx-runtime";
-var buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
-        link: "text-primary underline-offset-4 hover:underline"
-      },
-      size: {
-        default: "h-9 px-4 py-2 has-[>svg]:px-3",
-        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
-        icon: "size-9",
-        "icon-sm": "size-8",
-        "icon-lg": "size-10"
-      }
-    },
-    defaultVariants: {
-      variant: "default",
-      size: "default"
-    }
-  }
-);
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot : "button";
-  return /* @__PURE__ */ jsx2(
-    Comp,
-    {
-      "data-slot": "button",
-      className: cn(buttonVariants({ variant, size, className })),
-      ...props
-    }
-  );
-}
-
-// src/ui/textarea.tsx
-import { jsx as jsx3 } from "react/jsx-runtime";
-function Textarea({ className, ...props }) {
-  return /* @__PURE__ */ jsx3(
-    "textarea",
-    {
-      "data-slot": "textarea",
-      className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      ),
-      ...props
-    }
-  );
-}
-
 // src/client/iter.ts
 var IterApiError = class extends Error {
   constructor(status, path, detail, retryAfter) {
@@ -723,6 +620,15 @@ async function startIterSession(bindings, body) {
 }
 async function getIterSession(bindings, sessionId) {
   const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}`;
+  const resp = await fetch(url, {
+    credentials: "include",
+    headers: await _headers(bindings)
+  });
+  if (!resp.ok) await _throwOn(url, resp);
+  return resp.json();
+}
+async function listIterSessionsForFeedback(bindings, feedbackId) {
+  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/feedbacks/${feedbackId}/sessions`;
   const resp = await fetch(url, {
     credentials: "include",
     headers: await _headers(bindings)
@@ -869,6 +775,82 @@ function _parseSseFrame(frame) {
   }
 }
 
+// src/ui/button.tsx
+import { Slot } from "@radix-ui/react-slot";
+import { cva } from "class-variance-authority";
+
+// src/lib/utils.ts
+import { clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+// src/ui/button.tsx
+import { jsx as jsx2 } from "react/jsx-runtime";
+var buttonVariants = cva(
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+  {
+    variants: {
+      variant: {
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        destructive: "bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
+        outline: "border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
+        link: "text-primary underline-offset-4 hover:underline"
+      },
+      size: {
+        default: "h-9 px-4 py-2 has-[>svg]:px-3",
+        sm: "h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5",
+        lg: "h-10 rounded-md px-6 has-[>svg]:px-4",
+        icon: "size-9",
+        "icon-sm": "size-8",
+        "icon-lg": "size-10"
+      }
+    },
+    defaultVariants: {
+      variant: "default",
+      size: "default"
+    }
+  }
+);
+function Button({
+  className,
+  variant,
+  size,
+  asChild = false,
+  ...props
+}) {
+  const Comp = asChild ? Slot : "button";
+  return /* @__PURE__ */ jsx2(
+    Comp,
+    {
+      "data-slot": "button",
+      className: cn(buttonVariants({ variant, size, className })),
+      ...props
+    }
+  );
+}
+
+// src/ui/textarea.tsx
+import { jsx as jsx3 } from "react/jsx-runtime";
+function Textarea({ className, ...props }) {
+  return /* @__PURE__ */ jsx3(
+    "textarea",
+    {
+      "data-slot": "textarea",
+      className: cn(
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      ),
+      ...props
+    }
+  );
+}
+
 export {
   redactBundle,
   SubmitFeedbackError,
@@ -885,13 +867,11 @@ export {
   useFeedbackAdapter,
   useFeedbackConfig,
   useFeedbackBindings,
-  cn,
-  Button,
-  Textarea,
   IterApiError,
   newIdempotencyKey,
   startIterSession,
   getIterSession,
+  listIterSessionsForFeedback,
   abandonIterSession,
   listIterVersions,
   editIterVersionMarkdown,
@@ -899,6 +879,9 @@ export {
   resolveIterAssumption,
   finalizeIterSession,
   getIterPackage,
-  runIterationStream
+  runIterationStream,
+  cn,
+  Button,
+  Textarea
 };
-//# sourceMappingURL=chunk-YJ4HQXXL.js.map
+//# sourceMappingURL=chunk-4JYIKY4G.js.map
