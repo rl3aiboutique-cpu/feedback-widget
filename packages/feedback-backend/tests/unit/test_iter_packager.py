@@ -183,3 +183,100 @@ def test_package_builds_all_required_files() -> None:
         f"{result.folder_prefix}/folder/_AI_INSTRUCTIONS.md"
     ].decode("utf-8")
     assert "claude-opus-4-7" in instructions
+
+
+def test_package_includes_pdf_and_screenshot_byte_for_byte() -> None:
+    """End-to-end: a feedback with a real PDF + screenshot
+    attachment lands in the ZIP byte-for-byte. Mirrors the user
+    case that prompted rc.14 (Compliance_Brain_-_Verical_Onboardings.pdf
+    + an auto-captured screenshot)."""
+    storage = _InMemStorage()
+    pdf_key = "feedback/2026/05/06/abc/attachments/uuid-Compliance.pdf"
+    screenshot_key = "feedback/2026/05/06/abc/screenshot.png"
+    pdf_bytes = b"%PDF-1.4\n%test pdf body bytes\n%%EOF\n"
+    screenshot_bytes = b"\x89PNG\r\n\x1a\n" + b"\x00" * 256
+    storage.objects[pdf_key] = pdf_bytes
+    storage.objects[screenshot_key] = screenshot_bytes
+
+    feedback_id = uuid.uuid4()
+    inputs = PackageBuildInputs(
+        feedback=FeedbackContext(
+            feedback_id=feedback_id,
+            title="Onboarding for new clients",
+            description="There is no section for onboarding...",
+            expected_outcome="Three forms: Compliance, Auths, CSP.",
+            url_captured="https://capellai-app.example/",
+            route_name=None,
+            metadata_bundle={"viewport": {"width": 1280, "height": 800}},
+            app_version="0.2.0",
+            git_commit_sha="deadbee",
+        ),
+        final_output=_final_output(),  # type: ignore[arg-type]
+        session_id=uuid.uuid4(),
+        package_id=uuid.uuid4(),
+        attachments=[
+            AttachmentRef(
+                object_key=pdf_key,
+                filename="Compliance_Brain_-_Verical_Onboardings.pdf",
+                content_type="application/pdf",
+                byte_size=len(pdf_bytes),
+                bucket=None,
+            ),
+            AttachmentRef(
+                object_key=screenshot_key,
+                filename="00_widget_screenshot.png",
+                content_type="image/png",
+                byte_size=len(screenshot_bytes),
+                bucket=None,
+            ),
+        ],
+        assumptions=[],
+        iteration_log=[
+            IterationLogEntry(
+                version_number=1,
+                created_at=datetime.now(UTC),
+                user_message="initial",
+                restructure_allowed=False,
+                changes_summary="",
+            )
+        ],
+    )
+
+    result = build_iter_package(
+        inputs=inputs,
+        storage=storage,  # type: ignore[arg-type]
+        settings=_settings(),
+        feedback_created_at=datetime(2026, 5, 6, 12, 0, tzinfo=UTC),
+    )
+
+    # Both attachments were server-side copied to the package folder.
+    assert any(
+        dest.endswith("/folder/attachments/Compliance_Brain_-_Verical_Onboardings.pdf")
+        for _, dest in storage.copies
+    )
+    assert any(
+        dest.endswith("/folder/attachments/00_widget_screenshot.png")
+        for _, dest in storage.copies
+    )
+
+    # ZIP is a valid archive containing both attachments and every
+    # text file, with byte-for-byte preservation of the originals.
+    zip_bytes = storage.objects[result.zip_key]
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+        names = z.namelist()
+        assert "README.md" in names
+        assert "_AI_INSTRUCTIONS.md" in names
+        assert (
+            z.read("attachments/Compliance_Brain_-_Verical_Onboardings.pdf")
+            == pdf_bytes
+        )
+        assert z.read("attachments/00_widget_screenshot.png") == screenshot_bytes
+
+    # README mentions both attachments by name + byte size, so the
+    # admin can eyeball completeness without unzipping.
+    readme = storage.objects[
+        f"{result.folder_prefix}/folder/README.md"
+    ].decode("utf-8")
+    assert "Compliance_Brain_-_Verical_Onboardings.pdf" in readme
+    assert "00_widget_screenshot.png" in readme
+    assert f"{len(pdf_bytes):,}" in readme
