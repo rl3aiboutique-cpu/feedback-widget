@@ -72,9 +72,7 @@ def _build_canned_output(prompt_digest: str, version_index: int) -> dict[str, ob
                 "note": "Refined wording per user request.",
             }
         ]
-        changes_summary = (
-            "Refined the goal wording to match the user's iteration message."
-        )
+        changes_summary = "Refined the goal wording to match the user's iteration message."
 
     return {
         "schema_version": "1",
@@ -116,17 +114,13 @@ def _build_canned_output(prompt_digest: str, version_index: int) -> dict[str, ob
                 {
                     "id": "sec_goal",
                     "heading": "Goal",
-                    "body_markdown": (
-                        "Demonstrate the end-to-end flow with canned content."
-                    ),
+                    "body_markdown": ("Demonstrate the end-to-end flow with canned content."),
                 }
             ],
         },
         "diagram": {
             "format": "ascii",
-            "source": (
-                "[user] --(submit)--> [feedback] --(iterate)--> [package]"
-            ),
+            "source": ("[user] --(submit)--> [feedback] --(iterate)--> [package]"),
             "caption": "End-to-end flow",
         },
         "assumptions": [

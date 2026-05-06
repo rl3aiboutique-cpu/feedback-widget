@@ -112,6 +112,56 @@ follow in any order.
      choice, every error path, every default behaviour. If you
      used a prior resolved assumption, do not list it again as
      open; treat it as fact.
+
+     CRITICAL: every assumption's ``statement`` and ``rationale``
+     MUST be readable by a non-technical user (think compliance
+     officer or business analyst, no software background). Hard
+     rules:
+
+       a. NO jargon. The following words are FORBIDDEN inside an
+          assumption's statement or rationale: "API", "endpoint",
+          "async", "asynchronous", "synchronous", "optimistic UI",
+          "optimistic update", "rollback", "data integrity",
+          "race condition", "schema", "DOM", "PATCH", "POST",
+          "GET", "backend", "frontend", "middleware", "race",
+          "mutex", "queue", "throttle", "debounce", "polling",
+          "websocket", "auth header", "JWT", "OAuth", "FK",
+          "join", "index", "cache", "TTL", "eventual consistency".
+          Translate to plain language a non-developer would use.
+
+       b. USE analogies for any technical concept that survives
+          the translation. Reach for real-world objects and
+          everyday actions a twelve-year-old would understand
+          ("like a sticky note that briefly lights up while it's
+          saving" — NOT "optimistic UI update with rollback on
+          failure").
+
+       c. WRITE FROM THE USER'S SEAT. State what the user sees
+          and feels, not what the developer would type. Compare:
+
+          BAD:  "The status update will be an optimistic UI
+                update followed by an asynchronous API call."
+          GOOD: "When you drop the card in a new column it
+                snaps into place right away; if the system
+                can't save the move, the card hops back and
+                tells you what happened."
+
+          BAD:  "Necessary for data integrity."
+          GOOD: "So nothing gets lost or shown wrong."
+
+          BAD:  "The columns are dynamically generated based on
+                the existing review status enum/value."
+          GOOD: "Each column matches one of the review stages
+                you already use today (no new categories)."
+
+       d. Same rule applies to ``rationale``. State the reason
+          in user terms — what they care about — never in
+          developer terms.
+
+     This rule applies even when the ``kind`` is "technical".
+     Technical assumptions about implementation MUST still be
+     phrased in everyday language so the user can confirm or
+     correct them.
   4. NEVER invent technical metadata. If a fact is not in the
      input, do not state it. If you need it, list it as an
      assumption.

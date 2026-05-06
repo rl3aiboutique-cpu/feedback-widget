@@ -256,20 +256,14 @@ class IterService:
 
         # Rate limits — these raise IterRateLimitExceededError which
         # the router maps to HTTP 429 with the spec body.
-        self._rate_limiter.check_session_total(
-            db, session_id=session_id, settings=self._settings
-        )
-        self._rate_limiter.check_user_week(
-            db, user_id=caller.user_id, settings=self._settings
-        )
+        self._rate_limiter.check_session_total(db, session_id=session_id, settings=self._settings)
+        self._rate_limiter.check_user_week(db, user_id=caller.user_id, settings=self._settings)
 
         feedback = self._load_feedback(db, session.feedback_id)
         prior_versions = self._load_prior_versions(db, session_id)
         resolved = self._load_resolved_assumptions(db, session_id)
         attachments_meta = self._load_attachment_metas(db, session.feedback_id)
-        attachments_blobs = self._load_attachment_blobs(
-            db, session.feedback_id
-        )
+        attachments_blobs = self._load_attachment_blobs(db, session.feedback_id)
         tech_meta = _build_tech_meta(feedback)
 
         user_prompt = build_user_prompt(
@@ -321,9 +315,7 @@ class IterService:
 
         # Parse + retry-once.
         try:
-            parsed = parse_iteration_output(
-                raw_text, restructure_allowed=restructure_allowed
-            )
+            parsed = parse_iteration_output(raw_text, restructure_allowed=restructure_allowed)
             attempts = 1
         except IterationParseError as first_err:
             repair = build_repair_hint(first_err.render_for_repair_hint())
@@ -363,9 +355,7 @@ class IterService:
                 return
 
         # Belt-and-braces: enforce no-remove invariant after parse.
-        enforce_no_destructive_removal(
-            list(parsed.diff), restructure_allowed=restructure_allowed
-        )
+        enforce_no_destructive_removal(list(parsed.diff), restructure_allowed=restructure_allowed)
 
         # Persist version + call + assumptions.
         version_id, version_number = await asyncio.to_thread(
@@ -409,9 +399,7 @@ class IterService:
 
         asm.status = new_status
         asm.user_response = (
-            user_response
-            if new_status == FeedbackIterAssumptionStatus.CORRECTED
-            else None
+            user_response if new_status == FeedbackIterAssumptionStatus.CORRECTED else None
         )
         asm.resolved_at = datetime.now(UTC)
         asm.resolved_by_user_id = caller.user_id
@@ -442,13 +430,9 @@ class IterService:
             FeedbackIterSessionStatus.FINALIZED,
             FeedbackIterSessionStatus.ABANDONED,
         }:
-            raise IterStateError(
-                "cannot edit markdown on a terminal session"
-            )
+            raise IterStateError("cannot edit markdown on a terminal session")
         if session.current_iteration_id != version_id:
-            raise IterStateError(
-                "only the latest version's markdown is editable"
-            )
+            raise IterStateError("only the latest version's markdown is editable")
         version = db.get(FeedbackIterVersion, version_id)
         if version is None:
             raise IterNotFoundError(f"version {version_id} not found")
@@ -485,9 +469,7 @@ class IterService:
                 return existing
         _check_transition(session.status, FeedbackIterSessionStatus.FINALIZED)
         if session.current_iteration_id is None:
-            raise IterStateError(
-                "cannot finalize a session that has no versions yet"
-            )
+            raise IterStateError("cannot finalize a session that has no versions yet")
 
         feedback = self._load_feedback(db, session.feedback_id)
         final_version = db.get(FeedbackIterVersion, session.current_iteration_id)
@@ -495,9 +477,7 @@ class IterService:
         final_output = IterationOutput.model_validate(final_version.output_json)
 
         attachments = self._load_attachment_refs(db, feedback.id)
-        assumption_resolutions = self._load_all_assumption_resolutions(
-            db, session_id
-        )
+        assumption_resolutions = self._load_all_assumption_resolutions(db, session_id)
         log_entries = self._load_iteration_log(db, session_id)
 
         package_id = uuid.uuid4()
@@ -577,11 +557,15 @@ class IterService:
         caller: CallerIdentity,
     ) -> list[FeedbackIterVersion]:
         self._enforce_session_ownership(self._load_session(db, session_id), caller)
-        rows = db.execute(
-            select(FeedbackIterVersion)
-            .where(FeedbackIterVersion.session_id == session_id)
-            .order_by(FeedbackIterVersion.version_number)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(FeedbackIterVersion)
+                .where(FeedbackIterVersion.session_id == session_id)
+                .order_by(FeedbackIterVersion.version_number)
+            )
+            .scalars()
+            .all()
+        )
         return list(rows)
 
     def list_assumptions(
@@ -595,11 +579,15 @@ class IterService:
         self._enforce_session_ownership(session, caller)
         if session.current_iteration_id is None:
             return []
-        rows = db.execute(
-            select(FeedbackIterAssumption)
-            .where(FeedbackIterAssumption.version_id == session.current_iteration_id)
-            .order_by(FeedbackIterAssumption.created_at)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(FeedbackIterAssumption)
+                .where(FeedbackIterAssumption.version_id == session.current_iteration_id)
+                .order_by(FeedbackIterAssumption.created_at)
+            )
+            .scalars()
+            .all()
+        )
         return list(rows)
 
     def list_calls(
@@ -611,11 +599,15 @@ class IterService:
     ) -> list[FeedbackIterCall]:
         session = self._load_session(db, session_id)
         self._enforce_session_ownership(session, caller)
-        rows = db.execute(
-            select(FeedbackIterCall)
-            .where(FeedbackIterCall.session_id == session_id)
-            .order_by(FeedbackIterCall.created_at)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(FeedbackIterCall)
+                .where(FeedbackIterCall.session_id == session_id)
+                .order_by(FeedbackIterCall.created_at)
+            )
+            .scalars()
+            .all()
+        )
         return list(rows)
 
     def get_last_call_model_id(
@@ -694,16 +686,10 @@ class IterService:
                 statement=asm.statement,
                 rationale=asm.rationale,
                 confidence=asm.confidence,
-                status=(
-                    prior.status
-                    if prior is not None
-                    else FeedbackIterAssumptionStatus.OPEN
-                ),
+                status=(prior.status if prior is not None else FeedbackIterAssumptionStatus.OPEN),
                 user_response=prior.user_response if prior is not None else None,
                 resolved_at=prior.resolved_at if prior is not None else None,
-                resolved_by_user_id=(
-                    prior.resolved_by_user_id if prior is not None else None
-                ),
+                resolved_by_user_id=(prior.resolved_by_user_id if prior is not None else None),
             )
             db.add(row)
 
@@ -769,9 +755,7 @@ class IterService:
         )
         db.add(call)
         db.commit()
-        self._rate_limiter.record_call(
-            session_id=session.id, user_id=user.user_id
-        )
+        self._rate_limiter.record_call(session_id=session.id, user_id=user.user_id)
 
     # ── Internal: loaders ────────────────────────────────────────────
 
@@ -790,9 +774,7 @@ class IterService:
         return f
 
     @staticmethod
-    def _find_active_session(
-        db: Session, fid: uuid.UUID
-    ) -> FeedbackIterSession | None:
+    def _find_active_session(db: Session, fid: uuid.UUID) -> FeedbackIterSession | None:
         return db.execute(
             select(FeedbackIterSession)
             .where(FeedbackIterSession.feedback_id == fid)
@@ -808,9 +790,7 @@ class IterService:
         ).scalar_one_or_none()
 
     @staticmethod
-    def _find_call_by_idem(
-        db: Session, sid: uuid.UUID, idem: str
-    ) -> FeedbackIterCall | None:
+    def _find_call_by_idem(db: Session, sid: uuid.UUID, idem: str) -> FeedbackIterCall | None:
         return db.execute(
             select(FeedbackIterCall)
             .where(FeedbackIterCall.session_id == sid)
@@ -819,24 +799,22 @@ class IterService:
         ).scalar_one_or_none()
 
     @staticmethod
-    def _find_existing_package(
-        db: Session, sid: uuid.UUID
-    ) -> FeedbackIterPackage | None:
+    def _find_existing_package(db: Session, sid: uuid.UUID) -> FeedbackIterPackage | None:
         return db.execute(
-            select(FeedbackIterPackage)
-            .where(FeedbackIterPackage.session_id == sid)
-            .limit(1)
+            select(FeedbackIterPackage).where(FeedbackIterPackage.session_id == sid).limit(1)
         ).scalar_one_or_none()
 
     @staticmethod
-    def _load_prior_versions(
-        db: Session, sid: uuid.UUID
-    ) -> list[PriorVersion]:
-        rows = db.execute(
-            select(FeedbackIterVersion)
-            .where(FeedbackIterVersion.session_id == sid)
-            .order_by(FeedbackIterVersion.version_number)
-        ).scalars().all()
+    def _load_prior_versions(db: Session, sid: uuid.UUID) -> list[PriorVersion]:
+        rows = (
+            db.execute(
+                select(FeedbackIterVersion)
+                .where(FeedbackIterVersion.session_id == sid)
+                .order_by(FeedbackIterVersion.version_number)
+            )
+            .scalars()
+            .all()
+        )
         return [
             PriorVersion(
                 version_number=v.version_number,
@@ -846,30 +824,31 @@ class IterService:
         ]
 
     @staticmethod
-    def _load_resolved_assumptions(
-        db: Session, sid: uuid.UUID
-    ) -> list[ResolvedAssumption]:
+    def _load_resolved_assumptions(db: Session, sid: uuid.UUID) -> list[ResolvedAssumption]:
         # Carry every resolved assumption across all prior versions.
-        rows = db.execute(
-            select(FeedbackIterAssumption)
-            .join(
-                FeedbackIterVersion,
-                FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
-            )
-            .where(FeedbackIterVersion.session_id == sid)
-            .where(
-                FeedbackIterAssumption.status.notin_(  # type: ignore[attr-defined]
-                    [FeedbackIterAssumptionStatus.OPEN]
+        rows = (
+            db.execute(
+                select(FeedbackIterAssumption)
+                .join(
+                    FeedbackIterVersion,
+                    FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
+                )
+                .where(FeedbackIterVersion.session_id == sid)
+                .where(
+                    FeedbackIterAssumption.status.notin_(  # type: ignore[attr-defined]
+                        [FeedbackIterAssumptionStatus.OPEN]
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         # Deduplicate by slot_key, preferring the latest resolution.
         by_slot: dict[str, FeedbackIterAssumption] = {}
         for r in rows:
             existing = by_slot.get(r.slot_key)
             if existing is None or (
-                r.resolved_at and existing.resolved_at
-                and r.resolved_at > existing.resolved_at
+                r.resolved_at and existing.resolved_at and r.resolved_at > existing.resolved_at
             ):
                 by_slot[r.slot_key] = r
         return [
@@ -889,38 +868,43 @@ class IterService:
     ) -> dict[str, FeedbackIterAssumption]:
         """Latest resolution per slot_key — used for carry-over on
         new version writes."""
-        rows = db.execute(
-            select(FeedbackIterAssumption)
-            .join(
-                FeedbackIterVersion,
-                FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
-            )
-            .where(FeedbackIterVersion.session_id == sid)
-            .where(
-                FeedbackIterAssumption.status.notin_(  # type: ignore[attr-defined]
-                    [FeedbackIterAssumptionStatus.OPEN]
+        rows = (
+            db.execute(
+                select(FeedbackIterAssumption)
+                .join(
+                    FeedbackIterVersion,
+                    FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
+                )
+                .where(FeedbackIterVersion.session_id == sid)
+                .where(
+                    FeedbackIterAssumption.status.notin_(  # type: ignore[attr-defined]
+                        [FeedbackIterAssumptionStatus.OPEN]
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         out: dict[str, FeedbackIterAssumption] = {}
         for r in rows:
             existing = out.get(r.slot_key)
             if existing is None or (
-                r.resolved_at and existing.resolved_at
-                and r.resolved_at > existing.resolved_at
+                r.resolved_at and existing.resolved_at and r.resolved_at > existing.resolved_at
             ):
                 out[r.slot_key] = r
         return out
 
     @staticmethod
-    def _load_attachment_metas(
-        db: Session, fid: uuid.UUID
-    ) -> list[AttachmentMeta]:
-        rows = db.execute(
-            select(FeedbackAttachment)
-            .where(FeedbackAttachment.feedback_id == fid)
-            .order_by(FeedbackAttachment.created_at)
-        ).scalars().all()
+    def _load_attachment_metas(db: Session, fid: uuid.UUID) -> list[AttachmentMeta]:
+        rows = (
+            db.execute(
+                select(FeedbackAttachment)
+                .where(FeedbackAttachment.feedback_id == fid)
+                .order_by(FeedbackAttachment.created_at)
+            )
+            .scalars()
+            .all()
+        )
         return [
             AttachmentMeta(
                 filename=r.filename or _filename_for_screenshot(fid),
@@ -930,9 +914,7 @@ class IterService:
             for r in rows
         ]
 
-    def _load_attachment_blobs(
-        self, db: Session, fid: uuid.UUID
-    ) -> list[LLMAttachment]:
+    def _load_attachment_blobs(self, db: Session, fid: uuid.UUID) -> list[LLMAttachment]:
         """Load attachment bytes from MinIO for inclusion in the LLM prompt.
 
         Skips attachments larger than 10MB to avoid blowing the
@@ -941,11 +923,15 @@ class IterService:
         """
         import base64
 
-        rows = db.execute(
-            select(FeedbackAttachment)
-            .where(FeedbackAttachment.feedback_id == fid)
-            .order_by(FeedbackAttachment.created_at)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(FeedbackAttachment)
+                .where(FeedbackAttachment.feedback_id == fid)
+                .order_by(FeedbackAttachment.created_at)
+            )
+            .scalars()
+            .all()
+        )
         out: list[LLMAttachment] = []
         for r in rows:
             if r.byte_size > 10_000_000:
@@ -970,14 +956,16 @@ class IterService:
             )
         return out
 
-    def _load_attachment_refs(
-        self, db: Session, fid: uuid.UUID
-    ) -> list[AttachmentRef]:
-        rows = db.execute(
-            select(FeedbackAttachment)
-            .where(FeedbackAttachment.feedback_id == fid)
-            .order_by(FeedbackAttachment.created_at)
-        ).scalars().all()
+    def _load_attachment_refs(self, db: Session, fid: uuid.UUID) -> list[AttachmentRef]:
+        rows = (
+            db.execute(
+                select(FeedbackAttachment)
+                .where(FeedbackAttachment.feedback_id == fid)
+                .order_by(FeedbackAttachment.created_at)
+            )
+            .scalars()
+            .all()
+        )
         return [
             AttachmentRef(
                 object_key=r.object_key,
@@ -994,17 +982,19 @@ class IterService:
         ]
 
     @staticmethod
-    def _load_all_assumption_resolutions(
-        db: Session, sid: uuid.UUID
-    ) -> list[AssumptionResolution]:
-        rows = db.execute(
-            select(FeedbackIterAssumption)
-            .join(
-                FeedbackIterVersion,
-                FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
+    def _load_all_assumption_resolutions(db: Session, sid: uuid.UUID) -> list[AssumptionResolution]:
+        rows = (
+            db.execute(
+                select(FeedbackIterAssumption)
+                .join(
+                    FeedbackIterVersion,
+                    FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
+                )
+                .where(FeedbackIterVersion.session_id == sid)
             )
-            .where(FeedbackIterVersion.session_id == sid)
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         # Latest per slot_key wins (matches what the package will
         # treat as the "final" status).
         by_slot: dict[str, FeedbackIterAssumption] = {}
@@ -1024,14 +1014,16 @@ class IterService:
         ]
 
     @staticmethod
-    def _load_iteration_log(
-        db: Session, sid: uuid.UUID
-    ) -> list[IterationLogEntry]:
-        rows = db.execute(
-            select(FeedbackIterVersion)
-            .where(FeedbackIterVersion.session_id == sid)
-            .order_by(FeedbackIterVersion.version_number)
-        ).scalars().all()
+    def _load_iteration_log(db: Session, sid: uuid.UUID) -> list[IterationLogEntry]:
+        rows = (
+            db.execute(
+                select(FeedbackIterVersion)
+                .where(FeedbackIterVersion.session_id == sid)
+                .order_by(FeedbackIterVersion.version_number)
+            )
+            .scalars()
+            .all()
+        )
         out: list[IterationLogEntry] = []
         for r in rows:
             output_json = r.output_json or {}
@@ -1078,9 +1070,7 @@ class IterService:
         for section in detector.feed(version.output_markdown):
             yield SSEEventSection(section=section)  # type: ignore[arg-type]
         yield SSEEventToken(chunk=version.output_markdown)
-        yield SSEEventDone(
-            version_id=version.id, version_number=version.version_number
-        )
+        yield SSEEventDone(version_id=version.id, version_number=version.version_number)
 
     # ── Internal: invariant checks ──────────────────────────────────
 
@@ -1093,9 +1083,7 @@ class IterService:
             return
         if session.created_by_user_id == caller.user_id:
             return
-        raise IterAccessDeniedError(
-            f"user {caller.user_id} cannot access session {session.id}"
-        )
+        raise IterAccessDeniedError(f"user {caller.user_id} cannot access session {session.id}")
 
     @staticmethod
     def _enforce_feedback_ownership(
@@ -1106,9 +1094,7 @@ class IterService:
             return
         if feedback.user_id == caller.user_id:
             return
-        raise IterAccessDeniedError(
-            f"user {caller.user_id} cannot access feedback {feedback.id}"
-        )
+        raise IterAccessDeniedError(f"user {caller.user_id} cannot access feedback {feedback.id}")
 
     @staticmethod
     def _check_session_runnable(session: FeedbackIterSession) -> None:
@@ -1130,9 +1116,7 @@ class IterService:
         any_open = db.execute(
             select(FeedbackIterAssumption.id)
             .where(FeedbackIterAssumption.version_id == session.current_iteration_id)
-            .where(
-                FeedbackIterAssumption.status == FeedbackIterAssumptionStatus.OPEN
-            )
+            .where(FeedbackIterAssumption.status == FeedbackIterAssumptionStatus.OPEN)
             .limit(1)
         ).scalar_one_or_none()
         if any_open is not None:

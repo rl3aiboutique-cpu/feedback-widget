@@ -20,7 +20,12 @@ var DEFAULT_CONFIG = Object.freeze({
   locale: _ENV_LOCALE
 });
 var FeedbackContext = createContext(null);
-function FeedbackProvider({ children, bindings, adapter, config }) {
+function FeedbackProvider({
+  children,
+  bindings,
+  adapter,
+  config
+}) {
   if (!bindings || typeof bindings.useCurrentUser !== "function") {
     throw new Error(
       "FeedbackProvider: `bindings` prop is required and must include `useCurrentUser`. See @rl3/feedback-widget README for the FeedbackHostBindings contract."
@@ -280,7 +285,12 @@ async function _throwApiError(path, resp) {
   } catch {
     detail = await resp.text().catch(() => "");
   }
-  throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
+  throw new FeedbackApiError(
+    resp.status,
+    path,
+    detail,
+    resp.headers.get("Retry-After")
+  );
 }
 function _resolvePrefix(b) {
   return b.apiPathPrefix ?? "/api/v1/feedback";
@@ -295,7 +305,10 @@ async function _buildHeaders(bindings, base = {}) {
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
   } catch (err) {
     if (typeof console !== "undefined") {
-      console.warn("[feedback] getCsrfToken threw, proceeding without CSRF token", err);
+      console.warn(
+        "[feedback] getCsrfToken threw, proceeding without CSRF token",
+        err
+      );
     }
   }
   if (bindings.authHeader) {
@@ -304,7 +317,10 @@ async function _buildHeaders(bindings, base = {}) {
       if (auth) headers.Authorization = auth;
     } catch (err) {
       if (typeof console !== "undefined") {
-        console.warn("[feedback] authHeader threw, proceeding without Authorization", err);
+        console.warn(
+          "[feedback] authHeader threw, proceeding without Authorization",
+          err
+        );
       }
     }
   }
@@ -356,7 +372,9 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   });
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
-    throw new Error(`GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`);
+    throw new Error(
+      `GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`
+    );
   }
   const cd = resp.headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
@@ -364,7 +382,9 @@ async function downloadFeedbackBundleViaBindings(bindings, feedbackId) {
   return { blob: await resp.blob(), filename };
 }
 async function _getJson(bindings, path, query) {
-  const url = new URL(`${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`);
+  const url = new URL(
+    `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`
+  );
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== void 0 && v !== null && v !== "") {
@@ -425,7 +445,10 @@ function getDefaultRedactionSelectors() {
 }
 function useTranslation() {
   const config = useFeedbackConfig();
-  return useMemo2(() => createTranslator({ locale: config.locale }), [config.locale]);
+  return useMemo2(
+    () => createTranslator({ locale: config.locale }),
+    [config.locale]
+  );
 }
 var APP_VERSION = ENV_APP_VERSION;
 var GIT_COMMIT_SHA = ENV_GIT_SHA;
@@ -463,10 +486,14 @@ function useUpdateFeedbackStatusMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input) => _patchJson(bindings, `/${encodeURIComponent(input.id)}/status`, {
-      status: input.status,
-      triage_note: input.triage_note ?? null
-    }),
+    mutationFn: (input) => _patchJson(
+      bindings,
+      `/${encodeURIComponent(input.id)}/status`,
+      {
+        status: input.status,
+        triage_note: input.triage_note ?? null
+      }
+    ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["feedback"] });
     }
@@ -483,7 +510,9 @@ function useDeleteFeedbackMutation() {
   });
 }
 async function _postJson(bindings, path, body) {
-  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const headers = await _buildHeaders(bindings, {
+    "Content-Type": "application/json"
+  });
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "POST",
@@ -665,20 +694,28 @@ async function _throwOn(path, resp) {
   } catch {
     detail = await resp.text().catch(() => "");
   }
-  throw new IterApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
+  throw new IterApiError(
+    resp.status,
+    path,
+    detail,
+    resp.headers.get("Retry-After")
+  );
 }
 function newIdempotencyKey() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
-  return "k_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return `k_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
 }
 async function startIterSession(bindings, body) {
   const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions`;
   const resp = await fetch(url, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...await _headers(bindings) },
+    headers: {
+      "Content-Type": "application/json",
+      ...await _headers(bindings)
+    },
     body: JSON.stringify(body)
   });
   if (!resp.ok) await _throwOn(url, resp);
@@ -717,7 +754,10 @@ async function editIterVersionMarkdown(bindings, sessionId, versionId, body) {
   const resp = await fetch(url, {
     method: "PATCH",
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...await _headers(bindings) },
+    headers: {
+      "Content-Type": "application/json",
+      ...await _headers(bindings)
+    },
     body: JSON.stringify(body)
   });
   if (!resp.ok) await _throwOn(url, resp);
@@ -737,7 +777,10 @@ async function resolveIterAssumption(bindings, assumptionId, body) {
   const resp = await fetch(url, {
     method: "PATCH",
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...await _headers(bindings) },
+    headers: {
+      "Content-Type": "application/json",
+      ...await _headers(bindings)
+    },
     body: JSON.stringify(body)
   });
   if (!resp.ok) await _throwOn(url, resp);
@@ -748,7 +791,10 @@ async function finalizeIterSession(bindings, sessionId) {
   const resp = await fetch(url, {
     method: "POST",
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...await _headers(bindings) },
+    headers: {
+      "Content-Type": "application/json",
+      ...await _headers(bindings)
+    },
     body: JSON.stringify({})
   });
   if (!resp.ok) await _throwOn(url, resp);
@@ -814,7 +860,10 @@ function _parseSseFrame(frame) {
   if (!event || data === null) return null;
   try {
     const parsed = JSON.parse(data);
-    return { type: event, ...parsed };
+    return {
+      type: event,
+      ...parsed
+    };
   } catch {
     return null;
   }
@@ -852,4 +901,4 @@ export {
   getIterPackage,
   runIterationStream
 };
-//# sourceMappingURL=chunk-6R2CBXYH.js.map
+//# sourceMappingURL=chunk-YJ4HQXXL.js.map

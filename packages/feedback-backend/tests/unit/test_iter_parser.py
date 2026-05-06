@@ -14,7 +14,6 @@ import asyncio
 import json
 
 import pytest
-
 from feedback_widget.iter_llm import FakeLLMProvider
 from feedback_widget.iter_parser import (
     IterationParseError,

@@ -17,6 +17,7 @@ import uuid
 import zipfile
 from datetime import UTC, datetime
 
+from feedback_widget.iter_llm import FakeLLMProvider
 from feedback_widget.iter_models import FeedbackIterAssumptionStatus
 from feedback_widget.iter_packager import (
     AssumptionResolution,
@@ -27,7 +28,6 @@ from feedback_widget.iter_packager import (
     build_iter_package,
 )
 from feedback_widget.iter_parser import parse_iteration_output
-from feedback_widget.iter_llm import FakeLLMProvider
 from feedback_widget.settings import FeedbackSettings
 
 
@@ -146,9 +146,7 @@ def test_package_builds_all_required_files() -> None:
         feedback_created_at=datetime(2026, 5, 5, 12, 0, tzinfo=UTC),
     )
 
-    folder_keys = [
-        k for k in storage.objects if k.startswith(f"{result.folder_prefix}/folder/")
-    ]
+    folder_keys = [k for k in storage.objects if k.startswith(f"{result.folder_prefix}/folder/")]
     expected = {
         f"{result.folder_prefix}/folder/README.md",
         f"{result.folder_prefix}/folder/_AI_INSTRUCTIONS.md",
@@ -164,8 +162,7 @@ def test_package_builds_all_required_files() -> None:
 
     # The attachment was copied via copy_object to the package folder.
     assert any(
-        dest.endswith("/folder/attachments/00_widget_screenshot.png")
-        for _, dest in storage.copies
+        dest.endswith("/folder/attachments/00_widget_screenshot.png") for _, dest in storage.copies
     )
 
     # ZIP exists at the package root and contains every text file.
@@ -179,9 +176,9 @@ def test_package_builds_all_required_files() -> None:
     assert "attachments/00_widget_screenshot.png" in names
 
     # Consumer model interpolated.
-    instructions = storage.objects[
-        f"{result.folder_prefix}/folder/_AI_INSTRUCTIONS.md"
-    ].decode("utf-8")
+    instructions = storage.objects[f"{result.folder_prefix}/folder/_AI_INSTRUCTIONS.md"].decode(
+        "utf-8"
+    )
     assert "claude-opus-4-7" in instructions
 
 
@@ -255,8 +252,7 @@ def test_package_includes_pdf_and_screenshot_byte_for_byte() -> None:
         for _, dest in storage.copies
     )
     assert any(
-        dest.endswith("/folder/attachments/00_widget_screenshot.png")
-        for _, dest in storage.copies
+        dest.endswith("/folder/attachments/00_widget_screenshot.png") for _, dest in storage.copies
     )
 
     # ZIP is a valid archive containing both attachments and every
@@ -266,17 +262,12 @@ def test_package_includes_pdf_and_screenshot_byte_for_byte() -> None:
         names = z.namelist()
         assert "README.md" in names
         assert "_AI_INSTRUCTIONS.md" in names
-        assert (
-            z.read("attachments/Compliance_Brain_-_Verical_Onboardings.pdf")
-            == pdf_bytes
-        )
+        assert z.read("attachments/Compliance_Brain_-_Verical_Onboardings.pdf") == pdf_bytes
         assert z.read("attachments/00_widget_screenshot.png") == screenshot_bytes
 
     # README mentions both attachments by name + byte size, so the
     # admin can eyeball completeness without unzipping.
-    readme = storage.objects[
-        f"{result.folder_prefix}/folder/README.md"
-    ].decode("utf-8")
+    readme = storage.objects[f"{result.folder_prefix}/folder/README.md"].decode("utf-8")
     assert "Compliance_Brain_-_Verical_Onboardings.pdf" in readme
     assert "00_widget_screenshot.png" in readme
     assert f"{len(pdf_bytes):,}" in readme

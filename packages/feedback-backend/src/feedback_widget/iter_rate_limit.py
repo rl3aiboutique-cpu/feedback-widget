@@ -39,9 +39,7 @@ class IterRateLimitExceededError(RuntimeError):
     """Raised when a check fails. Carries the spec-§7.2 body shape."""
 
     def __init__(self, body: IterRateLimitError) -> None:
-        super().__init__(
-            f"rate limit exceeded: {body.scope} ({body.current}/{body.limit})"
-        )
+        super().__init__(f"rate limit exceeded: {body.scope} ({body.current}/{body.limit})")
         self.body = body
 
 
@@ -153,9 +151,7 @@ class IterRateLimiter:
                     scope="user_week",
                     limit=limit,
                     current=count,
-                    retry_after_seconds=self._user_week_reset_seconds(
-                        db, user_id
-                    ),
+                    retry_after_seconds=self._user_week_reset_seconds(db, user_id),
                 )
             )
 

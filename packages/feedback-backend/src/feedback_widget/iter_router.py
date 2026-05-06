@@ -230,9 +230,7 @@ def build_iter_router(
     from feedback_widget.iter_service import IterService  # local import to break cycle
 
     if not isinstance(service, IterService):
-        raise TypeError(
-            "service must be an IterService; got " + type(service).__name__
-        )
+        raise TypeError("service must be an IterService; got " + type(service).__name__)
 
     router = APIRouter(tags=["feedback-iterate"])
 
@@ -282,9 +280,7 @@ def build_iter_router(
             )
             return _to_session_read(
                 row,
-                last_call_model_id=service.get_last_call_model_id(
-                    db, session_id=row.id
-                ),
+                last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
                 current_primary_model_id=service.get_current_primary_model_id(),
             )
         except IterServiceError as exc:
@@ -304,9 +300,7 @@ def build_iter_router(
             )
             return _to_session_read(
                 row,
-                last_call_model_id=service.get_last_call_model_id(
-                    db, session_id=row.id
-                ),
+                last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
                 current_primary_model_id=service.get_current_primary_model_id(),
             )
         except IterServiceError as exc:
@@ -380,9 +374,7 @@ def build_iter_router(
         user: UserDep,
     ) -> list[IterVersionRead]:
         try:
-            rows = service.list_versions(
-                db, session_id=session_id, caller=_caller_from(user, deps)
-            )
+            rows = service.list_versions(db, session_id=session_id, caller=_caller_from(user, deps))
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
         return [_to_version_read(r) for r in rows]
@@ -515,9 +507,7 @@ def build_iter_router(
         user: UserDep,
     ) -> list[IterCallRead]:
         try:
-            rows = service.list_calls(
-                db, session_id=session_id, caller=_caller_from(user, deps)
-            )
+            rows = service.list_calls(db, session_id=session_id, caller=_caller_from(user, deps))
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
         return [_to_call_read(r) for r in rows]
@@ -580,10 +570,9 @@ def build_iter_router(
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
         from sqlalchemy import select
+
         package = db.execute(
-            select(FeedbackIterPackage).where(
-                FeedbackIterPackage.session_id == session_id
-            )
+            select(FeedbackIterPackage).where(FeedbackIterPackage.session_id == session_id)
         ).scalar_one_or_none()
         if package is None:
             raise HTTPException(
@@ -603,6 +592,7 @@ def build_iter_router(
         user: UserDep,
     ) -> IterUsageRead:
         from feedback_widget.iter_rate_limit import IterRateLimiter
+
         rl: IterRateLimiter = service.rate_limiter
         used = rl._sql_user_week_count(db, user.user_id)
         limit = settings.ITER_MAX_CALLS_PER_USER_WEEK
@@ -646,17 +636,14 @@ def _enqueue_finalize_email(
     if s is None:
         return
     from sqlalchemy import select
+
     version_count = (
-        db.execute(
-            select(FeedbackIterVersion).where(FeedbackIterVersion.session_id == s.id)
-        )
+        db.execute(select(FeedbackIterVersion).where(FeedbackIterVersion.session_id == s.id))
         .scalars()
         .all()
     )
     call_count = (
-        db.execute(
-            select(FeedbackIterCall).where(FeedbackIterCall.session_id == s.id)
-        )
+        db.execute(select(FeedbackIterCall).where(FeedbackIterCall.session_id == s.id))
         .scalars()
         .all()
     )
@@ -678,8 +665,7 @@ def _enqueue_finalize_email(
         return
     background_tasks.add_task(
         _send_email_safe,
-        to=recipients[0],
-        cc=recipients[1:],
+        to=recipients,
         subject=email.subject,
         html=email.html_body,
         text=email.text_body,
@@ -690,19 +676,19 @@ def _enqueue_finalize_email(
 
 def _send_email_safe(
     *,
-    to: str,
-    cc: list[str],
+    to: list[str],
     subject: str,
     html: str,
     text: str,
     settings: FeedbackSettings,
 ) -> None:
     """Background task wrapper that swallows email errors so a
-    broken SMTP doesn't block finalize."""
+    broken SMTP doesn't block finalize. Matches ``send_email``'s
+    actual signature (``to`` is a list; cc isn't a separate param —
+    multiple addresses go in the same list)."""
     try:
         send_email(
             to=to,
-            cc=cc,
             subject=subject,
             html=html,
             text=text,

@@ -9,7 +9,7 @@ import {
   useFeedbackCommentsQuery,
   useMyFeedbackQuery,
   usePostFeedbackCommentMutation
-} from "./chunk-6R2CBXYH.js";
+} from "./chunk-YJ4HQXXL.js";
 
 // src/ui/sheet.tsx
 import * as SheetPrimitive from "@radix-ui/react-dialog";
@@ -18,7 +18,9 @@ import { jsx, jsxs } from "react/jsx-runtime";
 function Sheet({ ...props }) {
   return /* @__PURE__ */ jsx(SheetPrimitive.Root, { "data-slot": "sheet", ...props });
 }
-function SheetPortal({ ...props }) {
+function SheetPortal({
+  ...props
+}) {
   return /* @__PURE__ */ jsx(SheetPrimitive.Portal, { "data-slot": "sheet-portal", ...props });
 }
 function SheetOverlay({
@@ -89,7 +91,10 @@ function SheetFooter({ className, ...props }) {
     }
   );
 }
-function SheetTitle({ className, ...props }) {
+function SheetTitle({
+  className,
+  ...props
+}) {
   return /* @__PURE__ */ jsx(
     SheetPrimitive.Title,
     {
@@ -168,7 +173,7 @@ function Rl3Mark({
 import { Suspense, lazy } from "react";
 import { jsx as jsx3 } from "react/jsx-runtime";
 var _Inner = lazy(async () => {
-  const mod = await import("./IterWorkspace-L3QWB7FS.js");
+  const mod = await import("./IterWorkspace-RRUD464B.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
@@ -216,7 +221,14 @@ function Badge({
   ...props
 }) {
   const Comp = asChild ? Slot : "span";
-  return /* @__PURE__ */ jsx4(Comp, { "data-slot": "badge", className: cn(badgeVariants({ variant }), className), ...props });
+  return /* @__PURE__ */ jsx4(
+    Comp,
+    {
+      "data-slot": "badge",
+      className: cn(badgeVariants({ variant }), className),
+      ...props
+    }
+  );
 }
 
 // src/comments/CommentThread.tsx
@@ -225,7 +237,9 @@ function _fmt(dt) {
   if (!dt) return "\u2014";
   return dt.slice(0, 16).replace("T", " ");
 }
-function CommentThread({ feedbackId }) {
+function CommentThread({
+  feedbackId
+}) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const currentUser = adapter.useCurrentUser();
@@ -245,7 +259,9 @@ function CommentThread({ feedbackId }) {
           if (err instanceof FeedbackApiError) {
             if (err.status === 429) {
               const seconds = err.retryAfter ?? "?";
-              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
+              adapter.toast.error(
+                t("feedback.toast_error_429", { seconds: String(seconds) })
+              );
               return;
             }
             if (err.status === 401 || err.status === 403) {
@@ -357,7 +373,9 @@ function MyTicketsPanel({
       setIterStarting(feedbackId);
       setIterError(null);
       try {
-        const session = await startIterSession(bindings, { feedback_id: feedbackId });
+        const session = await startIterSession(bindings, {
+          feedback_id: feedbackId
+        });
         setIterSessionId(session.id);
       } catch (err) {
         const e = err;
@@ -387,7 +405,13 @@ function MyTicketsPanel({
     return /* @__PURE__ */ jsx6("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") });
   }
   return /* @__PURE__ */ jsxs4(Fragment, { children: [
-    iterSessionId ? /* @__PURE__ */ jsx6(IterWorkspaceLazy, { sessionId: iterSessionId, onClose: () => setIterSessionId(null) }) : null,
+    iterSessionId ? /* @__PURE__ */ jsx6(
+      IterWorkspaceLazy,
+      {
+        sessionId: iterSessionId,
+        onClose: () => setIterSessionId(null)
+      }
+    ) : null,
     /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: rows.map((r) => {
       const recentlyResolved = r.status === "done";
       const isOpen = expandedId === r.id;
@@ -409,7 +433,14 @@ function MyTicketsPanel({
                     "data-feedback-id": "feedback.mine.row",
                     children: [
                       /* @__PURE__ */ jsx6("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-                      /* @__PURE__ */ jsx6(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                      /* @__PURE__ */ jsx6(
+                        Badge,
+                        {
+                          variant: statusVariant(r.status),
+                          className: "shrink-0",
+                          children: humanStatus(r.status)
+                        }
+                      ),
                       /* @__PURE__ */ jsx6("span", { className: "truncate flex-1 font-medium", children: r.title }),
                       isOpen ? /* @__PURE__ */ jsx6(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
                     ]
@@ -668,7 +699,9 @@ function _cssSelectorOf(el) {
     }
     const parent = cur.parentElement;
     if (parent) {
-      const siblings = Array.from(parent.children).filter((s) => s.tagName === cur?.tagName);
+      const siblings = Array.from(parent.children).filter(
+        (s) => s.tagName === cur?.tagName
+      );
       if (siblings.length > 1) {
         part += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
       }
@@ -719,10 +752,14 @@ function Input({ className, type, ...props }) {
 import * as SelectPrimitive from "@radix-ui/react-select";
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { jsx as jsx8, jsxs as jsxs5 } from "react/jsx-runtime";
-function Select({ ...props }) {
+function Select({
+  ...props
+}) {
   return /* @__PURE__ */ jsx8(SelectPrimitive.Root, { "data-slot": "select", ...props });
 }
-function SelectValue({ ...props }) {
+function SelectValue({
+  ...props
+}) {
   return /* @__PURE__ */ jsx8(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
 }
 function SelectTrigger({
@@ -813,7 +850,10 @@ function SelectScrollUpButton({
     SelectPrimitive.ScrollUpButton,
     {
       "data-slot": "select-scroll-up-button",
-      className: cn("flex cursor-default items-center justify-center py-1", className),
+      className: cn(
+        "flex cursor-default items-center justify-center py-1",
+        className
+      ),
       ...props,
       children: /* @__PURE__ */ jsx8(ChevronUpIcon, { className: "size-4" })
     }
@@ -827,7 +867,10 @@ function SelectScrollDownButton({
     SelectPrimitive.ScrollDownButton,
     {
       "data-slot": "select-scroll-down-button",
-      className: cn("flex cursor-default items-center justify-center py-1", className),
+      className: cn(
+        "flex cursor-default items-center justify-center py-1",
+        className
+      ),
       ...props,
       children: /* @__PURE__ */ jsx8(ChevronDownIcon, { className: "size-4" })
     }
@@ -857,4 +900,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-WLB5UJ5S.js.map
+//# sourceMappingURL=chunk-ARNLUYF4.js.map

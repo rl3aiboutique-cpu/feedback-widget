@@ -24,293 +24,323 @@ import type { FeedbackReadShape, FeedbackStatusKey } from "./types";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
-function statusVariant(s: FeedbackStatusKey): "default" | "secondary" | "outline" | "destructive" {
-  if (s === "new") return "default";
-  if (s === "triaged" || s === "in_progress") return "secondary";
-  if (s === "wont_fix") return "destructive";
-  return "outline";
+function statusVariant(
+	s: FeedbackStatusKey,
+): "default" | "secondary" | "outline" | "destructive" {
+	if (s === "new") return "default";
+	if (s === "triaged" || s === "in_progress") return "secondary";
+	if (s === "wont_fix") return "destructive";
+	return "outline";
 }
 
 function humanStatus(s: FeedbackStatusKey): string {
-  switch (s) {
-    case "new":
-      return "Submitted";
-    case "triaged":
-      return "Triaged";
-    case "in_progress":
-      return "In progress";
-    case "done":
-      return "Resolved";
-    case "wont_fix":
-      return "Closed (won't fix)";
-    default:
-      return s;
-  }
+	switch (s) {
+		case "new":
+			return "Submitted";
+		case "triaged":
+			return "Triaged";
+		case "in_progress":
+			return "In progress";
+		case "done":
+			return "Resolved";
+		case "wont_fix":
+			return "Closed (won't fix)";
+		default:
+			return s;
+	}
 }
 
 interface MyTicketsPanelProps {
-  /** Called when the user clicks the deep-link in an expanded row.
-   * Optional. The host can use this to e.g. navigate to its own
-   * tenant-internal admin view. When omitted, the row stays inside the
-   * panel. */
-  onSelectTicket?: (row: FeedbackReadShape) => void;
-  /** When set, the matching ticket row auto-expands on mount and
-   * the iter workspace auto-launches. Used by FeedbackPanel after a
-   * successful submission so the user lands directly in the iter
-   * flow. */
-  autoOpenIterFor?: string | null;
+	/** Called when the user clicks the deep-link in an expanded row.
+	 * Optional. The host can use this to e.g. navigate to its own
+	 * tenant-internal admin view. When omitted, the row stays inside the
+	 * panel. */
+	onSelectTicket?: (row: FeedbackReadShape) => void;
+	/** When set, the matching ticket row auto-expands on mount and
+	 * the iter workspace auto-launches. Used by FeedbackPanel after a
+	 * successful submission so the user lands directly in the iter
+	 * flow. */
+	autoOpenIterFor?: string | null;
 }
 
 export function MyTicketsPanel({
-  onSelectTicket,
-  autoOpenIterFor,
+	onSelectTicket,
+	autoOpenIterFor,
 }: MyTicketsPanelProps): React.ReactElement {
-  const adapter = useFeedbackAdapter();
-  const bindings = useFeedbackBindings();
-  const t = adapter.useTranslation();
-  const query = useMyFeedbackQuery(25);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [iterSessionId, setIterSessionId] = useState<string | null>(null);
-  const [iterStarting, setIterStarting] = useState<string | null>(null);
-  const [iterError, setIterError] = useState<string | null>(null);
+	const adapter = useFeedbackAdapter();
+	const bindings = useFeedbackBindings();
+	const t = adapter.useTranslation();
+	const query = useMyFeedbackQuery(25);
+	const [expandedId, setExpandedId] = useState<string | null>(null);
+	const [iterSessionId, setIterSessionId] = useState<string | null>(null);
+	const [iterStarting, setIterStarting] = useState<string | null>(null);
+	const [iterError, setIterError] = useState<string | null>(null);
 
-  const openIter = useCallback(
-    async (feedbackId: string) => {
-      setIterStarting(feedbackId);
-      setIterError(null);
-      try {
-        const session = await startIterSession(bindings, { feedback_id: feedbackId });
-        setIterSessionId(session.id);
-      } catch (err) {
-        const e = err as { detail?: string; message?: string };
-        setIterError(e.detail ?? e.message ?? String(err));
-      } finally {
-        setIterStarting(null);
-      }
-    },
-    [bindings],
-  );
+	const openIter = useCallback(
+		async (feedbackId: string) => {
+			setIterStarting(feedbackId);
+			setIterError(null);
+			try {
+				const session = await startIterSession(bindings, {
+					feedback_id: feedbackId,
+				});
+				setIterSessionId(session.id);
+			} catch (err) {
+				const e = err as { detail?: string; message?: string };
+				setIterError(e.detail ?? e.message ?? String(err));
+			} finally {
+				setIterStarting(null);
+			}
+		},
+		[bindings],
+	);
 
-  // Auto-launch the iter workspace when the parent passes a fresh
-  // feedback id. Tracked in a ref so reopening the same panel after
-  // closing the workspace doesn't auto-relaunch.
-  const autoOpenedRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!autoOpenIterFor) return;
-    if (autoOpenedRef.current === autoOpenIterFor) return;
-    autoOpenedRef.current = autoOpenIterFor;
-    setExpandedId(autoOpenIterFor);
-    void openIter(autoOpenIterFor);
-  }, [autoOpenIterFor, openIter]);
+	// Auto-launch the iter workspace when the parent passes a fresh
+	// feedback id. Tracked in a ref so reopening the same panel after
+	// closing the workspace doesn't auto-relaunch.
+	const autoOpenedRef = useRef<string | null>(null);
+	useEffect(() => {
+		if (!autoOpenIterFor) return;
+		if (autoOpenedRef.current === autoOpenIterFor) return;
+		autoOpenedRef.current = autoOpenIterFor;
+		setExpandedId(autoOpenIterFor);
+		void openIter(autoOpenIterFor);
+	}, [autoOpenIterFor, openIter]);
 
-  if (query.isLoading) {
-    return <p className="text-sm text-muted-foreground">{t("feedback.mine.loading")}</p>;
-  }
+	if (query.isLoading) {
+		return (
+			<p className="text-sm text-muted-foreground">
+				{t("feedback.mine.loading")}
+			</p>
+		);
+	}
 
-  if (query.isError) {
-    return <p className="text-sm text-destructive">{t("feedback.mine.error")}</p>;
-  }
+	if (query.isError) {
+		return (
+			<p className="text-sm text-destructive">{t("feedback.mine.error")}</p>
+		);
+	}
 
-  const rows = query.data ?? [];
+	const rows = query.data ?? [];
 
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">{t("feedback.mine.empty")}</p>;
-  }
+	if (rows.length === 0) {
+		return (
+			<p className="text-sm text-muted-foreground">
+				{t("feedback.mine.empty")}
+			</p>
+		);
+	}
 
-  return (
-    <>
-      {iterSessionId ? (
-        <IterWorkspaceLazy sessionId={iterSessionId} onClose={() => setIterSessionId(null)} />
-      ) : null}
-      <ul className="space-y-2">
-        {rows.map((r: FeedbackRead) => {
-          const recentlyResolved = r.status === "done";
-          const isOpen = expandedId === r.id;
-          return (
-            <li key={r.id}>
-              <div
-                className={`rounded-md border ${
-                  recentlyResolved ? "border-primary bg-primary/5" : "border-input"
-                }`}
-              >
-                <div className="w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedId(isOpen ? null : r.id)}
-                      className="flex flex-1 items-center gap-2 text-left"
-                      aria-expanded={isOpen}
-                      aria-controls={`ticket-detail-${r.id}`}
-                      data-feedback-id="feedback.mine.row"
-                    >
-                      <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0">
-                        {r.ticket_code || "—"}
-                      </code>
-                      <Badge variant={statusVariant(r.status)} className="shrink-0">
-                        {humanStatus(r.status)}
-                      </Badge>
-                      <span className="truncate flex-1 font-medium">{r.title}</span>
-                      {isOpen ? (
-                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                      )}
-                    </button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="default"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void openIter(r.id);
-                      }}
-                      disabled={iterStarting === r.id}
-                      className="shrink-0"
-                      data-feedback-id="feedback.mine.iterate-collapsed"
-                      title="Iterate with AI"
-                    >
-                      <Sparkles className="h-3.5 w-3.5" />
-                      {iterStarting === r.id ? "Opening…" : "Iterate"}
-                    </Button>
-                  </div>
-                  {recentlyResolved && !isOpen ? (
-                    <span className="text-[11px] text-primary">
-                      {t("feedback.mine.action_hint")}
-                    </span>
-                  ) : null}
-                </div>
+	return (
+		<>
+			{iterSessionId ? (
+				<IterWorkspaceLazy
+					sessionId={iterSessionId}
+					onClose={() => setIterSessionId(null)}
+				/>
+			) : null}
+			<ul className="space-y-2">
+				{rows.map((r: FeedbackRead) => {
+					const recentlyResolved = r.status === "done";
+					const isOpen = expandedId === r.id;
+					return (
+						<li key={r.id}>
+							<div
+								className={`rounded-md border ${
+									recentlyResolved
+										? "border-primary bg-primary/5"
+										: "border-input"
+								}`}
+							>
+								<div className="w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md">
+									<div className="flex items-center gap-2">
+										<button
+											type="button"
+											onClick={() => setExpandedId(isOpen ? null : r.id)}
+											className="flex flex-1 items-center gap-2 text-left"
+											aria-expanded={isOpen}
+											aria-controls={`ticket-detail-${r.id}`}
+											data-feedback-id="feedback.mine.row"
+										>
+											<code className="font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0">
+												{r.ticket_code || "—"}
+											</code>
+											<Badge
+												variant={statusVariant(r.status)}
+												className="shrink-0"
+											>
+												{humanStatus(r.status)}
+											</Badge>
+											<span className="truncate flex-1 font-medium">
+												{r.title}
+											</span>
+											{isOpen ? (
+												<ChevronUp className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+											) : (
+												<ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+											)}
+										</button>
+										<Button
+											type="button"
+											size="sm"
+											variant="default"
+											onClick={(e) => {
+												e.stopPropagation();
+												void openIter(r.id);
+											}}
+											disabled={iterStarting === r.id}
+											className="shrink-0"
+											data-feedback-id="feedback.mine.iterate-collapsed"
+											title="Iterate with AI"
+										>
+											<Sparkles className="h-3.5 w-3.5" />
+											{iterStarting === r.id ? "Opening…" : "Iterate"}
+										</Button>
+									</div>
+									{recentlyResolved && !isOpen ? (
+										<span className="text-[11px] text-primary">
+											{t("feedback.mine.action_hint")}
+										</span>
+									) : null}
+								</div>
 
-                {isOpen ? (
-                  <div
-                    id={`ticket-detail-${r.id}`}
-                    className="border-t border-input px-3 py-3 space-y-3 text-xs"
-                  >
-                    {r.created_at ? (
-                      <p className="text-muted-foreground">
-                        {t("feedback.mine.submitted_at", {
-                          date: r.created_at.slice(0, 16).replace("T", " "),
-                        })}
-                      </p>
-                    ) : null}
+								{isOpen ? (
+									<div
+										id={`ticket-detail-${r.id}`}
+										className="border-t border-input px-3 py-3 space-y-3 text-xs"
+									>
+										{r.created_at ? (
+											<p className="text-muted-foreground">
+												{t("feedback.mine.submitted_at", {
+													date: r.created_at.slice(0, 16).replace("T", " "),
+												})}
+											</p>
+										) : null}
 
-                    <section>
-                      <h4 className="font-semibold text-foreground mb-1">
-                        {t("feedback.field.description")}
-                      </h4>
-                      <p className="whitespace-pre-wrap">
-                        {r.description || (
-                          <span className="italic text-muted-foreground">
-                            {t("feedback.mine.no_description")}
-                          </span>
-                        )}
-                      </p>
-                    </section>
+										<section>
+											<h4 className="font-semibold text-foreground mb-1">
+												{t("feedback.field.description")}
+											</h4>
+											<p className="whitespace-pre-wrap">
+												{r.description || (
+													<span className="italic text-muted-foreground">
+														{t("feedback.mine.no_description")}
+													</span>
+												)}
+											</p>
+										</section>
 
-                    {r.expected_outcome ? (
-                      <section>
-                        <h4 className="font-semibold text-foreground mb-1">
-                          {t("feedback.field.expected_outcome")}
-                        </h4>
-                        <p className="whitespace-pre-wrap">{r.expected_outcome}</p>
-                      </section>
-                    ) : null}
+										{r.expected_outcome ? (
+											<section>
+												<h4 className="font-semibold text-foreground mb-1">
+													{t("feedback.field.expected_outcome")}
+												</h4>
+												<p className="whitespace-pre-wrap">
+													{r.expected_outcome}
+												</p>
+											</section>
+										) : null}
 
-                    {r.triage_note ? (
-                      <section className="rounded bg-muted/50 p-2">
-                        <h4 className="font-semibold text-foreground mb-1">
-                          {t("feedback.mine.triage_note")}
-                        </h4>
-                        <p className="whitespace-pre-wrap">{r.triage_note}</p>
-                      </section>
-                    ) : null}
+										{r.triage_note ? (
+											<section className="rounded bg-muted/50 p-2">
+												<h4 className="font-semibold text-foreground mb-1">
+													{t("feedback.mine.triage_note")}
+												</h4>
+												<p className="whitespace-pre-wrap">{r.triage_note}</p>
+											</section>
+										) : null}
 
-                    {r.attachments && r.attachments.length > 0 ? (
-                      <section>
-                        <h4 className="font-semibold text-foreground mb-1">
-                          {t("feedback.mine.attachments", {
-                            count: String(r.attachments.length),
-                          })}
-                        </h4>
-                        <ul className="space-y-1.5">
-                          {r.attachments.map((a: FeedbackAttachmentRead) => {
-                            const isImage = a.content_type.startsWith("image/");
-                            const label = a.filename ?? a.kind;
-                            return (
-                              <li
-                                key={a.id}
-                                className="flex items-center gap-2 rounded border border-input bg-background p-1.5"
-                              >
-                                {isImage && a.presigned_url ? (
-                                  <a
-                                    href={a.presigned_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="shrink-0"
-                                  >
-                                    <img
-                                      src={a.presigned_url}
-                                      alt={label}
-                                      className="h-10 w-10 rounded object-cover"
-                                      loading="lazy"
-                                    />
-                                  </a>
-                                ) : null}
-                                <span className="flex-1 truncate font-mono">{label}</span>
-                                <span className="text-muted-foreground shrink-0">
-                                  {(a.byte_size / 1024).toFixed(1)} KB
-                                </span>
-                                {a.presigned_url ? (
-                                  <a
-                                    href={a.presigned_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="shrink-0 text-primary hover:underline"
-                                  >
-                                    {t("feedback.mine.open")}
-                                  </a>
-                                ) : null}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      </section>
-                    ) : null}
+										{r.attachments && r.attachments.length > 0 ? (
+											<section>
+												<h4 className="font-semibold text-foreground mb-1">
+													{t("feedback.mine.attachments", {
+														count: String(r.attachments.length),
+													})}
+												</h4>
+												<ul className="space-y-1.5">
+													{r.attachments.map((a: FeedbackAttachmentRead) => {
+														const isImage = a.content_type.startsWith("image/");
+														const label = a.filename ?? a.kind;
+														return (
+															<li
+																key={a.id}
+																className="flex items-center gap-2 rounded border border-input bg-background p-1.5"
+															>
+																{isImage && a.presigned_url ? (
+																	<a
+																		href={a.presigned_url}
+																		target="_blank"
+																		rel="noreferrer"
+																		className="shrink-0"
+																	>
+																		<img
+																			src={a.presigned_url}
+																			alt={label}
+																			className="h-10 w-10 rounded object-cover"
+																			loading="lazy"
+																		/>
+																	</a>
+																) : null}
+																<span className="flex-1 truncate font-mono">
+																	{label}
+																</span>
+																<span className="text-muted-foreground shrink-0">
+																	{(a.byte_size / 1024).toFixed(1)} KB
+																</span>
+																{a.presigned_url ? (
+																	<a
+																		href={a.presigned_url}
+																		target="_blank"
+																		rel="noreferrer"
+																		className="shrink-0 text-primary hover:underline"
+																	>
+																		{t("feedback.mine.open")}
+																	</a>
+																) : null}
+															</li>
+														);
+													})}
+												</ul>
+											</section>
+										) : null}
 
-                    <CommentThread feedbackId={r.id} />
+										<CommentThread feedbackId={r.id} />
 
-                    <div className="flex flex-wrap items-center gap-3 pt-1">
-                      <Button
-                        size="sm"
-                        onClick={() => openIter(r.id)}
-                        disabled={iterStarting === r.id}
-                        data-feedback-id="feedback.mine.iterate"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        {iterStarting === r.id ? "Opening…" : "Iterate with AI"}
-                      </Button>
-                      {onSelectTicket ? (
-                        <button
-                          type="button"
-                          onClick={() => onSelectTicket(r as unknown as FeedbackReadShape)}
-                          className="text-primary hover:underline"
-                          data-feedback-id="feedback.mine.deeplink"
-                        >
-                          {t("feedback.mine.open_in_app")}
-                        </button>
-                      ) : null}
-                    </div>
-                    {iterError && iterStarting === null ? (
-                      <p className="text-xs text-destructive">{iterError}</p>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
+										<div className="flex flex-wrap items-center gap-3 pt-1">
+											<Button
+												size="sm"
+												onClick={() => openIter(r.id)}
+												disabled={iterStarting === r.id}
+												data-feedback-id="feedback.mine.iterate"
+											>
+												<Sparkles className="h-3.5 w-3.5" />
+												{iterStarting === r.id ? "Opening…" : "Iterate with AI"}
+											</Button>
+											{onSelectTicket ? (
+												<button
+													type="button"
+													onClick={() =>
+														onSelectTicket(r as unknown as FeedbackReadShape)
+													}
+													className="text-primary hover:underline"
+													data-feedback-id="feedback.mine.deeplink"
+												>
+													{t("feedback.mine.open_in_app")}
+												</button>
+											) : null}
+										</div>
+										{iterError && iterStarting === null ? (
+											<p className="text-xs text-destructive">{iterError}</p>
+										) : null}
+									</div>
+								) : null}
+							</div>
+						</li>
+					);
+				})}
+			</ul>
+		</>
+	);
 }
 
 /**
@@ -318,6 +348,6 @@ export function MyTicketsPanel({
  * resolved). Used by FeedbackButton to render a "look at this" badge.
  */
 export function useMyPendingActionCount(): number {
-  const query = useMyFeedbackQuery(25);
-  return (query.data ?? []).filter((r) => r.status === "done").length;
+	const query = useMyFeedbackQuery(25);
+	return (query.data ?? []).filter((r) => r.status === "done").length;
 }

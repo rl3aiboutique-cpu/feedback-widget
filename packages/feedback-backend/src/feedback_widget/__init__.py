@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.3.0-rc.14"
+__version__ = "0.3.0-rc.15"
 
 logger = logging.getLogger(__name__)
 
@@ -180,14 +180,10 @@ def register_feedback_iter_router(
 
     cfg = settings or get_settings()
     if not cfg.ENABLED:
-        logger.info(
-            "feedback_widget: ENABLED=false — iter router NOT registered"
-        )
+        logger.info("feedback_widget: ENABLED=false — iter router NOT registered")
         return
     if not cfg.ITER_ENABLED:
-        logger.info(
-            "feedback_widget: ITER_ENABLED=false — iter router NOT registered"
-        )
+        logger.info("feedback_widget: ITER_ENABLED=false — iter router NOT registered")
         return
 
     s3 = storage or get_storage_backend(cfg)
@@ -196,8 +192,7 @@ def register_feedback_iter_router(
     router = build_iter_router(deps=deps, settings=cfg, service=service)
     app.include_router(router, prefix=prefix)
     logger.info(
-        "feedback_widget: iter router mounted at %s/iterate "
-        "(provider=%s, model=%s)",
+        "feedback_widget: iter router mounted at %s/iterate " "(provider=%s, model=%s)",
         prefix,
         cfg.ITER_PROVIDER,
         cfg.ITER_GEMINI_MODEL or cfg.ITER_CLAUDE_MODEL or cfg.ITER_OPENAI_MODEL or "(unset)",

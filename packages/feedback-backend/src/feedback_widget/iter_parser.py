@@ -62,9 +62,7 @@ def _parse_json(raw: str) -> Any:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
         msg = f"JSON decode failed at line {exc.lineno} col {exc.colno}: {exc.msg}"
-        raise IterationParseError(
-            "model returned malformed JSON", errors=[msg]
-        ) from exc
+        raise IterationParseError("model returned malformed JSON", errors=[msg]) from exc
 
 
 # Common aliases models reach for when they don't follow the schema
@@ -111,13 +109,8 @@ def _validate_schema(payload: Any) -> IterationOutput:
         # Render a short, location-aware error list for the repair
         # hint. Avoid dumping the full Pydantic blob — the LLM does
         # better with concise pointers.
-        errors = [
-            f"{'/'.join(str(p) for p in e['loc'])}: {e['msg']}"
-            for e in exc.errors()
-        ]
-        raise IterationParseError(
-            "schema validation failed", errors=errors
-        ) from exc
+        errors = [f"{'/'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()]
+        raise IterationParseError("schema validation failed", errors=errors) from exc
 
 
 def _apply_business_rules(
@@ -132,25 +125,18 @@ def _apply_business_rules(
     persona_id_list = [p.id for p in output.personas]
     duplicate_persona_ids = [pid for pid in persona_id_list if persona_id_list.count(pid) > 1]
     if duplicate_persona_ids:
-        errors.append(
-            "duplicate persona ids: " + ", ".join(sorted(set(duplicate_persona_ids)))
-        )
+        errors.append("duplicate persona ids: " + ", ".join(sorted(set(duplicate_persona_ids))))
 
     stories_by_persona: dict[str, int] = {}
     for story in output.user_stories:
         if story.persona_id not in persona_ids:
             errors.append(
-                f"user story {story.id!r} references unknown persona "
-                f"{story.persona_id!r}"
+                f"user story {story.id!r} references unknown persona " f"{story.persona_id!r}"
             )
-        stories_by_persona[story.persona_id] = (
-            stories_by_persona.get(story.persona_id, 0) + 1
-        )
+        stories_by_persona[story.persona_id] = stories_by_persona.get(story.persona_id, 0) + 1
     for pid, count in stories_by_persona.items():
         if count > 5:
-            errors.append(
-                f"persona {pid!r} has {count} stories; cap is 5"
-            )
+            errors.append(f"persona {pid!r} has {count} stories; cap is 5")
 
     # Unique assumption slot_keys within this response.
     slot_counts: dict[str, int] = {}
@@ -158,9 +144,7 @@ def _apply_business_rules(
         slot_counts[asm.slot_key] = slot_counts.get(asm.slot_key, 0) + 1
     duplicates = sorted(k for k, c in slot_counts.items() if c > 1)
     if duplicates:
-        errors.append(
-            "duplicate assumption slot_keys: " + ", ".join(duplicates)
-        )
+        errors.append("duplicate assumption slot_keys: " + ", ".join(duplicates))
 
     # No ``remove`` ops without restructure_allowed.
     if not restructure_allowed:
@@ -175,14 +159,10 @@ def _apply_business_rules(
     story_ids = [s.id for s in output.user_stories]
     if len(story_ids) != len(set(story_ids)):
         dupes = sorted({sid for sid in story_ids if story_ids.count(sid) > 1})
-        errors.append(
-            "duplicate user-story ids: " + ", ".join(dupes)
-        )
+        errors.append("duplicate user-story ids: " + ", ".join(dupes))
 
     if errors:
-        raise IterationParseError(
-            "business-rule validation failed", errors=errors
-        )
+        raise IterationParseError("business-rule validation failed", errors=errors)
 
 
 _DIAGRAM_HEADING_RE = re.compile(

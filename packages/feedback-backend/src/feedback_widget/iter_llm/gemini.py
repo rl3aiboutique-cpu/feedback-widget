@@ -84,9 +84,7 @@ def _resolve_api_key(settings: FeedbackSettings) -> str:
         )
     value = secret.get_secret_value().strip()
     if not value:
-        raise LLMProviderError(
-            "FEEDBACK_ITER_GEMINI_API_KEY is set but empty."
-        )
+        raise LLMProviderError("FEEDBACK_ITER_GEMINI_API_KEY is set but empty.")
     return value
 
 
@@ -217,10 +215,13 @@ class GeminiProvider:
                 break
             except BaseException as exc:
                 wrapped = _wrap_provider_error(exc)
-                if isinstance(
-                    wrapped,
-                    LLMProviderTransientError | LLMProviderRateLimitedError,
-                ) and self._try_next_model(self._model) is not None:
+                if (
+                    isinstance(
+                        wrapped,
+                        LLMProviderTransientError | LLMProviderRateLimitedError,
+                    )
+                    and self._try_next_model(self._model) is not None
+                ):
                     continue
                 raise wrapped from exc
         latency_ms = int((loop.time() - start) * 1000)
@@ -231,9 +232,7 @@ class GeminiProvider:
             raw_text=raw_text,
             usage=LLMUsage(
                 input_tokens=int(getattr(usage_meta, "prompt_token_count", 0) or 0),
-                output_tokens=int(
-                    getattr(usage_meta, "candidates_token_count", 0) or 0
-                ),
+                output_tokens=int(getattr(usage_meta, "candidates_token_count", 0) or 0),
                 latency_ms=latency_ms,
             ),
             finish_reason=str(
@@ -321,7 +320,6 @@ class GeminiProvider:
         for prefix, (price_in, price_out) in _GEMINI_PRICES_USD_PER_M.items():
             if self._model.startswith(prefix):
                 return (
-                    usage.input_tokens * price_in
-                    + usage.output_tokens * price_out
+                    usage.input_tokens * price_in + usage.output_tokens * price_out
                 ) / 1_000_000.0
         return None

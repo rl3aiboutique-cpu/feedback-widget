@@ -39,9 +39,7 @@ _CLAUDE_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
 def _resolve_model(settings: FeedbackSettings) -> str:
     model = settings.ITER_CLAUDE_MODEL.strip()
     if not model:
-        raise LLMProviderError(
-            "FEEDBACK_ITER_CLAUDE_MODEL is empty. Set it in your .env."
-        )
+        raise LLMProviderError("FEEDBACK_ITER_CLAUDE_MODEL is empty. Set it in your .env.")
     return model
 
 
@@ -49,8 +47,7 @@ def _resolve_api_key(settings: FeedbackSettings) -> str:
     secret = settings.ITER_ANTHROPIC_API_KEY
     if secret is None:
         raise LLMProviderError(
-            "FEEDBACK_ITER_ANTHROPIC_API_KEY is not set. Add it to "
-            "your host's .env."
+            "FEEDBACK_ITER_ANTHROPIC_API_KEY is not set. Add it to " "your host's .env."
         )
     return secret.get_secret_value().strip()
 
@@ -203,7 +200,6 @@ class ClaudeProvider:
         for prefix, (price_in, price_out) in _CLAUDE_PRICES_USD_PER_M.items():
             if prefix in self._model:
                 return (
-                    usage.input_tokens * price_in
-                    + usage.output_tokens * price_out
+                    usage.input_tokens * price_in + usage.output_tokens * price_out
                 ) / 1_000_000.0
         return None

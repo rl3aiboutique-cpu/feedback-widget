@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from feedback_widget.iter_differ import (
     IterDiffViolationError,
     enforce_no_destructive_removal,

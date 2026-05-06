@@ -1,6 +1,6 @@
 [project]
 name = "rl3-feedback-widget"
-version = "0.3.0-rc.14"
+version = "0.3.0-rc.15"
 description = "RL3 in-app feedback widget — FastAPI router + SQLModel tables + Alembic migrations + S3/SMTP + multi-file attachments + Iterate-with-AI module."
 readme = "README.md"
 requires-python = ">=3.12"

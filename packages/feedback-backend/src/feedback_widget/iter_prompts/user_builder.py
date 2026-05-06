@@ -64,9 +64,7 @@ class _TechnicalMetadata:
 def _format_attachments(items: Sequence[_AttachmentMeta]) -> str:
     if not items:
         return "(none)"
-    lines = [
-        f"- {a.filename} ({a.mime_type}) [{a.kind}]" for a in items
-    ]
+    lines = [f"- {a.filename} ({a.mime_type}) [{a.kind}]" for a in items]
     return "\n".join(lines)
 
 
@@ -114,7 +112,7 @@ def _format_resolved(items: Sequence[_ResolvedAssumption]) -> str:
     lines = []
     for a in items:
         body = (
-            f'- slot_key={a.slot_key} kind={a.kind} status={a.status} '
+            f"- slot_key={a.slot_key} kind={a.kind} status={a.status} "
             f'statement="{a.statement}" '
             f'user_response="{a.user_response}"'
         )

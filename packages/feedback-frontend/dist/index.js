@@ -16,7 +16,7 @@ import {
   SheetTitle,
   describeElement,
   useMyPendingActionCount
-} from "./chunk-WLB5UJ5S.js";
+} from "./chunk-ARNLUYF4.js";
 import {
   Button,
   FeedbackProvider,
@@ -42,7 +42,7 @@ import {
   useFeedbackDetailQuery,
   useFeedbackListQuery,
   useUpdateFeedbackStatusMutation
-} from "./chunk-6R2CBXYH.js";
+} from "./chunk-YJ4HQXXL.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -64,14 +64,21 @@ import { useMemo, useState } from "react";
 // src/ui/table.tsx
 import { jsx } from "react/jsx-runtime";
 function Table({ className, ...props }) {
-  return /* @__PURE__ */ jsx("div", { "data-slot": "table-container", className: "relative w-full overflow-x-auto rounded-lg border", children: /* @__PURE__ */ jsx(
-    "table",
+  return /* @__PURE__ */ jsx(
+    "div",
     {
-      "data-slot": "table",
-      className: cn("w-full caption-bottom text-sm", className),
-      ...props
+      "data-slot": "table-container",
+      className: "relative w-full overflow-x-auto rounded-lg border",
+      children: /* @__PURE__ */ jsx(
+        "table",
+        {
+          "data-slot": "table",
+          className: cn("w-full caption-bottom text-sm", className),
+          ...props
+        }
+      )
     }
-  ) });
+  );
 }
 function TableHeader({ className, ...props }) {
   return /* @__PURE__ */ jsx(
@@ -143,7 +150,13 @@ var TYPE_VALUES = [
   "extend_feature",
   "other"
 ];
-var STATUS_VALUES = ["new", "triaged", "in_progress", "done", "wont_fix"];
+var STATUS_VALUES = [
+  "new",
+  "triaged",
+  "in_progress",
+  "done",
+  "wont_fix"
+];
 function statusVariant(s) {
   if (s === "new") return "default";
   if (s === "triaged" || s === "in_progress") return "secondary";
@@ -154,7 +167,9 @@ function FeedbackTriagePage() {
   const isAdmin = useCanTriageFeedback();
   const adapter = useFeedbackAdapter();
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState(
+    "all"
+  );
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState(null);
   const list = useFeedbackListQuery({
@@ -193,7 +208,14 @@ function FeedbackTriagePage() {
     ] }) }),
     /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-end gap-3 rounded-md border p-3", children: [
       /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx2("label", { htmlFor: "triage-type-filter", className: "block text-xs text-muted-foreground mb-1", children: "Type" }),
+        /* @__PURE__ */ jsx2(
+          "label",
+          {
+            htmlFor: "triage-type-filter",
+            className: "block text-xs text-muted-foreground mb-1",
+            children: "Type"
+          }
+        ),
         /* @__PURE__ */ jsxs(
           Select,
           {
@@ -234,7 +256,14 @@ function FeedbackTriagePage() {
         )
       ] }),
       /* @__PURE__ */ jsxs("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx2("label", { htmlFor: "triage-search", className: "block text-xs text-muted-foreground mb-1", children: "Search title" }),
+        /* @__PURE__ */ jsx2(
+          "label",
+          {
+            htmlFor: "triage-search",
+            className: "block text-xs text-muted-foreground mb-1",
+            children: "Search title"
+          }
+        ),
         /* @__PURE__ */ jsx2(
           Input,
           {
@@ -255,7 +284,21 @@ function FeedbackTriagePage() {
         /* @__PURE__ */ jsx2(TableHead, { children: "Title" }),
         /* @__PURE__ */ jsx2(TableHead, { className: "w-48", children: "Route" })
       ] }) }),
-      /* @__PURE__ */ jsx2(TableBody, { children: list.isLoading ? /* @__PURE__ */ jsx2(TableRow, { children: /* @__PURE__ */ jsx2(TableCell, { colSpan: 6, className: "text-center text-muted-foreground py-6", children: "Loading\u2026" }) }) : rows.length === 0 ? /* @__PURE__ */ jsx2(TableRow, { children: /* @__PURE__ */ jsx2(TableCell, { colSpan: 6, className: "text-center text-muted-foreground py-6", children: "No matching feedback." }) }) : rows.map((row) => /* @__PURE__ */ jsxs(
+      /* @__PURE__ */ jsx2(TableBody, { children: list.isLoading ? /* @__PURE__ */ jsx2(TableRow, { children: /* @__PURE__ */ jsx2(
+        TableCell,
+        {
+          colSpan: 6,
+          className: "text-center text-muted-foreground py-6",
+          children: "Loading\u2026"
+        }
+      ) }) : rows.length === 0 ? /* @__PURE__ */ jsx2(TableRow, { children: /* @__PURE__ */ jsx2(
+        TableCell,
+        {
+          colSpan: 6,
+          className: "text-center text-muted-foreground py-6",
+          children: "No matching feedback."
+        }
+      ) }) : rows.map((row) => /* @__PURE__ */ jsxs(
         TableRow,
         {
           className: "cursor-pointer hover:bg-accent",
@@ -279,47 +322,54 @@ function FeedbackTriagePage() {
         onOpenChange: (open) => {
           if (!open) setOpenId(null);
         },
-        children: /* @__PURE__ */ jsxs(SheetContent, { side: "right", className: "w-full sm:max-w-2xl overflow-y-auto", children: [
-          /* @__PURE__ */ jsxs(SheetHeader, { children: [
-            /* @__PURE__ */ jsxs(SheetTitle, { className: "flex items-center gap-2", children: [
-              detail.data?.ticket_code ? /* @__PURE__ */ jsx2("span", { className: "font-mono text-xs px-1.5 py-0.5 rounded bg-muted shrink-0", children: detail.data.ticket_code }) : null,
-              /* @__PURE__ */ jsx2("span", { className: "truncate", children: detail.data?.title ?? "" })
-            ] }),
-            /* @__PURE__ */ jsx2(SheetDescription, { children: detail.data ? /* @__PURE__ */ jsx2("span", { className: "text-xs space-y-0.5 block", children: /* @__PURE__ */ jsxs("span", { children: [
-              detail.data.type,
-              " \xB7 ",
-              detail.data.created_at?.slice(0, 16),
-              " \xB7",
-              " ",
-              detail.data.url_captured
-            ] }) }) : "Loading\u2026" })
-          ] }),
-          detail.data ? /* @__PURE__ */ jsx2(
-            DetailBody,
-            {
-              data: detail.data,
-              onChangeStatus: (status, note) => {
-                patchStatus.mutate(
-                  { id: detail.data?.id ?? "", status, triage_note: note },
-                  {
-                    onSuccess: () => adapter.toast.success("Status updated"),
-                    onError: (err) => adapter.toast.error(`Could not update: ${String(err)}`)
-                  }
-                );
-              },
-              onDelete: () => {
-                remove.mutate(detail.data?.id ?? "", {
-                  onSuccess: () => {
-                    adapter.toast.success("Feedback deleted");
-                    setOpenId(null);
+        children: /* @__PURE__ */ jsxs(
+          SheetContent,
+          {
+            side: "right",
+            className: "w-full sm:max-w-2xl overflow-y-auto",
+            children: [
+              /* @__PURE__ */ jsxs(SheetHeader, { children: [
+                /* @__PURE__ */ jsxs(SheetTitle, { className: "flex items-center gap-2", children: [
+                  detail.data?.ticket_code ? /* @__PURE__ */ jsx2("span", { className: "font-mono text-xs px-1.5 py-0.5 rounded bg-muted shrink-0", children: detail.data.ticket_code }) : null,
+                  /* @__PURE__ */ jsx2("span", { className: "truncate", children: detail.data?.title ?? "" })
+                ] }),
+                /* @__PURE__ */ jsx2(SheetDescription, { children: detail.data ? /* @__PURE__ */ jsx2("span", { className: "text-xs space-y-0.5 block", children: /* @__PURE__ */ jsxs("span", { children: [
+                  detail.data.type,
+                  " \xB7 ",
+                  detail.data.created_at?.slice(0, 16),
+                  " ",
+                  "\xB7 ",
+                  detail.data.url_captured
+                ] }) }) : "Loading\u2026" })
+              ] }),
+              detail.data ? /* @__PURE__ */ jsx2(
+                DetailBody,
+                {
+                  data: detail.data,
+                  onChangeStatus: (status, note) => {
+                    patchStatus.mutate(
+                      { id: detail.data?.id ?? "", status, triage_note: note },
+                      {
+                        onSuccess: () => adapter.toast.success("Status updated"),
+                        onError: (err) => adapter.toast.error(`Could not update: ${String(err)}`)
+                      }
+                    );
                   },
-                  onError: (err) => adapter.toast.error(`Could not delete: ${String(err)}`)
-                });
-              },
-              busy: patchStatus.isPending || remove.isPending
-            }
-          ) : null
-        ] })
+                  onDelete: () => {
+                    remove.mutate(detail.data?.id ?? "", {
+                      onSuccess: () => {
+                        adapter.toast.success("Feedback deleted");
+                        setOpenId(null);
+                      },
+                      onError: (err) => adapter.toast.error(`Could not delete: ${String(err)}`)
+                    });
+                  },
+                  busy: patchStatus.isPending || remove.isPending
+                }
+              ) : null
+            ]
+          }
+        )
       }
     )
   ] });
@@ -336,7 +386,9 @@ function DetailBody({
   const screenshot = data.attachments?.find(
     (a) => a.kind === "screenshot"
   )?.presigned_url;
-  const userAttachments = data.attachments?.filter((a) => a.kind === "user_attachment") ?? [];
+  const userAttachments = data.attachments?.filter(
+    (a) => a.kind === "user_attachment"
+  ) ?? [];
   return /* @__PURE__ */ jsxs("div", { className: "px-4 mt-4 space-y-5", children: [
     /* @__PURE__ */ jsxs("section", { children: [
       /* @__PURE__ */ jsx2("h3", { className: "text-sm font-medium mb-1", children: "What's happening?" }),
@@ -399,10 +451,17 @@ function DetailBody({
       /* @__PURE__ */ jsx2("h3", { className: "text-sm font-medium", children: "Triage" }),
       /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
         /* @__PURE__ */ jsx2("span", { className: "text-xs text-muted-foreground w-28", children: "Status" }),
-        /* @__PURE__ */ jsxs(Select, { value: status, onValueChange: (v) => setStatus(v), children: [
-          /* @__PURE__ */ jsx2(SelectTrigger, { className: "flex-1", children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
-          /* @__PURE__ */ jsx2(SelectContent, { children: STATUS_VALUES.map((s) => /* @__PURE__ */ jsx2(SelectItem, { value: s, children: s }, s)) })
-        ] })
+        /* @__PURE__ */ jsxs(
+          Select,
+          {
+            value: status,
+            onValueChange: (v) => setStatus(v),
+            children: [
+              /* @__PURE__ */ jsx2(SelectTrigger, { className: "flex-1", children: /* @__PURE__ */ jsx2(SelectValue, {}) }),
+              /* @__PURE__ */ jsx2(SelectContent, { children: STATUS_VALUES.map((s) => /* @__PURE__ */ jsx2(SelectItem, { value: s, children: s }, s)) })
+            ]
+          }
+        )
       ] }),
       /* @__PURE__ */ jsxs("div", { children: [
         /* @__PURE__ */ jsx2("span", { className: "block text-xs text-muted-foreground mb-1", children: "Triage note" }),
@@ -435,7 +494,9 @@ function DetailBody({
             "data-feedback-id": "feedback.triage.download",
             onClick: async () => {
               try {
-                const { blob, filename } = await adapter.downloadFeedbackBundle(data.id);
+                const { blob, filename } = await adapter.downloadFeedbackBundle(
+                  data.id
+                );
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
@@ -462,7 +523,9 @@ function DetailBody({
             type: "button",
             variant: "destructive",
             onClick: () => {
-              if (window.confirm("Delete this feedback? This removes the row + attachments.")) {
+              if (window.confirm(
+                "Delete this feedback? This removes the row + attachments."
+              )) {
                 onDelete();
               }
             },
@@ -495,7 +558,10 @@ function _accessibleName(el) {
   }
   return el.tagName.toLowerCase();
 }
-function ElementSelector({ onLock, onCancel }) {
+function ElementSelector({
+  onLock,
+  onCancel
+}) {
   const [rect, setRect] = useState2(null);
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
@@ -632,7 +698,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-QRAUJ4BV.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-GZYSBQAW.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -711,7 +777,13 @@ function FeedbackButton() {
         }
       }
     ) }) : null,
-    pickerActive ? /* @__PURE__ */ jsx4(ElementSelector, { onLock: handlePickerLock, onCancel: handlePickerCancel }) : null
+    pickerActive ? /* @__PURE__ */ jsx4(
+      ElementSelector,
+      {
+        onLock: handlePickerLock,
+        onCancel: handlePickerCancel
+      }
+    ) : null
   ] });
 }
 var FeedbackButton_default = FeedbackButton;

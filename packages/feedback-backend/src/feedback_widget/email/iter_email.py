@@ -32,10 +32,7 @@ def build_iter_finalized_email(
     brand_name: str,
 ) -> IterFinalizedEmail:
     """Render the subject + html + plain text bodies."""
-    subject = (
-        f"[Iterate-with-AI finalized] "
-        f"{getattr(feedback, 'title', 'Feedback')}"
-    )
+    subject = f"[Iterate-with-AI finalized] " f"{getattr(feedback, 'title', 'Feedback')}"
     context = {
         "feedback": feedback,
         "submitter_email": submitter_email,

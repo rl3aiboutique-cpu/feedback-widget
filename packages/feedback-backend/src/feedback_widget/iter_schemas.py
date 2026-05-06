@@ -418,11 +418,7 @@ class SSEEventHeartbeat(BaseModel):
 
 
 SSEEvent = Annotated[
-    SSEEventToken
-    | SSEEventSection
-    | SSEEventDone
-    | SSEEventError
-    | SSEEventHeartbeat,
+    SSEEventToken | SSEEventSection | SSEEventDone | SSEEventError | SSEEventHeartbeat,
     Field(discriminator="type"),
 ]
 

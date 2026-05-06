@@ -193,8 +193,7 @@ def render_context(
     metadata_yaml = json.dumps(feedback.metadata_bundle, indent=2, default=str)
     attachments_block = (
         "\n".join(
-            f"- `{a.filename}` — `{a.content_type}`, {a.byte_size} bytes"
-            for a in attachments
+            f"- `{a.filename}` — `{a.content_type}`, {a.byte_size} bytes" for a in attachments
         )
         or "(none)"
     )
@@ -282,10 +281,7 @@ def render_spec(spec: SpecDocument) -> str:
 def render_diagram(diagram: Any) -> str:
     fence_lang = "mermaid" if diagram.format == "mermaid" else "text"
     caption = diagram.caption.strip() or "Diagram"
-    return (
-        f"# {caption}\n\n"
-        f"```{fence_lang}\n{diagram.source}\n```\n"
-    )
+    return f"# {caption}\n\n" f"```{fence_lang}\n{diagram.source}\n```\n"
 
 
 def render_assumptions(items: Sequence[AssumptionResolution]) -> str:
@@ -334,8 +330,7 @@ def render_readme(
     final_summary = (final_iter.changes_summary if final_iter else "").strip()
     attachments_block = (
         "\n".join(
-            f"- `attachments/{a.filename}` &mdash; "
-            f"`{a.content_type}`, {a.byte_size:,} bytes"
+            f"- `attachments/{a.filename}` &mdash; " f"`{a.content_type}`, {a.byte_size:,} bytes"
             for a in attachments
         )
         or "(no attachments on the original feedback)"
@@ -381,11 +376,7 @@ def render_readme(
         "iteration with the user's notes.\n\n"
         "## Attachment manifest\n\n"
         f"{attachments_block}\n\n"
-        + (
-            f"## Final iteration summary\n\n{final_summary}\n\n"
-            if final_summary
-            else ""
-        )
+        + (f"## Final iteration summary\n\n{final_summary}\n\n" if final_summary else "")
         + "## Provenance\n\n"
         f"- Feedback id: `{feedback.feedback_id}`\n"
         f"- URL captured: `{feedback.url_captured}`\n"
@@ -452,9 +443,7 @@ def _render_all_files(inputs: PackageBuildInputs, *, consumer_model: str) -> dic
             inputs.iteration_log,
             consumer_model=consumer_model,
         ),
-        "_AI_INSTRUCTIONS.md": render_ai_instructions(
-            consumer_model=consumer_model
-        ),
+        "_AI_INSTRUCTIONS.md": render_ai_instructions(consumer_model=consumer_model),
         "00_context.md": render_context(inputs.feedback, inputs.attachments),
         "01_personas.md": render_personas(out.personas),
         "02_user_stories.md": render_user_stories(out.user_stories, out.personas),
@@ -522,9 +511,7 @@ def build_iter_package(
             dest_key=dest_key,
             source_bucket=att.bucket,
         )
-        attachment_blobs[att.filename] = storage.download(
-            att.object_key, bucket=att.bucket
-        )
+        attachment_blobs[att.filename] = storage.download(att.object_key, bucket=att.bucket)
 
     zip_bytes = _build_zip(text_files, attachment_blobs)
     zip_key = f"{folder_prefix}/package.zip"

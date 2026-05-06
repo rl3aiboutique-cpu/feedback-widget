@@ -88,7 +88,6 @@ def test_delete_is_blocked_when_restructure_disallowed() -> None:
     # delete -> remove. Under restructure_allowed=False, the parser
     # business-rule check fires.
     import pytest
-
     from feedback_widget.iter_parser import IterationParseError
 
     with pytest.raises(IterationParseError):
