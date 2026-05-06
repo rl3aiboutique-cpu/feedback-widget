@@ -101,6 +101,7 @@ def _to_session_read(
     s: FeedbackIterSession,
     *,
     last_call_model_id: str | None = None,
+    current_primary_model_id: str | None = None,
 ) -> IterSessionRead:
     return IterSessionRead(
         id=s.id,
@@ -116,6 +117,7 @@ def _to_session_read(
         updated_at=s.updated_at or datetime.now(UTC),
         finalized_at=s.finalized_at,
         last_call_model_id=last_call_model_id,
+        current_primary_model_id=current_primary_model_id,
     )
 
 
@@ -260,6 +262,7 @@ def build_iter_router(
         return _to_session_read(
             row,
             last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
+            current_primary_model_id=service.get_current_primary_model_id(),
         )
 
     @router.get(
@@ -282,6 +285,7 @@ def build_iter_router(
                 last_call_model_id=service.get_last_call_model_id(
                     db, session_id=row.id
                 ),
+                current_primary_model_id=service.get_current_primary_model_id(),
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
@@ -303,6 +307,7 @@ def build_iter_router(
                 last_call_model_id=service.get_last_call_model_id(
                     db, session_id=row.id
                 ),
+                current_primary_model_id=service.get_current_primary_model_id(),
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc

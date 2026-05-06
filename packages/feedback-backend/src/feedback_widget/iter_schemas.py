@@ -221,10 +221,19 @@ class IterSessionRead(BaseModel):
     # Model id of the most recent SUCCESSFUL LLM call. May differ
     # from ``model_id`` (recorded once at session creation) when
     # the provider's fallback chain walked to a different model.
-    # The workspace header prefers this value so users see the
-    # model that actually answered the latest iteration. Null
-    # until at least one call has succeeded.
+    # Useful for terminal sessions to show the model that actually
+    # answered the final iteration. Null until at least one call
+    # has succeeded.
     last_call_model_id: str | None = None
+    # Primary model id from the *currently configured* fallback
+    # chain. Reflects what the NEXT iteration would attempt first,
+    # regardless of what answered any prior iteration. The frontend
+    # prefers this for active sessions (status in {draft, iterating})
+    # so the workspace header tracks live env changes — when the
+    # host swaps the chain from Gemma 4 to Flash Lite, the user
+    # sees Flash Lite immediately instead of the stale value
+    # recorded once at session creation.
+    current_primary_model_id: str | None = None
 
 
 class IterVersionRead(BaseModel):

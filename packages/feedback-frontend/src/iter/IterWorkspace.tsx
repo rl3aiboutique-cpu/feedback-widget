@@ -222,6 +222,7 @@ export default function IterWorkspace({ sessionId, onClose }: IterWorkspaceProps
               });
             }}
             saving={editMarkdownMutation.isPending}
+            modelHint={_modelLatencyHint(_resolveDisplayModel(session.data))}
           />
         )}
         {tab === "assumptions" && (
@@ -271,7 +272,7 @@ function Header(props: {
         {props.session?.status ?? "loading"}
       </span>
       <span className="hidden text-xs text-muted-foreground md:inline">
-        model: {props.session?.last_call_model_id ?? props.session?.model_id ?? "(none)"}
+        model: {_resolveDisplayModel(props.session)}
       </span>
       {props.streaming && (
         <span className="flex items-center gap-1.5 text-xs text-primary">
@@ -383,6 +384,7 @@ interface DocumentTabProps {
   onFirstRun: () => void;
   onSaveEdit: (next: string) => Promise<void>;
   saving: boolean;
+  modelHint: string;
 }
 
 function DocumentTab(props: DocumentTabProps) {
@@ -405,6 +407,7 @@ function DocumentTab(props: DocumentTabProps) {
           }
           onSaveEdit={props.onSaveEdit}
           saving={props.saving}
+          modelHint={props.modelHint}
         />
         {props.streamStatus === "error" && (
           <ErrorBanner code={props.streamErrorCode} message={props.streamErrorMessage} />
@@ -827,8 +830,10 @@ function ThinkingDots() {
 
 function StreamingSkeleton({
   activeSection,
+  modelHint,
 }: {
   activeSection: "personas" | "user_stories" | "spec" | "diagram" | "assumptions" | null;
+  modelHint: string;
 }) {
   const message = _useRotatingMessage(true);
   return (
@@ -843,8 +848,7 @@ function StreamingSkeleton({
           {message}
         </p>
         <p className="mt-2 text-[11px] text-muted-foreground/80">
-          Typical generation takes 90&ndash;240s on Gemma's free tier. Sections below turn green as
-          they arrive.
+          {modelHint} Sections below turn green as they arrive.
         </p>
       </div>
       {_SECTION_SKELETONS.map((s, idx) => {
@@ -911,6 +915,9 @@ interface WorkingDocumentPanelProps {
   editable: boolean;
   onSaveEdit: (next: string) => Promise<void>;
   saving: boolean;
+  /** Model id used for the latency hint on the streaming skeleton.
+   * Should be whatever ``_resolveDisplayModel`` returns. */
+  modelHint: string;
 }
 
 function WorkingDocumentPanel(props: WorkingDocumentPanelProps) {
@@ -932,7 +939,7 @@ function WorkingDocumentPanel(props: WorkingDocumentPanelProps) {
   };
 
   if (props.streaming) {
-    return <StreamingSkeleton activeSection={props.activeSection} />;
+    return <StreamingSkeleton activeSection={props.activeSection} modelHint={props.modelHint} />;
   }
 
   if (!props.markdown) {
@@ -1023,6 +1030,41 @@ function RenderedMarkdown({ markdown }: { markdown: string }) {
   }, [markdown]);
 
   return <article ref={ref} className={_DOC_TYPOGRAPHY} />;
+}
+
+// What the user should see in the workspace header for "model".
+// Active sessions (still running) show the CURRENT primary model
+// — what the next iteration would attempt first. Terminal sessions
+// show the model that actually answered the latest call (history).
+// Falls back to the session row's recorded model if neither is
+// available (very old sessions before rc.12).
+function _resolveDisplayModel(session: IterSessionRead | undefined): string {
+  if (!session) return "(loading)";
+  const isActive = session.status === "draft" || session.status === "iterating";
+  if (isActive && session.current_primary_model_id) {
+    return session.current_primary_model_id;
+  }
+  return session.last_call_model_id ?? session.model_id ?? "(none)";
+}
+
+// "How long does an iteration take?" — depends a LOT on the model.
+// We pick a reasonable hint range from the model id's prefix so the
+// streaming skeleton shows an honest expectation rather than the
+// hard-coded "Gemma free tier" line that lied for Flash Lite.
+function _modelLatencyHint(modelId: string): string {
+  const m = modelId.toLowerCase();
+  if (m.includes("flash-lite")) return "10–30s typical with Flash Lite.";
+  if (m.includes("flash")) return "20–60s typical on Flash models.";
+  if (m.startsWith("gemma-3")) return "60–180s typical on Gemma 3.";
+  if (m.startsWith("gemma-4")) return "90–240s typical on Gemma 4.";
+  if (m.startsWith("gemma")) return "60–240s typical on Gemma models.";
+  if (m.startsWith("claude-haiku")) return "5–15s typical with Haiku.";
+  if (m.startsWith("claude-sonnet")) return "15–45s typical with Sonnet.";
+  if (m.startsWith("claude-opus")) return "30–90s typical with Opus.";
+  if (m.startsWith("gpt") || m.startsWith("o1")) {
+    return "10–30s typical on OpenAI models.";
+  }
+  return "May take a few minutes on the free tier.";
 }
 
 function _pickLatest(versions: IterVersionRead[]): IterVersionRead | null {

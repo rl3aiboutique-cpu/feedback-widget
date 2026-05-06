@@ -1145,6 +1145,18 @@ class IterService:
         """Pick the model id at session-start time so subsequent
         iterations remain consistent even if the host changes
         defaults mid-session."""
+        return self.get_current_primary_model_id()
+
+    def get_current_primary_model_id(self) -> str:
+        """The primary model the next iteration would attempt first
+        (index 0 of the live fallback chain).
+
+        Reads the current settings every call so the workspace header
+        tracks env changes — if the host swaps the primary from
+        Gemma 4 to Flash Lite mid-session, this returns Flash Lite
+        on the very next read. Distinct from the session row's
+        ``model_id`` (frozen at creation) and from
+        ``last_call_model_id`` (history)."""
         if self._settings.ITER_PROVIDER == "gemini":
             return self._settings.ITER_GEMINI_MODEL or "gemma-3-27b-it"
         if self._settings.ITER_PROVIDER == "claude":

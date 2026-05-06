@@ -137,6 +137,11 @@ export interface IterSessionRead {
    * from ``model_id`` if the provider's fallback chain walked to
    * a different model. Null until at least one call has succeeded. */
   last_call_model_id?: string | null
+  /** Primary model id from the *currently configured* fallback
+   * chain — what the next iteration would attempt first. Tracks
+   * env changes live, so when the host swaps from Gemma to Flash
+   * Lite the workspace header reflects it without a restart. */
+  current_primary_model_id?: string | null
 }
 
 export type IterDiffOp =

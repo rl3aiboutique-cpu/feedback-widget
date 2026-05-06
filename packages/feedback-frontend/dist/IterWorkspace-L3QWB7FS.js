@@ -368,7 +368,8 @@ function IterWorkspace({ sessionId, onClose }) {
               markdown: next
             });
           },
-          saving: editMarkdownMutation.isPending
+          saving: editMarkdownMutation.isPending,
+          modelHint: _modelLatencyHint(_resolveDisplayModel(session.data))
         }
       ),
       tab === "assumptions" && /* @__PURE__ */ jsx2(
@@ -403,7 +404,7 @@ function Header(props) {
     /* @__PURE__ */ jsx2("span", { className: "rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground", children: props.session?.status ?? "loading" }),
     /* @__PURE__ */ jsxs2("span", { className: "hidden text-xs text-muted-foreground md:inline", children: [
       "model: ",
-      props.session?.last_call_model_id ?? props.session?.model_id ?? "(none)"
+      _resolveDisplayModel(props.session)
     ] }),
     props.streaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
       /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
@@ -482,7 +483,8 @@ function DocumentTab(props) {
           activeSection: props.activeSection,
           editable: !!props.latestVersion && !props.streaming && props.sessionStatus !== "finalized" && props.sessionStatus !== "abandoned",
           onSaveEdit: props.onSaveEdit,
-          saving: props.saving
+          saving: props.saving,
+          modelHint: props.modelHint
         }
       ),
       props.streamStatus === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: props.streamErrorCode, message: props.streamErrorMessage })
@@ -754,7 +756,8 @@ function ThinkingDots() {
   ] });
 }
 function StreamingSkeleton({
-  activeSection
+  activeSection,
+  modelHint
 }) {
   const message = _useRotatingMessage(true);
   return /* @__PURE__ */ jsxs2("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
@@ -765,7 +768,10 @@ function StreamingSkeleton({
         /* @__PURE__ */ jsx2(ThinkingDots, {})
       ] }),
       /* @__PURE__ */ jsx2("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
-      /* @__PURE__ */ jsx2("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: "Typical generation takes 90\u2013240s on Gemma's free tier. Sections below turn green as they arrive." })
+      /* @__PURE__ */ jsxs2("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: [
+        modelHint,
+        " Sections below turn green as they arrive."
+      ] })
     ] }),
     _SECTION_SKELETONS.map((s, idx) => {
       const isActive = activeSection === s.key;
@@ -831,7 +837,7 @@ function WorkingDocumentPanel(props) {
     setEditing(false);
   };
   if (props.streaming) {
-    return /* @__PURE__ */ jsx2(StreamingSkeleton, { activeSection: props.activeSection });
+    return /* @__PURE__ */ jsx2(StreamingSkeleton, { activeSection: props.activeSection, modelHint: props.modelHint });
   }
   if (!props.markdown) {
     return /* @__PURE__ */ jsx2("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
@@ -894,6 +900,29 @@ function RenderedMarkdown({ markdown }) {
   }, [markdown]);
   return /* @__PURE__ */ jsx2("article", { ref, className: _DOC_TYPOGRAPHY });
 }
+function _resolveDisplayModel(session) {
+  if (!session) return "(loading)";
+  const isActive = session.status === "draft" || session.status === "iterating";
+  if (isActive && session.current_primary_model_id) {
+    return session.current_primary_model_id;
+  }
+  return session.last_call_model_id ?? session.model_id ?? "(none)";
+}
+function _modelLatencyHint(modelId) {
+  const m = modelId.toLowerCase();
+  if (m.includes("flash-lite")) return "10\u201330s typical with Flash Lite.";
+  if (m.includes("flash")) return "20\u201360s typical on Flash models.";
+  if (m.startsWith("gemma-3")) return "60\u2013180s typical on Gemma 3.";
+  if (m.startsWith("gemma-4")) return "90\u2013240s typical on Gemma 4.";
+  if (m.startsWith("gemma")) return "60\u2013240s typical on Gemma models.";
+  if (m.startsWith("claude-haiku")) return "5\u201315s typical with Haiku.";
+  if (m.startsWith("claude-sonnet")) return "15\u201345s typical with Sonnet.";
+  if (m.startsWith("claude-opus")) return "30\u201390s typical with Opus.";
+  if (m.startsWith("gpt") || m.startsWith("o1")) {
+    return "10\u201330s typical on OpenAI models.";
+  }
+  return "May take a few minutes on the free tier.";
+}
 function _pickLatest(versions) {
   if (!versions.length) return null;
   const sorted = [...versions].sort((a, b) => b.version_number - a.version_number);
@@ -908,4 +937,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-IUWMT5AZ.js.map
+//# sourceMappingURL=IterWorkspace-L3QWB7FS.js.map
