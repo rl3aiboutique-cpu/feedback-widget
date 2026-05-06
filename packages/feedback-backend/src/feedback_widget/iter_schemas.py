@@ -218,6 +218,13 @@ class IterSessionRead(BaseModel):
     created_at: datetime
     updated_at: datetime
     finalized_at: datetime | None
+    # Model id of the most recent SUCCESSFUL LLM call. May differ
+    # from ``model_id`` (recorded once at session creation) when
+    # the provider's fallback chain walked to a different model.
+    # The workspace header prefers this value so users see the
+    # model that actually answered the latest iteration. Null
+    # until at least one call has succeeded.
+    last_call_model_id: str | None = None
 
 
 class IterVersionRead(BaseModel):

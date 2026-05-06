@@ -618,6 +618,29 @@ class IterService:
         ).scalars().all()
         return list(rows)
 
+    def get_last_call_model_id(
+        self,
+        db: Session,
+        *,
+        session_id: uuid.UUID,
+    ) -> str | None:
+        """Return the model id of the newest successful call on the
+        session, or ``None`` if no call has succeeded yet.
+
+        Used by the read DTO mapper so the workspace header reflects
+        what actually answered (post-fallback) rather than the model
+        recorded once at session creation. Skips ownership checks
+        because callers already enforced them on the parent session
+        load.
+        """
+        return db.execute(
+            select(FeedbackIterCall.model_id)
+            .where(FeedbackIterCall.session_id == session_id)
+            .where(FeedbackIterCall.status == FeedbackIterCallStatus.SUCCESS)
+            .order_by(FeedbackIterCall.created_at.desc())
+            .limit(1)
+        ).scalar_one_or_none()
+
     # ── Internal: persistence ────────────────────────────────────────
 
     def _persist_success(

@@ -97,7 +97,11 @@ def _caller_from(user: CurrentUserSnapshot, deps: WidgetDependencies) -> CallerI
     )
 
 
-def _to_session_read(s: FeedbackIterSession) -> IterSessionRead:
+def _to_session_read(
+    s: FeedbackIterSession,
+    *,
+    last_call_model_id: str | None = None,
+) -> IterSessionRead:
     return IterSessionRead(
         id=s.id,
         feedback_id=s.feedback_id,
@@ -111,6 +115,7 @@ def _to_session_read(s: FeedbackIterSession) -> IterSessionRead:
         created_at=s.created_at or datetime.now(UTC),
         updated_at=s.updated_at or datetime.now(UTC),
         finalized_at=s.finalized_at,
+        last_call_model_id=last_call_model_id,
     )
 
 
@@ -252,7 +257,10 @@ def build_iter_router(
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
-        return _to_session_read(row)
+        return _to_session_read(
+            row,
+            last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
+        )
 
     @router.get(
         "/iterate/sessions/{session_id}",
@@ -264,12 +272,16 @@ def build_iter_router(
         user: UserDep,
     ) -> IterSessionRead:
         try:
+            row = service.get_session(
+                db,
+                session_id=session_id,
+                caller=_caller_from(user, deps),
+            )
             return _to_session_read(
-                service.get_session(
-                    db,
-                    session_id=session_id,
-                    caller=_caller_from(user, deps),
-                )
+                row,
+                last_call_model_id=service.get_last_call_model_id(
+                    db, session_id=row.id
+                ),
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
@@ -281,12 +293,16 @@ def build_iter_router(
         user: UserDep,
     ) -> IterSessionRead:
         try:
+            row = service.abandon_session(
+                db,
+                session_id=session_id,
+                caller=_caller_from(user, deps),
+            )
             return _to_session_read(
-                service.abandon_session(
-                    db,
-                    session_id=session_id,
-                    caller=_caller_from(user, deps),
-                )
+                row,
+                last_call_model_id=service.get_last_call_model_id(
+                    db, session_id=row.id
+                ),
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
