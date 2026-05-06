@@ -185,6 +185,93 @@ def _apply_business_rules(
         )
 
 
+_DIAGRAM_HEADING_RE = re.compile(
+    r"^(#{1,6}\s*Diagram(?:\s|$).*)$",
+    re.MULTILINE | re.IGNORECASE,
+)
+# Mermaid-style declarations the model commonly drops as bare text.
+# Anchored to start-of-line and a small whitelist of Mermaid kinds
+# so we don't false-positive on prose.
+_MERMAID_OPENER_RE = re.compile(
+    r"^(graph\s+(?:TB|TD|BT|RL|LR)\b|flowchart\s+(?:TB|TD|BT|RL|LR)\b|sequenceDiagram\b|"
+    r"classDiagram\b|stateDiagram(?:-v2)?\b|erDiagram\b|gantt\b|pie\b|"
+    r"journey\b|mindmap\b|timeline\b)",
+    re.MULTILINE,
+)
+
+
+def _normalise_unfenced_diagrams(payload: Any) -> None:
+    r"""Open-weight models routinely emit the Diagram section's body
+    as bare text (``# Diagram\ngraph LR\n  A --> B``) instead of
+    wrapping it in a fenced code block. The bare text reads as
+    paragraph text on every Markdown renderer that doesn't have a
+    Mermaid plugin (we don't bundle one) — the user sees garbled
+    arrow soup. Fix it in-place before the version is persisted.
+
+    Strategy: find a Diagram heading; if the next non-blank line is
+    a Mermaid keyword (``graph``, ``flowchart``, etc.) OR an ASCII
+    art line full of pipes / arrows / brackets that isn't already
+    inside a fence, wrap the body in a triple-backtick mermaid fence
+    (for the Mermaid keyword case) or a triple-backtick text fence
+    (for ASCII) until the next heading or end of doc.
+    """
+    if not isinstance(payload, dict):
+        return
+    md = payload.get("markdown_rendered")
+    if not isinstance(md, str) or not md:
+        return
+    lines = md.split("\n")
+    result: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        # Already inside a fence — copy through to the closing fence.
+        if line.lstrip().startswith("```"):
+            result.append(line)
+            i += 1
+            while i < len(lines) and not lines[i].lstrip().startswith("```"):
+                result.append(lines[i])
+                i += 1
+            if i < len(lines):
+                result.append(lines[i])
+                i += 1
+            continue
+
+        if _DIAGRAM_HEADING_RE.match(line):
+            result.append(line)
+            i += 1
+            # Skip blank lines between heading and body.
+            while i < len(lines) and lines[i].strip() == "":
+                result.append(lines[i])
+                i += 1
+            if i >= len(lines):
+                continue
+            # Already fenced? Pass through.
+            if lines[i].lstrip().startswith("```"):
+                continue
+            # Detect Mermaid vs. ASCII art for the lang hint.
+            body_start = i
+            is_mermaid = bool(_MERMAID_OPENER_RE.match(lines[i].lstrip()))
+            # Pull lines until we hit the next ATX heading or EOF.
+            while i < len(lines) and not lines[i].lstrip().startswith("#"):
+                i += 1
+            body_end = i
+            body = "\n".join(lines[body_start:body_end]).rstrip()
+            # Leave a trailing blank line if the original had one.
+            trailing_blank = body_end > body_start and lines[body_end - 1].strip() == ""
+            lang = "mermaid" if is_mermaid else "text"
+            result.append(f"```{lang}")
+            result.append(body)
+            result.append("```")
+            if trailing_blank:
+                result.append("")
+            continue
+
+        result.append(line)
+        i += 1
+    payload["markdown_rendered"] = "\n".join(result)
+
+
 def parse_iteration_output(
     raw_text: str,
     *,
@@ -194,6 +281,7 @@ def parse_iteration_output(
     cleaned = _strip_fences(raw_text)
     payload = _parse_json(cleaned)
     _coerce_diff_aliases(payload)
+    _normalise_unfenced_diagrams(payload)
     output = _validate_schema(payload)
     _apply_business_rules(output, restructure_allowed=restructure_allowed)
     return output

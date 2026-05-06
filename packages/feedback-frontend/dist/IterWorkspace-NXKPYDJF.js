@@ -311,6 +311,15 @@ function IterWorkspace({ sessionId, onClose }) {
   const latestVersionAt = latestVersion ? Date.parse(latestVersion.created_at) : 0;
   const needsReviewIteration = !!latestVersion && openAssumptionCount === 0 && latestResolvedAt > 0 && latestResolvedAt > latestVersionAt;
   const canFinalize = !!latestVersion && openAssumptionCount === 0 && !needsReviewIteration;
+  const totalAssumptions = (assumptions.data ?? []).length;
+  const resolvedAssumptions = totalAssumptions - openAssumptionCount;
+  const progress = totalAssumptions > 0 ? Math.round(resolvedAssumptions / totalAssumptions * 100) : 0;
+  const [tab, setTab] = useState3("document");
+  const [seenAssumptionsBadge, setSeenAssumptionsBadge] = useState3(false);
+  useEffect(() => {
+    if (!seenAssumptionsBadge && openAssumptionCount > 0 && tab === "document") {
+    }
+  }, [openAssumptionCount, tab, seenAssumptionsBadge]);
   return /* @__PURE__ */ jsxs2("div", { className: "fixed inset-0 z-[60] flex flex-col bg-background text-foreground", children: [
     /* @__PURE__ */ jsx2(
       Header,
@@ -318,65 +327,59 @@ function IterWorkspace({ sessionId, onClose }) {
         session: session.data,
         onClose,
         onAbandon: () => abandonMutation.mutate(),
-        terminal: session.data?.status === "finalized" || session.data?.status === "abandoned"
+        terminal: session.data?.status === "finalized" || session.data?.status === "abandoned",
+        progress,
+        resolvedCount: resolvedAssumptions,
+        totalCount: totalAssumptions,
+        streaming: isStreaming,
+        streamSection: stream.state.activeSection
       }
     ),
-    /* @__PURE__ */ jsxs2("div", { className: "flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:flex-row", children: [
-      /* @__PURE__ */ jsxs2("aside", { className: "lg:w-64 lg:flex-shrink-0", children: [
-        /* @__PURE__ */ jsx2("h3", { className: "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Activity" }),
-        /* @__PURE__ */ jsx2(ActivityTimeline, { versions: versions.data ?? [] })
-      ] }),
-      /* @__PURE__ */ jsxs2("main", { className: "flex flex-1 flex-col", children: [
-        /* @__PURE__ */ jsxs2("div", { className: "mb-2 flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx2("h3", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Working Document" }),
-          isStreaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
-            /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
-            stream.state.activeSection ? `Writing ${stream.state.activeSection.replace("_", " ")}\u2026` : "AI is thinking\u2026"
-          ] })
-        ] }),
-        !latestVersion && stream.state.status === "idle" && /* @__PURE__ */ jsx2(
-          FirstRunCard,
-          {
-            busy: false,
-            onRun: () => stream.start({ user_message: "", restructure_allowed: false })
-          }
-        ),
-        /* @__PURE__ */ jsx2(
-          WorkingDocumentPanel,
-          {
-            markdown: renderedMarkdown,
-            streaming: isStreaming,
-            activeSection: stream.state.activeSection,
-            editable: !!latestVersion && !isStreaming && session.data?.status !== "finalized" && session.data?.status !== "abandoned",
-            onSaveEdit: async (next) => {
-              if (!latestVersion) return;
-              await editMarkdownMutation.mutateAsync({
-                versionId: latestVersion.id,
-                markdown: next
-              });
-            },
-            saving: editMarkdownMutation.isPending
-          }
-        ),
-        stream.state.status === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: stream.state.errorCode, message: stream.state.errorMessage })
-      ] }),
-      /* @__PURE__ */ jsxs2("aside", { className: "lg:w-[28rem] lg:flex-shrink-0", children: [
-        /* @__PURE__ */ jsxs2("h3", { className: "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: [
-          "Assumptions (",
-          openAssumptionCount,
-          " open",
-          assumptions.data ? ` / ${assumptions.data.length} total` : "",
-          ")"
-        ] }),
-        /* @__PURE__ */ jsx2(
-          AssumptionsGrid,
-          {
-            items: assumptions.data ?? [],
-            onResolve: (assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body }),
-            disabled: session.data?.status === "finalized" || session.data?.status === "abandoned"
-          }
-        )
-      ] })
+    /* @__PURE__ */ jsx2(
+      TabBar,
+      {
+        tab,
+        onChange: (t) => {
+          setTab(t);
+          if (t === "assumptions") setSeenAssumptionsBadge(true);
+        },
+        openAssumptionCount,
+        totalAssumptionCount: totalAssumptions,
+        versionCount: (versions.data ?? []).length
+      }
+    ),
+    /* @__PURE__ */ jsxs2("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
+      tab === "document" && /* @__PURE__ */ jsx2(
+        DocumentTab,
+        {
+          markdown: renderedMarkdown,
+          streaming: isStreaming,
+          activeSection: stream.state.activeSection,
+          latestVersion,
+          sessionStatus: session.data?.status,
+          streamStatus: stream.state.status,
+          streamErrorCode: stream.state.errorCode,
+          streamErrorMessage: stream.state.errorMessage,
+          onFirstRun: () => stream.start({ user_message: "", restructure_allowed: false }),
+          onSaveEdit: async (next) => {
+            if (!latestVersion) return;
+            await editMarkdownMutation.mutateAsync({
+              versionId: latestVersion.id,
+              markdown: next
+            });
+          },
+          saving: editMarkdownMutation.isPending
+        }
+      ),
+      tab === "assumptions" && /* @__PURE__ */ jsx2(
+        AssumptionsTab,
+        {
+          items: assumptions.data ?? [],
+          onResolve: (assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body }),
+          disabled: session.data?.status === "finalized" || session.data?.status === "abandoned"
+        }
+      ),
+      tab === "activity" && /* @__PURE__ */ jsx2(ActivityTab, { versions: versions.data ?? [] })
     ] }),
     /* @__PURE__ */ jsx2(
       Footer,
@@ -398,14 +401,135 @@ function Header(props) {
   return /* @__PURE__ */ jsxs2("header", { className: "flex items-center gap-3 border-b bg-card px-4 py-2 text-sm", children: [
     /* @__PURE__ */ jsx2("span", { className: "font-semibold", children: "Iterate with AI" }),
     /* @__PURE__ */ jsx2("span", { className: "rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground", children: props.session?.status ?? "loading" }),
-    /* @__PURE__ */ jsxs2("span", { className: "text-xs text-muted-foreground", children: [
+    /* @__PURE__ */ jsxs2("span", { className: "hidden text-xs text-muted-foreground md:inline", children: [
       "model: ",
       props.session?.model_id ?? "(none)"
+    ] }),
+    props.streaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
+      /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
+      props.streamSection ? `Writing ${props.streamSection.replace("_", " ")}\u2026` : "AI is thinking\u2026"
+    ] }),
+    props.totalCount > 0 && /* @__PURE__ */ jsxs2("div", { className: "ml-2 hidden items-center gap-2 md:flex", children: [
+      /* @__PURE__ */ jsxs2("span", { className: "text-xs text-muted-foreground", children: [
+        props.resolvedCount,
+        "/",
+        props.totalCount,
+        " resolved"
+      ] }),
+      /* @__PURE__ */ jsx2("div", { className: "h-1.5 w-24 overflow-hidden rounded-full bg-muted", children: /* @__PURE__ */ jsx2(
+        "div",
+        {
+          className: "h-full rounded-full bg-primary transition-all",
+          style: { width: `${props.progress}%` }
+        }
+      ) })
     ] }),
     /* @__PURE__ */ jsxs2("div", { className: "ml-auto flex items-center gap-2", children: [
       !props.terminal && props.onAbandon && /* @__PURE__ */ jsx2(Button, { size: "sm", variant: "ghost", onClick: props.onAbandon, children: "Discard session" }),
       props.onClose && /* @__PURE__ */ jsx2(Button, { size: "sm", variant: "outline", onClick: props.onClose, children: "Close" })
     ] })
+  ] });
+}
+function TabBar(props) {
+  const tabs = [
+    { key: "document", label: "Document", badge: null },
+    {
+      key: "assumptions",
+      label: "Assumptions",
+      badge: props.totalAssumptionCount > 0 ? `${props.openAssumptionCount}/${props.totalAssumptionCount}` : null
+    },
+    {
+      key: "activity",
+      label: "Activity",
+      badge: props.versionCount > 0 ? `v${props.versionCount}` : null
+    }
+  ];
+  return /* @__PURE__ */ jsx2("div", { className: "flex items-center gap-1 border-b bg-card px-3", role: "tablist", children: tabs.map((t) => {
+    const active = props.tab === t.key;
+    return /* @__PURE__ */ jsxs2(
+      "button",
+      {
+        type: "button",
+        role: "tab",
+        "aria-selected": active,
+        onClick: () => props.onChange(t.key),
+        className: `flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`,
+        children: [
+          t.label,
+          t.badge && /* @__PURE__ */ jsx2(
+            "span",
+            {
+              className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`,
+              children: t.badge
+            }
+          )
+        ]
+      },
+      t.key
+    );
+  }) });
+}
+function DocumentTab(props) {
+  return /* @__PURE__ */ jsxs2("div", { className: "mx-auto flex w-full max-w-[1400px] flex-row gap-6 p-4 lg:p-6", children: [
+    props.markdown && !props.streaming && /* @__PURE__ */ jsx2(DocumentTOC, { markdown: props.markdown }),
+    /* @__PURE__ */ jsxs2("main", { className: "flex flex-1 flex-col", children: [
+      !props.latestVersion && props.streamStatus === "idle" && /* @__PURE__ */ jsx2(FirstRunCard, { busy: false, onRun: props.onFirstRun }),
+      /* @__PURE__ */ jsx2(
+        WorkingDocumentPanel,
+        {
+          markdown: props.markdown,
+          streaming: props.streaming,
+          activeSection: props.activeSection,
+          editable: !!props.latestVersion && !props.streaming && props.sessionStatus !== "finalized" && props.sessionStatus !== "abandoned",
+          onSaveEdit: props.onSaveEdit,
+          saving: props.saving
+        }
+      ),
+      props.streamStatus === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: props.streamErrorCode, message: props.streamErrorMessage })
+    ] })
+  ] });
+}
+function DocumentTOC({ markdown }) {
+  const headings = useMemo(() => {
+    const out = [];
+    for (const raw of markdown.split("\n")) {
+      const m = /^(#{1,2})\s+(.+?)\s*$/.exec(raw);
+      if (!m) continue;
+      const level = m[1]?.length === 1 ? 1 : 2;
+      const text = (m[2] ?? "").replace(/[*_`]/g, "").trim();
+      if (!text) continue;
+      const id = `iter-toc-${text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+      out.push({ level, text, id });
+    }
+    return out;
+  }, [markdown]);
+  if (headings.length < 2) return null;
+  return /* @__PURE__ */ jsx2("aside", { className: "hidden w-56 shrink-0 lg:block", children: /* @__PURE__ */ jsxs2("div", { className: "sticky top-2", children: [
+    /* @__PURE__ */ jsx2("h4", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: "On this page" }),
+    /* @__PURE__ */ jsx2("ul", { className: "space-y-1 text-sm", children: headings.map((h) => /* @__PURE__ */ jsx2("li", { className: h.level === 2 ? "ml-3 text-xs text-muted-foreground" : "", children: /* @__PURE__ */ jsx2(
+      "a",
+      {
+        href: `#${h.id}`,
+        className: "block rounded px-2 py-1 hover:bg-accent hover:text-accent-foreground",
+        onClick: (e) => {
+          e.preventDefault();
+          document.getElementById(h.id)?.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+          });
+        },
+        children: h.text
+      }
+    ) }, h.id)) })
+  ] }) });
+}
+function AssumptionsTab(props) {
+  return /* @__PURE__ */ jsx2("div", { className: "mx-auto w-full max-w-[1600px] p-4 lg:p-6", children: /* @__PURE__ */ jsx2(AssumptionsGrid, { items: props.items, onResolve: props.onResolve, disabled: props.disabled }) });
+}
+function ActivityTab({ versions }) {
+  return /* @__PURE__ */ jsxs2("div", { className: "mx-auto w-full max-w-[1100px] p-4 lg:p-6", children: [
+    /* @__PURE__ */ jsx2("h3", { className: "mb-3 text-sm font-semibold", children: "Iteration history" }),
+    /* @__PURE__ */ jsx2(ActivityTimeline, { versions })
   ] });
 }
 function Footer(props) {
@@ -541,7 +665,7 @@ function AssumptionsGrid(props) {
           /* @__PURE__ */ jsx2("h4", { className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: meta.name }),
           /* @__PURE__ */ jsx2("span", { className: "rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground", children: items.length })
         ] }),
-        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-2 xl:grid-cols-2", children: items.map((a) => /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: items.map((a) => /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
           AssumptionCard,
           {
             assumption: a,
@@ -551,22 +675,23 @@ function AssumptionsGrid(props) {
         ) }, a.id)) })
       ] }, kind);
     }),
-    resolved.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-2", children: [
+    resolved.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-3", open: true, children: [
       /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold", children: [
         "Resolved (",
         resolved.length,
         ")"
       ] }),
-      /* @__PURE__ */ jsx2("div", { className: "mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2", children: resolved.map((a) => /* @__PURE__ */ jsx2(
-        AssumptionCard,
-        {
-          assumption: a,
-          disabled: true,
-          onResolve: async () => {
+      /* @__PURE__ */ jsx2("div", { className: "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: resolved.map((a) => {
+        const meta = _KIND_BAND[a.kind];
+        return /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+          AssumptionCard,
+          {
+            assumption: a,
+            disabled: props.disabled,
+            onResolve: (body) => props.onResolve(a.id, body)
           }
-        },
-        a.id
-      )) })
+        ) }, a.id);
+      }) })
     ] })
   ] });
 }
@@ -665,22 +790,29 @@ function StreamingSkeleton({
   ] });
 }
 var _DOC_TYPOGRAPHY = [
-  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed",
-  "[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
-  "[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
-  "[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold",
+  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed shadow-sm",
+  // H1 — gradient bar to give each top-level section visual weight.
+  "[&_h1]:relative [&_h1]:scroll-mt-4 [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:pb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
+  "[&_h1]:border-b [&_h1]:border-primary/20",
+  "[&_h1]:bg-gradient-to-r [&_h1]:from-primary/5 [&_h1]:to-transparent [&_h1]:px-3 [&_h1]:py-2 [&_h1]:rounded",
+  "[&_h2]:scroll-mt-4 [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
+  "[&_h2]:border-l-4 [&_h2]:border-primary/40 [&_h2]:pl-3",
+  "[&_h3]:scroll-mt-4 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground/90",
   "[&_p]:my-2 [&_p]:text-foreground/90",
   "[&_ul]:my-2 [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-1",
   "[&_ol]:my-2 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-1",
   "[&_li]:text-foreground/90",
   "[&_strong]:font-semibold [&_strong]:text-foreground",
   "[&_em]:italic",
-  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
-  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs",
-  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-  "[&_hr]:my-4 [&_hr]:border-border",
-  "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline"
+  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-primary",
+  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-slate-50 [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:leading-relaxed [&_pre]:shadow-inner dark:[&_pre]:bg-slate-900/40",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground",
+  "[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:py-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
+  "[&_hr]:my-6 [&_hr]:border-border",
+  "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
+  "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs",
+  "[&_th]:border [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
+  "[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
 ].join(" ");
 function WorkingDocumentPanel(props) {
   const [editing, setEditing] = useState3(false);
@@ -741,6 +873,15 @@ function RenderedMarkdown({ markdown }) {
     void import("markdown-it").then(({ default: MarkdownIt }) => {
       if (cancelled || !ref.current) return;
       const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
+      const defaultHeadingOpen = md.renderer.rules.heading_open ?? null;
+      md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+        const inline = tokens[idx + 1];
+        const text = inline?.children ? inline.children.map((c) => c.content).join("") : "";
+        const id = `iter-toc-${text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+        const token = tokens[idx];
+        if (token) token.attrSet("id", id);
+        return defaultHeadingOpen ? defaultHeadingOpen(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
+      };
       const html = md.render(markdown);
       const range = document.createRange();
       range.selectNodeContents(ref.current);
@@ -767,4 +908,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-2J4BYWN5.js.map
+//# sourceMappingURL=IterWorkspace-NXKPYDJF.js.map

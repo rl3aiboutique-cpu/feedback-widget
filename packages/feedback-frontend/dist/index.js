@@ -16,7 +16,7 @@ import {
   SheetTitle,
   describeElement,
   useMyPendingActionCount
-} from "./chunk-JXKSO5HR.js";
+} from "./chunk-UJZ6MFSS.js";
 import {
   Button,
   FeedbackProvider,
@@ -632,7 +632,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-FHX2LI4K.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-R6HDKOVH.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",

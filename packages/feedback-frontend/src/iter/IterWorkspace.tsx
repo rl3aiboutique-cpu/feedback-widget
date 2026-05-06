@@ -159,6 +159,24 @@ export default function IterWorkspace({ sessionId, onClose }: IterWorkspaceProps
     latestResolvedAt > latestVersionAt;
   const canFinalize = !!latestVersion && openAssumptionCount === 0 && !needsReviewIteration;
 
+  // Total / resolved counts for the progress rail in the header.
+  const totalAssumptions = (assumptions.data ?? []).length;
+  const resolvedAssumptions = totalAssumptions - openAssumptionCount;
+  const progress =
+    totalAssumptions > 0 ? Math.round((resolvedAssumptions / totalAssumptions) * 100) : 0;
+
+  // Tab the user is currently on. Default to Document; auto-flip
+  // to Assumptions when an assumption-rich version lands so the
+  // user notices the cards.
+  const [tab, setTab] = useState<"document" | "assumptions" | "activity">("document");
+  const [seenAssumptionsBadge, setSeenAssumptionsBadge] = useState(false);
+  useEffect(() => {
+    if (!seenAssumptionsBadge && openAssumptionCount > 0 && tab === "document") {
+      // Show the unread badge on the Assumptions tab; user clicks
+      // when they want to engage. We don't auto-switch tabs.
+    }
+  }, [openAssumptionCount, tab, seenAssumptionsBadge]);
+
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background text-foreground">
       <Header
@@ -166,46 +184,36 @@ export default function IterWorkspace({ sessionId, onClose }: IterWorkspaceProps
         onClose={onClose}
         onAbandon={() => abandonMutation.mutate()}
         terminal={session.data?.status === "finalized" || session.data?.status === "abandoned"}
+        progress={progress}
+        resolvedCount={resolvedAssumptions}
+        totalCount={totalAssumptions}
+        streaming={isStreaming}
+        streamSection={stream.state.activeSection}
       />
 
-      <div className="flex flex-1 min-h-0 flex-col gap-4 overflow-y-auto p-4 lg:flex-row">
-        <aside className="lg:w-64 lg:flex-shrink-0">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Activity
-          </h3>
-          <ActivityTimeline versions={versions.data ?? []} />
-        </aside>
+      <TabBar
+        tab={tab}
+        onChange={(t) => {
+          setTab(t);
+          if (t === "assumptions") setSeenAssumptionsBadge(true);
+        }}
+        openAssumptionCount={openAssumptionCount}
+        totalAssumptionCount={totalAssumptions}
+        versionCount={(versions.data ?? []).length}
+      />
 
-        <main className="flex flex-1 flex-col">
-          <div className="mb-2 flex items-center gap-2">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Working Document
-            </h3>
-            {isStreaming && (
-              <span className="flex items-center gap-1.5 text-xs text-primary">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                {stream.state.activeSection
-                  ? `Writing ${stream.state.activeSection.replace("_", " ")}…`
-                  : "AI is thinking…"}
-              </span>
-            )}
-          </div>
-          {!latestVersion && stream.state.status === "idle" && (
-            <FirstRunCard
-              busy={false}
-              onRun={() => stream.start({ user_message: "", restructure_allowed: false })}
-            />
-          )}
-          <WorkingDocumentPanel
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {tab === "document" && (
+          <DocumentTab
             markdown={renderedMarkdown}
             streaming={isStreaming}
             activeSection={stream.state.activeSection}
-            editable={
-              !!latestVersion &&
-              !isStreaming &&
-              session.data?.status !== "finalized" &&
-              session.data?.status !== "abandoned"
-            }
+            latestVersion={latestVersion}
+            sessionStatus={session.data?.status}
+            streamStatus={stream.state.status}
+            streamErrorCode={stream.state.errorCode}
+            streamErrorMessage={stream.state.errorMessage}
+            onFirstRun={() => stream.start({ user_message: "", restructure_allowed: false })}
             onSaveEdit={async (next) => {
               if (!latestVersion) return;
               await editMarkdownMutation.mutateAsync({
@@ -215,22 +223,15 @@ export default function IterWorkspace({ sessionId, onClose }: IterWorkspaceProps
             }}
             saving={editMarkdownMutation.isPending}
           />
-          {stream.state.status === "error" && (
-            <ErrorBanner code={stream.state.errorCode} message={stream.state.errorMessage} />
-          )}
-        </main>
-
-        <aside className="lg:w-[28rem] lg:flex-shrink-0">
-          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Assumptions ({openAssumptionCount} open
-            {assumptions.data ? ` / ${assumptions.data.length} total` : ""})
-          </h3>
-          <AssumptionsGrid
+        )}
+        {tab === "assumptions" && (
+          <AssumptionsTab
             items={assumptions.data ?? []}
             onResolve={(assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body })}
             disabled={session.data?.status === "finalized" || session.data?.status === "abandoned"}
           />
-        </aside>
+        )}
+        {tab === "activity" && <ActivityTab versions={versions.data ?? []} />}
       </div>
 
       <Footer
@@ -257,6 +258,11 @@ function Header(props: {
   onClose?: () => void;
   onAbandon?: () => void;
   terminal: boolean;
+  progress: number;
+  resolvedCount: number;
+  totalCount: number;
+  streaming: boolean;
+  streamSection: "personas" | "user_stories" | "spec" | "diagram" | "assumptions" | null;
 }) {
   return (
     <header className="flex items-center gap-3 border-b bg-card px-4 py-2 text-sm">
@@ -264,9 +270,30 @@ function Header(props: {
       <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
         {props.session?.status ?? "loading"}
       </span>
-      <span className="text-xs text-muted-foreground">
+      <span className="hidden text-xs text-muted-foreground md:inline">
         model: {props.session?.model_id ?? "(none)"}
       </span>
+      {props.streaming && (
+        <span className="flex items-center gap-1.5 text-xs text-primary">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          {props.streamSection
+            ? `Writing ${props.streamSection.replace("_", " ")}…`
+            : "AI is thinking…"}
+        </span>
+      )}
+      {props.totalCount > 0 && (
+        <div className="ml-2 hidden items-center gap-2 md:flex">
+          <span className="text-xs text-muted-foreground">
+            {props.resolvedCount}/{props.totalCount} resolved
+          </span>
+          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${props.progress}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="ml-auto flex items-center gap-2">
         {!props.terminal && props.onAbandon && (
           <Button size="sm" variant="ghost" onClick={props.onAbandon}>
@@ -280,6 +307,187 @@ function Header(props: {
         )}
       </div>
     </header>
+  );
+}
+
+function TabBar(props: {
+  tab: "document" | "assumptions" | "activity";
+  onChange: (next: "document" | "assumptions" | "activity") => void;
+  openAssumptionCount: number;
+  totalAssumptionCount: number;
+  versionCount: number;
+}) {
+  const tabs: Array<{
+    key: "document" | "assumptions" | "activity";
+    label: string;
+    badge: string | null;
+  }> = [
+    { key: "document", label: "Document", badge: null },
+    {
+      key: "assumptions",
+      label: "Assumptions",
+      badge:
+        props.totalAssumptionCount > 0
+          ? `${props.openAssumptionCount}/${props.totalAssumptionCount}`
+          : null,
+    },
+    {
+      key: "activity",
+      label: "Activity",
+      badge: props.versionCount > 0 ? `v${props.versionCount}` : null,
+    },
+  ];
+  return (
+    <div className="flex items-center gap-1 border-b bg-card px-3" role="tablist">
+      {tabs.map((t) => {
+        const active = props.tab === t.key;
+        return (
+          <button
+            key={t.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => props.onChange(t.key)}
+            className={`flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              active
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+            {t.badge && (
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                  active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {t.badge}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+interface DocumentTabProps {
+  markdown: string;
+  streaming: boolean;
+  activeSection: "personas" | "user_stories" | "spec" | "diagram" | "assumptions" | null;
+  latestVersion: IterVersionRead | null;
+  sessionStatus: IterSessionRead["status"] | undefined;
+  streamStatus: "idle" | "running" | "done" | "error";
+  streamErrorCode: string | null;
+  streamErrorMessage: string | null;
+  onFirstRun: () => void;
+  onSaveEdit: (next: string) => Promise<void>;
+  saving: boolean;
+}
+
+function DocumentTab(props: DocumentTabProps) {
+  return (
+    <div className="mx-auto flex w-full max-w-[1400px] flex-row gap-6 p-4 lg:p-6">
+      {props.markdown && !props.streaming && <DocumentTOC markdown={props.markdown} />}
+      <main className="flex flex-1 flex-col">
+        {!props.latestVersion && props.streamStatus === "idle" && (
+          <FirstRunCard busy={false} onRun={props.onFirstRun} />
+        )}
+        <WorkingDocumentPanel
+          markdown={props.markdown}
+          streaming={props.streaming}
+          activeSection={props.activeSection}
+          editable={
+            !!props.latestVersion &&
+            !props.streaming &&
+            props.sessionStatus !== "finalized" &&
+            props.sessionStatus !== "abandoned"
+          }
+          onSaveEdit={props.onSaveEdit}
+          saving={props.saving}
+        />
+        {props.streamStatus === "error" && (
+          <ErrorBanner code={props.streamErrorCode} message={props.streamErrorMessage} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function DocumentTOC({ markdown }: { markdown: string }) {
+  const headings = useMemo(() => {
+    const out: Array<{ level: 1 | 2; text: string; id: string }> = [];
+    for (const raw of markdown.split("\n")) {
+      const m = /^(#{1,2})\s+(.+?)\s*$/.exec(raw);
+      if (!m) continue;
+      const level = m[1]?.length === 1 ? 1 : 2;
+      const text = (m[2] ?? "").replace(/[*_`]/g, "").trim();
+      if (!text) continue;
+      const id = `iter-toc-${text
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "")}`;
+      out.push({ level: level as 1 | 2, text, id });
+    }
+    return out;
+  }, [markdown]);
+
+  if (headings.length < 2) return null;
+
+  return (
+    <aside className="hidden w-56 shrink-0 lg:block">
+      <div className="sticky top-2">
+        <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          On this page
+        </h4>
+        <ul className="space-y-1 text-sm">
+          {headings.map((h) => (
+            <li key={h.id} className={h.level === 2 ? "ml-3 text-xs text-muted-foreground" : ""}>
+              <a
+                href={`#${h.id}`}
+                className="block rounded px-2 py-1 hover:bg-accent hover:text-accent-foreground"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById(h.id)?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  });
+                }}
+              >
+                {h.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </aside>
+  );
+}
+
+function AssumptionsTab(props: {
+  items: IterAssumptionRead[];
+  onResolve: (
+    assumptionId: string,
+    body: {
+      status: "confirmed" | "corrected" | "irrelevant";
+      user_response?: string;
+    },
+  ) => Promise<unknown>;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-[1600px] p-4 lg:p-6">
+      <AssumptionsGrid items={props.items} onResolve={props.onResolve} disabled={props.disabled} />
+    </div>
+  );
+}
+
+function ActivityTab({ versions }: { versions: IterVersionRead[] }) {
+  return (
+    <div className="mx-auto w-full max-w-[1100px] p-4 lg:p-6">
+      <h3 className="mb-3 text-sm font-semibold">Iteration history</h3>
+      <ActivityTimeline versions={versions} />
+    </div>
   );
 }
 
@@ -494,7 +702,7 @@ function AssumptionsGrid(props: {
                 {items.length}
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {items.map((a) => (
                 <div key={a.id} className={`rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`}>
                   <AssumptionCard
@@ -509,19 +717,23 @@ function AssumptionsGrid(props: {
         );
       })}
       {resolved.length > 0 && (
-        <details className="rounded border bg-muted/40 p-2">
+        <details className="rounded border bg-muted/40 p-3" open>
           <summary className="cursor-pointer text-xs font-semibold">
             Resolved ({resolved.length})
           </summary>
-          <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
-            {resolved.map((a) => (
-              <AssumptionCard
-                key={a.id}
-                assumption={a}
-                disabled={true}
-                onResolve={async () => {}}
-              />
-            ))}
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {resolved.map((a) => {
+              const meta = _KIND_BAND[a.kind];
+              return (
+                <div key={a.id} className={`rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`}>
+                  <AssumptionCard
+                    assumption={a}
+                    disabled={props.disabled}
+                    onResolve={(body) => props.onResolve(a.id, body)}
+                  />
+                </div>
+              );
+            })}
           </div>
         </details>
       )}
@@ -667,22 +879,29 @@ function StreamingSkeleton({
 }
 
 const _DOC_TYPOGRAPHY = [
-  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed",
-  "[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
-  "[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
-  "[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold",
+  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed shadow-sm",
+  // H1 — gradient bar to give each top-level section visual weight.
+  "[&_h1]:relative [&_h1]:scroll-mt-4 [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:pb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
+  "[&_h1]:border-b [&_h1]:border-primary/20",
+  "[&_h1]:bg-gradient-to-r [&_h1]:from-primary/5 [&_h1]:to-transparent [&_h1]:px-3 [&_h1]:py-2 [&_h1]:rounded",
+  "[&_h2]:scroll-mt-4 [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
+  "[&_h2]:border-l-4 [&_h2]:border-primary/40 [&_h2]:pl-3",
+  "[&_h3]:scroll-mt-4 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground/90",
   "[&_p]:my-2 [&_p]:text-foreground/90",
   "[&_ul]:my-2 [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-1",
   "[&_ol]:my-2 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-1",
   "[&_li]:text-foreground/90",
   "[&_strong]:font-semibold [&_strong]:text-foreground",
   "[&_em]:italic",
-  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
-  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs",
-  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-  "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-  "[&_hr]:my-4 [&_hr]:border-border",
+  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-primary",
+  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-slate-50 [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:leading-relaxed [&_pre]:shadow-inner dark:[&_pre]:bg-slate-900/40",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground",
+  "[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:py-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
+  "[&_hr]:my-6 [&_hr]:border-border",
   "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
+  "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs",
+  "[&_th]:border [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
+  "[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1",
 ].join(" ");
 
 interface WorkingDocumentPanelProps {
@@ -775,6 +994,23 @@ function RenderedMarkdown({ markdown }: { markdown: string }) {
     void import("markdown-it").then(({ default: MarkdownIt }) => {
       if (cancelled || !ref.current) return;
       const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
+      // Override heading_open to add a stable id so the document
+      // TOC's anchor links work. We slug the next inline child's
+      // content using the same algorithm as DocumentTOC.
+      const defaultHeadingOpen = md.renderer.rules.heading_open ?? null;
+      md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+        const inline = tokens[idx + 1];
+        const text = inline?.children ? inline.children.map((c) => c.content).join("") : "";
+        const id = `iter-toc-${text
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/(^-|-$)/g, "")}`;
+        const token = tokens[idx];
+        if (token) token.attrSet("id", id);
+        return defaultHeadingOpen
+          ? defaultHeadingOpen(tokens, idx, options, env, self)
+          : self.renderToken(tokens, idx, options);
+      };
       const html = md.render(markdown);
       const range = document.createRange();
       range.selectNodeContents(ref.current);
