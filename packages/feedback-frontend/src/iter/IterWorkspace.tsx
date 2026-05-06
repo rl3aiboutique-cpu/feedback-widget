@@ -271,7 +271,7 @@ function Header(props: {
         {props.session?.status ?? "loading"}
       </span>
       <span className="hidden text-xs text-muted-foreground md:inline">
-        model: {props.session?.model_id ?? "(none)"}
+        model: {props.session?.last_call_model_id ?? props.session?.model_id ?? "(none)"}
       </span>
       {props.streaming && (
         <span className="flex items-center gap-1.5 text-xs text-primary">
