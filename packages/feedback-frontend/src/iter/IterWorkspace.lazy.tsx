@@ -12,20 +12,20 @@ import { Suspense, lazy } from "react";
 import type { IterWorkspaceProps } from "./IterWorkspace";
 
 const _Inner = lazy(async () => {
-	const mod = await import("./IterWorkspace");
-	return { default: mod.default };
+  const mod = await import("./IterWorkspace");
+  return { default: mod.default };
 });
 
 export function IterWorkspaceLazy(props: IterWorkspaceProps) {
-	return (
-		<Suspense
-			fallback={
-				<div className="fixed inset-0 z-[60] flex items-center justify-center bg-background text-sm text-muted-foreground">
-					Loading workspace…
-				</div>
-			}
-		>
-			<_Inner {...props} />
-		</Suspense>
-	);
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background text-sm text-muted-foreground">
+          Loading workspace…
+        </div>
+      }
+    >
+      <_Inner {...props} />
+    </Suspense>
+  );
 }

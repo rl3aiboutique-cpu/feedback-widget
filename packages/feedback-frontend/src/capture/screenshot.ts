@@ -24,128 +24,122 @@
 import type { SelectedElementInfo } from "./metadata";
 
 export interface ScreenshotResult {
-	blob: Blob;
-	width: number;
-	height: number;
+  blob: Blob;
+  width: number;
+  height: number;
 }
 
 const DEFAULT_MAX_PIXELS = 1920 * 1080 * 2;
 const DEFAULT_TYPE = "image/png";
 
 interface CaptureOptions {
-	redactionSelectors: readonly string[];
-	/**
-	 * The widget itself must never appear in its own screenshot. The
-	 * default predicate excludes anything inside an element with
-	 * ``data-feedback-widget-root="true"``.
-	 */
-	excludePredicate?: (node: HTMLElement) => boolean;
+  redactionSelectors: readonly string[];
+  /**
+   * The widget itself must never appear in its own screenshot. The
+   * default predicate excludes anything inside an element with
+   * ``data-feedback-widget-root="true"``.
+   */
+  excludePredicate?: (node: HTMLElement) => boolean;
 }
 
 const DEFAULT_EXCLUDE_PREDICATE = (node: HTMLElement): boolean =>
-	node.dataset?.feedbackWidgetRoot === "true" ||
-	Boolean(node.closest?.('[data-feedback-widget-root="true"]'));
+  node.dataset?.feedbackWidgetRoot === "true" ||
+  Boolean(node.closest?.('[data-feedback-widget-root="true"]'));
 
 interface BlackoutHandle {
-	restore: () => void;
+  restore: () => void;
 }
 
-function _blackoutRedactedNodes(
-	root: HTMLElement,
-	selectors: readonly string[],
-): BlackoutHandle {
-	const overlays: HTMLElement[] = [];
-	if (typeof document === "undefined") return { restore: () => undefined };
+function _blackoutRedactedNodes(root: HTMLElement, selectors: readonly string[]): BlackoutHandle {
+  const overlays: HTMLElement[] = [];
+  if (typeof document === "undefined") return { restore: () => undefined };
 
-	const matches = new Set<HTMLElement>();
-	for (const sel of selectors) {
-		let nodes: NodeListOf<Element>;
-		try {
-			nodes = root.querySelectorAll(sel);
-		} catch {
-			continue;
-		}
-		for (const n of Array.from(nodes)) {
-			if (n instanceof HTMLElement) matches.add(n);
-		}
-	}
+  const matches = new Set<HTMLElement>();
+  for (const sel of selectors) {
+    let nodes: NodeListOf<Element>;
+    try {
+      nodes = root.querySelectorAll(sel);
+    } catch {
+      continue;
+    }
+    for (const n of Array.from(nodes)) {
+      if (n instanceof HTMLElement) matches.add(n);
+    }
+  }
 
-	for (const node of matches) {
-		const rect = node.getBoundingClientRect();
-		const overlay = document.createElement("div");
-		overlay.setAttribute("data-feedback-blackout", "true");
-		overlay.style.cssText = [
-			"position:fixed",
-			`left:${rect.left}px`,
-			`top:${rect.top}px`,
-			`width:${rect.width}px`,
-			`height:${rect.height}px`,
-			"background:#000",
-			"z-index:2147483646",
-			"pointer-events:none",
-		].join(";");
-		document.body.appendChild(overlay);
-		overlays.push(overlay);
-	}
+  for (const node of matches) {
+    const rect = node.getBoundingClientRect();
+    const overlay = document.createElement("div");
+    overlay.setAttribute("data-feedback-blackout", "true");
+    overlay.style.cssText = [
+      "position:fixed",
+      `left:${rect.left}px`,
+      `top:${rect.top}px`,
+      `width:${rect.width}px`,
+      `height:${rect.height}px`,
+      "background:#000",
+      "z-index:2147483646",
+      "pointer-events:none",
+    ].join(";");
+    document.body.appendChild(overlay);
+    overlays.push(overlay);
+  }
 
-	return {
-		restore() {
-			for (const o of overlays) o.remove();
-		},
-	};
+  return {
+    restore() {
+      for (const o of overlays) o.remove();
+    },
+  };
 }
 
 async function _renderToBlob(
-	target: HTMLElement,
-	options: CaptureOptions,
+  target: HTMLElement,
+  options: CaptureOptions,
 ): Promise<ScreenshotResult> {
-	const exclude = options.excludePredicate ?? DEFAULT_EXCLUDE_PREDICATE;
-	const filter = (node: HTMLElement | unknown): boolean => {
-		if (!(node instanceof HTMLElement)) return true;
-		if (node.dataset?.feedbackBlackout === "true") return true;
-		return !exclude(node);
-	};
+  const exclude = options.excludePredicate ?? DEFAULT_EXCLUDE_PREDICATE;
+  const filter = (node: HTMLElement | unknown): boolean => {
+    if (!(node instanceof HTMLElement)) return true;
+    if (node.dataset?.feedbackBlackout === "true") return true;
+    return !exclude(node);
+  };
 
-	const blackout = _blackoutRedactedNodes(target, options.redactionSelectors);
-	try {
-		// Dynamic import keeps html-to-image out of the eager bundle.
-		const lib = await import("html-to-image");
-		const blob = await lib.toBlob(target, {
-			filter,
-			backgroundColor:
-				getComputedStyle(document.body).backgroundColor || "#ffffff",
-			cacheBust: true,
-			pixelRatio: window.devicePixelRatio || 1,
-			type: DEFAULT_TYPE,
-		});
-		if (!blob) {
-			throw new Error("Screenshot capture returned no Blob");
-		}
-		const rect = target.getBoundingClientRect();
-		let width = Math.round(rect.width);
-		let height = Math.round(rect.height);
-		// Cap absurdly large captures so the upload stays under the size cap.
-		if (width * height > DEFAULT_MAX_PIXELS) {
-			const scale = Math.sqrt(DEFAULT_MAX_PIXELS / (width * height));
-			width = Math.floor(width * scale);
-			height = Math.floor(height * scale);
-		}
-		return { blob, width, height };
-	} finally {
-		blackout.restore();
-	}
+  const blackout = _blackoutRedactedNodes(target, options.redactionSelectors);
+  try {
+    // Dynamic import keeps html-to-image out of the eager bundle.
+    const lib = await import("html-to-image");
+    const blob = await lib.toBlob(target, {
+      filter,
+      backgroundColor: getComputedStyle(document.body).backgroundColor || "#ffffff",
+      cacheBust: true,
+      pixelRatio: window.devicePixelRatio || 1,
+      type: DEFAULT_TYPE,
+    });
+    if (!blob) {
+      throw new Error("Screenshot capture returned no Blob");
+    }
+    const rect = target.getBoundingClientRect();
+    let width = Math.round(rect.width);
+    let height = Math.round(rect.height);
+    // Cap absurdly large captures so the upload stays under the size cap.
+    if (width * height > DEFAULT_MAX_PIXELS) {
+      const scale = Math.sqrt(DEFAULT_MAX_PIXELS / (width * height));
+      width = Math.floor(width * scale);
+      height = Math.floor(height * scale);
+    }
+    return { blob, width, height };
+  } finally {
+    blackout.restore();
+  }
 }
 
 /**
  * Capture a screenshot of the current page (sans widget).
  */
-export async function capturePageScreenshot(
-	options: CaptureOptions,
-): Promise<ScreenshotResult> {
-	if (typeof document === "undefined") {
-		throw new Error("Screenshot capture requires a browser environment");
-	}
-	return _renderToBlob(document.body, options);
+export async function capturePageScreenshot(options: CaptureOptions): Promise<ScreenshotResult> {
+  if (typeof document === "undefined") {
+    throw new Error("Screenshot capture requires a browser environment");
+  }
+  return _renderToBlob(document.body, options);
 }
 
 /**
@@ -154,10 +148,10 @@ export async function capturePageScreenshot(
  * case the element is on the same page.
  */
 export async function captureElementScreenshot(
-	element: HTMLElement,
-	options: CaptureOptions,
+  element: HTMLElement,
+  options: CaptureOptions,
 ): Promise<ScreenshotResult> {
-	return _renderToBlob(element, options);
+  return _renderToBlob(element, options);
 }
 
 /**
@@ -165,77 +159,71 @@ export async function captureElementScreenshot(
  * bundle carries its identity (selector, xpath, role, etc.).
  */
 export function describeElement(el: HTMLElement): SelectedElementInfo {
-	const rect = el.getBoundingClientRect();
-	const selector = _cssSelectorOf(el);
-	const xpath = _xpathOf(el);
-	const accessibleName =
-		el.getAttribute("aria-label") ??
-		el.getAttribute("title") ??
-		(el as HTMLElement).innerText?.trim().slice(0, 80) ??
-		null;
-	const role = el.getAttribute("role");
-	const outerHtml = el.outerHTML.slice(0, 500);
-	return {
-		selector,
-		xpath,
-		tag: el.tagName.toLowerCase(),
-		role,
-		accessible_name: accessibleName,
-		bounding_box: {
-			x: rect.x,
-			y: rect.y,
-			w: rect.width,
-			h: rect.height,
-		},
-		outer_html_excerpt: outerHtml,
-	};
+  const rect = el.getBoundingClientRect();
+  const selector = _cssSelectorOf(el);
+  const xpath = _xpathOf(el);
+  const accessibleName =
+    el.getAttribute("aria-label") ??
+    el.getAttribute("title") ??
+    (el as HTMLElement).innerText?.trim().slice(0, 80) ??
+    null;
+  const role = el.getAttribute("role");
+  const outerHtml = el.outerHTML.slice(0, 500);
+  return {
+    selector,
+    xpath,
+    tag: el.tagName.toLowerCase(),
+    role,
+    accessible_name: accessibleName,
+    bounding_box: {
+      x: rect.x,
+      y: rect.y,
+      w: rect.width,
+      h: rect.height,
+    },
+    outer_html_excerpt: outerHtml,
+  };
 }
 
 function _cssSelectorOf(el: HTMLElement): string {
-	if (el.id) return `#${CSS.escape(el.id)}`;
-	const parts: string[] = [];
-	let cur: HTMLElement | null = el;
-	while (cur && cur !== document.body && parts.length < 8) {
-		let part = cur.tagName.toLowerCase();
-		if (cur.classList.length > 0) {
-			part += `.${Array.from(cur.classList)
-				.slice(0, 2)
-				.map((c) => CSS.escape(c))
-				.join(".")}`;
-		}
-		const parent = cur.parentElement;
-		if (parent) {
-			const siblings = Array.from(parent.children).filter(
-				(s) => s.tagName === cur?.tagName,
-			);
-			if (siblings.length > 1) {
-				part += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
-			}
-		}
-		parts.unshift(part);
-		cur = cur.parentElement;
-	}
-	return parts.join(" > ");
+  if (el.id) return `#${CSS.escape(el.id)}`;
+  const parts: string[] = [];
+  let cur: HTMLElement | null = el;
+  while (cur && cur !== document.body && parts.length < 8) {
+    let part = cur.tagName.toLowerCase();
+    if (cur.classList.length > 0) {
+      part += `.${Array.from(cur.classList)
+        .slice(0, 2)
+        .map((c) => CSS.escape(c))
+        .join(".")}`;
+    }
+    const parent = cur.parentElement;
+    if (parent) {
+      const siblings = Array.from(parent.children).filter((s) => s.tagName === cur?.tagName);
+      if (siblings.length > 1) {
+        part += `:nth-of-type(${siblings.indexOf(cur) + 1})`;
+      }
+    }
+    parts.unshift(part);
+    cur = cur.parentElement;
+  }
+  return parts.join(" > ");
 }
 
 function _xpathOf(el: HTMLElement): string | null {
-	if (typeof document === "undefined") return null;
-	const segments: string[] = [];
-	let node: Node | null = el;
-	while (
-		node &&
-		node.nodeType === Node.ELEMENT_NODE &&
-		node !== document.body
-	) {
-		const elNode = node as Element;
-		let index = 1;
-		let sibling = elNode.previousElementSibling;
-		while (sibling) {
-			if (sibling.tagName === elNode.tagName) index += 1;
-			sibling = sibling.previousElementSibling;
-		}
-		segments.unshift(`${elNode.tagName.toLowerCase()}[${index}]`);
-		node = elNode.parentNode;
-	}
-	return segments.length > 0 ? `/${segments.join("/")}` : null;
+  if (typeof document === "undefined") return null;
+  const segments: string[] = [];
+  let node: Node | null = el;
+  while (node && node.nodeType === Node.ELEMENT_NODE && node !== document.body) {
+    const elNode = node as Element;
+    let index = 1;
+    let sibling = elNode.previousElementSibling;
+    while (sibling) {
+      if (sibling.tagName === elNode.tagName) index += 1;
+      sibling = sibling.previousElementSibling;
+    }
+    segments.unshift(`${elNode.tagName.toLowerCase()}[${index}]`);
+    node = elNode.parentNode;
+  }
+  return segments.length > 0 ? `/${segments.join("/")}` : null;
 }
