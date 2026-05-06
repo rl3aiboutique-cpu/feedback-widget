@@ -68,10 +68,16 @@ class AttachmentRef:
     """One feedback attachment to copy into the package's
     ``attachments/`` subfolder."""
 
-    object_key: str  # source key in the same bucket
+    object_key: str  # source key
     filename: str  # destination filename inside attachments/
     content_type: str
     byte_size: int
+    # Source bucket. ``None`` means "use the storage backend's
+    # default bucket"; for multi-bucket deployments where
+    # attachments live in their own bucket, set this so
+    # ``copy_object`` and ``download`` both read from the right
+    # place.
+    bucket: str | None = None
 
 
 @dataclass(frozen=True)
@@ -511,8 +517,14 @@ def build_iter_package(
     attachment_blobs: dict[str, bytes] = {}
     for att in inputs.attachments:
         dest_key = f"{folder_prefix}/folder/attachments/{att.filename}"
-        storage.copy_object(source_key=att.object_key, dest_key=dest_key)
-        attachment_blobs[att.filename] = storage.download(att.object_key)
+        storage.copy_object(
+            source_key=att.object_key,
+            dest_key=dest_key,
+            source_bucket=att.bucket,
+        )
+        attachment_blobs[att.filename] = storage.download(
+            att.object_key, bucket=att.bucket
+        )
 
     zip_bytes = _build_zip(text_files, attachment_blobs)
     zip_key = f"{folder_prefix}/package.zip"

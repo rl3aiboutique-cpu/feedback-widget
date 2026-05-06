@@ -988,6 +988,7 @@ class IterService:
                 ),
                 content_type=r.content_type,
                 byte_size=r.byte_size,
+                bucket=r.bucket,
             )
             for r in rows
         ]
