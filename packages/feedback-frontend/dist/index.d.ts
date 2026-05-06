@@ -205,6 +205,10 @@ interface IterSessionRead {
     created_at: string;
     updated_at: string;
     finalized_at: string | null;
+    /** Model id of the most recent successful LLM call. May differ
+     * from ``model_id`` if the provider's fallback chain walked to
+     * a different model. Null until at least one call has succeeded. */
+    last_call_model_id?: string | null;
 }
 type IterDiffOp = {
     op: "add";

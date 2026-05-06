@@ -168,7 +168,7 @@ function Rl3Mark({
 import { Suspense, lazy } from "react";
 import { jsx as jsx3 } from "react/jsx-runtime";
 var _Inner = lazy(async () => {
-  const mod = await import("./IterWorkspace-NXKPYDJF.js");
+  const mod = await import("./IterWorkspace-IUWMT5AZ.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
@@ -857,4 +857,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-UJZ6MFSS.js.map
+//# sourceMappingURL=chunk-OEUNIPIW.js.map

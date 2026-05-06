@@ -403,7 +403,7 @@ function Header(props) {
     /* @__PURE__ */ jsx2("span", { className: "rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground", children: props.session?.status ?? "loading" }),
     /* @__PURE__ */ jsxs2("span", { className: "hidden text-xs text-muted-foreground md:inline", children: [
       "model: ",
-      props.session?.model_id ?? "(none)"
+      props.session?.last_call_model_id ?? props.session?.model_id ?? "(none)"
     ] }),
     props.streaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
       /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
@@ -908,4 +908,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-NXKPYDJF.js.map
+//# sourceMappingURL=IterWorkspace-IUWMT5AZ.js.map
