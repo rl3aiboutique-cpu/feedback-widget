@@ -36,8 +36,13 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  // Resolved cards become re-editable when the user clicks the
+  // pencil icon — they get the same Confirm/Correct/Mark
+  // irrelevant choices as an open card so they can fix a wrong
+  // answer without having to wait for a new iteration.
+  const [reopen, setReopen] = useState(false);
 
-  const isOpen = assumption.status === "open";
+  const isOpen = assumption.status === "open" || reopen;
 
   const click = async (
     status: "confirmed" | "corrected" | "irrelevant",
@@ -48,6 +53,7 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
       await onResolve({ status, user_response });
       setEditing(false);
       setText("");
+      setReopen(false);
     } finally {
       setBusy(false);
     }
@@ -84,6 +90,16 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
           <div className="mb-1 font-semibold">Your correction:</div>
           {assumption.user_response}
         </div>
+      )}
+
+      {assumption.status !== "open" && !reopen && !disabled && (
+        <button
+          type="button"
+          onClick={() => setReopen(true)}
+          className="mb-2 text-[11px] font-medium text-primary hover:underline"
+        >
+          ✎ Change my answer
+        </button>
       )}
 
       {isOpen && !editing && (

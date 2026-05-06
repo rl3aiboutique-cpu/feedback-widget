@@ -18,6 +18,7 @@ import type {
   IterStartRequest,
   IterStreamEvent,
   IterUsageRead,
+  IterVersionMarkdownEditRequest,
   IterVersionRead,
 } from "./types"
 
@@ -156,6 +157,25 @@ export async function getIterVersion(
   const resp = await fetch(url, {
     credentials: "include",
     headers: await _headers(bindings),
+  })
+  if (!resp.ok) await _throwOn(url, resp)
+  return resp.json()
+}
+
+export async function editIterVersionMarkdown(
+  bindings: FeedbackHostBindings,
+  sessionId: string,
+  versionId: string,
+  body: IterVersionMarkdownEditRequest,
+): Promise<IterVersionRead> {
+  const url =
+    `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}` +
+    `/iterations/${versionId}/markdown`
+  const resp = await fetch(url, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...(await _headers(bindings)) },
+    body: JSON.stringify(body),
   })
   if (!resp.ok) await _throwOn(url, resp)
   return resp.json()

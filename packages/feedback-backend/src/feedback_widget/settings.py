@@ -110,6 +110,10 @@ class FeedbackSettings(BaseSettings):
     # explicitly via env, so we never silently fall back to a stale
     # default that quietly drifts from what the host expected.
     ITER_GEMINI_MODEL: str = ""
+    # Comma-separated fallback chain. Tried in order on
+    # rate-limit or transient-server errors. Empty string = no
+    # fallbacks. Models inherit the primary model's API key.
+    ITER_GEMINI_MODELS_FALLBACK: str = ""
     ITER_CLAUDE_MODEL: str = ""
     ITER_OPENAI_MODEL: str = ""
 

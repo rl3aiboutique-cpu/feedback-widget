@@ -270,6 +270,9 @@ interface IterAssumptionResolveRequest {
     status: "confirmed" | "corrected" | "irrelevant";
     user_response?: string | null;
 }
+interface IterVersionMarkdownEditRequest {
+    output_markdown: string;
+}
 
 /**
  * Default + host-extensible string redactors.
@@ -445,9 +448,10 @@ declare function startIterSession(bindings: FeedbackHostBindings, body: IterStar
 declare function getIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
 declare function abandonIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
 declare function listIterVersions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterVersionRead[]>;
+declare function editIterVersionMarkdown(bindings: FeedbackHostBindings, sessionId: string, versionId: string, body: IterVersionMarkdownEditRequest): Promise<IterVersionRead>;
 declare function listIterAssumptions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterAssumptionRead[]>;
 declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptionId: string, body: IterAssumptionResolveRequest): Promise<IterAssumptionRead>;
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, finalizeIterSession, getIterPackage, getIterSession, listIterAssumptions, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, listIterAssumptions, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

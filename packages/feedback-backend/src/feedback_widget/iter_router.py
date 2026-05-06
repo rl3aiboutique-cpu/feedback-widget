@@ -60,6 +60,7 @@ from feedback_widget.iter_schemas import (
     IterSessionRead,
     IterStartRequest,
     IterUsageRead,
+    IterVersionMarkdownEditRequest,
     IterVersionRead,
 )
 from feedback_widget.iter_service import (
@@ -381,6 +382,29 @@ def build_iter_router(
         if v is None or v.session_id != session_id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, detail="version not found")
         return _to_version_read(v)
+
+    @router.patch(
+        "/iterate/sessions/{session_id}/iterations/{version_id}/markdown",
+        response_model=IterVersionRead,
+    )
+    def edit_version_markdown(
+        session_id: Annotated[uuid.UUID, Path()],
+        version_id: Annotated[uuid.UUID, Path()],
+        body: IterVersionMarkdownEditRequest,
+        db: SessionDep,
+        user: UserDep,
+    ) -> IterVersionRead:
+        try:
+            row = service.edit_version_markdown(
+                db,
+                session_id=session_id,
+                version_id=version_id,
+                new_markdown=body.output_markdown,
+                caller=_caller_from(user, deps),
+            )
+        except IterServiceError as exc:
+            raise _service_error_to_http(exc) from exc
+        return _to_version_read(row)
 
     @router.get(
         "/iterate/sessions/{session_id}/iterations/{version_id}/diff",

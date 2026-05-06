@@ -332,6 +332,17 @@ class IterFinalizeRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class IterVersionMarkdownEditRequest(BaseModel):
+    """Body of ``PATCH /sessions/{sid}/versions/{vid}/markdown``.
+    Lets the user hand-edit the rendered working document before
+    finalizing — only the latest non-finalized version is editable.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    output_markdown: str = Field(min_length=1, max_length=200_000)
+
+
 # ────────────────────────────────────────────────────────────────────
 # SSE event union — what the ``iterations`` endpoint streams
 # ────────────────────────────────────────────────────────────────────

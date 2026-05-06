@@ -2,6 +2,7 @@ import {
   Button,
   Textarea,
   abandonIterSession,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,
@@ -11,10 +12,11 @@ import {
   resolveIterAssumption,
   runIterationStream,
   useFeedbackBindings
-} from "./chunk-MXDE3JO7.js";
+} from "./chunk-6R2CBXYH.js";
 
 // src/iter/IterWorkspace.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Pencil, Save, X } from "lucide-react";
 import { useEffect, useMemo, useRef as useRef2, useState as useState3 } from "react";
 
 // src/iter/AssumptionCard.tsx
@@ -36,13 +38,15 @@ function AssumptionCard({ assumption, onResolve, disabled }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const isOpen = assumption.status === "open";
+  const [reopen, setReopen] = useState(false);
+  const isOpen = assumption.status === "open" || reopen;
   const click = async (status, user_response) => {
     setBusy(true);
     try {
       await onResolve({ status, user_response });
       setEditing(false);
       setText("");
+      setReopen(false);
     } finally {
       setBusy(false);
     }
@@ -75,6 +79,15 @@ function AssumptionCard({ assumption, onResolve, disabled }) {
       /* @__PURE__ */ jsx("div", { className: "mb-1 font-semibold", children: "Your correction:" }),
       assumption.user_response
     ] }),
+    assumption.status !== "open" && !reopen && !disabled && /* @__PURE__ */ jsx(
+      "button",
+      {
+        type: "button",
+        onClick: () => setReopen(true),
+        className: "mb-2 text-[11px] font-medium text-primary hover:underline",
+        children: "\u270E Change my answer"
+      }
+    ),
     isOpen && !editing && /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-2", children: [
       /* @__PURE__ */ jsx(Button, { size: "sm", disabled: busy || disabled, onClick: () => click("confirmed"), children: "Confirm" }),
       /* @__PURE__ */ jsx(
@@ -217,7 +230,7 @@ function _reduce(cur, ev) {
 }
 
 // src/iter/IterWorkspace.tsx
-import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
+import { Fragment, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 function IterWorkspace({ sessionId, onClose }) {
   const bindings = useFeedbackBindings();
   const qc = useQueryClient();
@@ -263,6 +276,17 @@ function IterWorkspace({ sessionId, onClose }) {
     queryFn: () => getIterPackage(bindings, sessionId),
     enabled: session.data?.status === "finalized"
   });
+  const editMarkdownMutation = useMutation({
+    mutationFn: ({
+      versionId,
+      markdown
+    }) => editIterVersionMarkdown(bindings, sessionId, versionId, {
+      output_markdown: markdown
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["iter-versions", sessionId] });
+    }
+  });
   useEffect(() => {
     if (stream.state.status === "done" && stream.state.versionId) {
       qc.invalidateQueries({ queryKey: ["iter-session", sessionId] });
@@ -271,8 +295,22 @@ function IterWorkspace({ sessionId, onClose }) {
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
   const latestVersion = useMemo(() => _pickLatest(versions.data ?? []), [versions.data]);
-  const renderedMarkdown = stream.state.partialMarkdown || latestVersion?.output_markdown || "";
+  const isStreaming = stream.state.status === "running";
+  const renderedMarkdown = isStreaming ? "" : latestVersion?.output_markdown ?? "";
   const openAssumptionCount = (assumptions.data ?? []).filter((a) => a.status === "open").length;
+  const latestResolvedAt = useMemo(() => {
+    let max = 0;
+    for (const a of assumptions.data ?? []) {
+      if (a.resolved_at) {
+        const t = Date.parse(a.resolved_at);
+        if (!Number.isNaN(t) && t > max) max = t;
+      }
+    }
+    return max;
+  }, [assumptions.data]);
+  const latestVersionAt = latestVersion ? Date.parse(latestVersion.created_at) : 0;
+  const needsReviewIteration = !!latestVersion && openAssumptionCount === 0 && latestResolvedAt > 0 && latestResolvedAt > latestVersionAt;
+  const canFinalize = !!latestVersion && openAssumptionCount === 0 && !needsReviewIteration;
   return /* @__PURE__ */ jsxs2("div", { className: "fixed inset-0 z-[60] flex flex-col bg-background text-foreground", children: [
     /* @__PURE__ */ jsx2(
       Header,
@@ -289,11 +327,11 @@ function IterWorkspace({ sessionId, onClose }) {
         /* @__PURE__ */ jsx2(ActivityTimeline, { versions: versions.data ?? [] })
       ] }),
       /* @__PURE__ */ jsxs2("main", { className: "flex flex-1 flex-col", children: [
-        /* @__PURE__ */ jsxs2("h3", { className: "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: [
-          "Working Document",
-          stream.state.activeSection && /* @__PURE__ */ jsxs2("span", { className: "ml-2 normal-case text-foreground", children: [
-            "\u2014 streaming: ",
-            stream.state.activeSection.replace("_", " ")
+        /* @__PURE__ */ jsxs2("div", { className: "mb-2 flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx2("h3", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Working Document" }),
+          isStreaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
+            /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
+            stream.state.activeSection ? `Writing ${stream.state.activeSection.replace("_", " ")}\u2026` : "AI is thinking\u2026"
           ] })
         ] }),
         !latestVersion && stream.state.status === "idle" && /* @__PURE__ */ jsx2(
@@ -303,17 +341,35 @@ function IterWorkspace({ sessionId, onClose }) {
             onRun: () => stream.start({ user_message: "", restructure_allowed: false })
           }
         ),
-        /* @__PURE__ */ jsx2(WorkingDocument, { markdown: renderedMarkdown }),
+        /* @__PURE__ */ jsx2(
+          WorkingDocumentPanel,
+          {
+            markdown: renderedMarkdown,
+            streaming: isStreaming,
+            activeSection: stream.state.activeSection,
+            editable: !!latestVersion && !isStreaming && session.data?.status !== "finalized" && session.data?.status !== "abandoned",
+            onSaveEdit: async (next) => {
+              if (!latestVersion) return;
+              await editMarkdownMutation.mutateAsync({
+                versionId: latestVersion.id,
+                markdown: next
+              });
+            },
+            saving: editMarkdownMutation.isPending
+          }
+        ),
         stream.state.status === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: stream.state.errorCode, message: stream.state.errorMessage })
       ] }),
-      /* @__PURE__ */ jsxs2("aside", { className: "lg:w-80 lg:flex-shrink-0", children: [
+      /* @__PURE__ */ jsxs2("aside", { className: "lg:w-[28rem] lg:flex-shrink-0", children: [
         /* @__PURE__ */ jsxs2("h3", { className: "mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: [
           "Assumptions (",
           openAssumptionCount,
-          " open)"
+          " open",
+          assumptions.data ? ` / ${assumptions.data.length} total` : "",
+          ")"
         ] }),
         /* @__PURE__ */ jsx2(
-          AssumptionsList,
+          AssumptionsGrid,
           {
             items: assumptions.data ?? [],
             onResolve: (assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body }),
@@ -329,6 +385,8 @@ function IterWorkspace({ sessionId, onClose }) {
         package: pkgQuery.data,
         openAssumptions: openAssumptionCount,
         streamRunning: stream.state.status === "running",
+        canFinalize,
+        needsReviewIteration,
         onRun: (payload) => stream.start(payload),
         onFinalize: () => finalizeMutation.mutateAsync(),
         finalizing: finalizeMutation.isPending
@@ -363,14 +421,23 @@ function Footer(props) {
   if (status === "abandoned") {
     return /* @__PURE__ */ jsx2("footer", { className: "border-t bg-card px-4 py-3 text-sm text-muted-foreground", children: "Session abandoned." });
   }
-  const runDisabled = props.streamRunning || props.openAssumptions > 0 && status !== "draft";
+  const runDisabled = props.streamRunning || props.openAssumptions > 0 && status !== "draft" && !props.needsReviewIteration;
+  const finalizeDisabled = props.finalizing || props.streamRunning || !props.session?.current_iteration_id || !props.canFinalize;
   return /* @__PURE__ */ jsxs2("footer", { className: "space-y-2 border-t bg-card px-4 py-3", children: [
+    props.needsReviewIteration && /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200", children: [
+      /* @__PURE__ */ jsx2("p", { className: "font-semibold", children: "All assumptions resolved." }),
+      /* @__PURE__ */ jsxs2("p", { children: [
+        "Add a comment below if you want, then press ",
+        /* @__PURE__ */ jsx2("strong", { children: "Run iteration" }),
+        " so the AI rewrites the working document with your answers baked in. Once you review that version, you can finalize."
+      ] })
+    ] }),
     /* @__PURE__ */ jsx2(
       Textarea,
       {
         value: msg,
         onChange: (e) => setMsg(e.target.value),
-        placeholder: "What should change in the next iteration?",
+        placeholder: props.needsReviewIteration ? "Optional: any extra notes for the next iteration" : "What should change in the next iteration?",
         rows: 2,
         disabled: props.streamRunning
       }
@@ -400,15 +467,16 @@ function Footer(props) {
               });
               setMsg("");
             },
-            children: "Run iteration"
+            children: props.needsReviewIteration ? "Run iteration (review)" : "Run iteration"
           }
         ),
         /* @__PURE__ */ jsx2(
           Button,
           {
             variant: "secondary",
-            disabled: props.finalizing || props.streamRunning || !props.session?.current_iteration_id,
+            disabled: finalizeDisabled,
             onClick: () => props.onFinalize(),
+            title: !props.session?.current_iteration_id ? "Generate a version first" : props.openAssumptions > 0 ? "Resolve all assumptions first" : props.needsReviewIteration ? "Run a review iteration so the spec reflects your answers, then finalize" : "Finalize and produce the package",
             children: "Finalize"
           }
         )
@@ -435,29 +503,61 @@ function ActivityTimeline({ versions }) {
     v.restructure_allowed && /* @__PURE__ */ jsx2("span", { className: "mt-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-900", children: "restructure" })
   ] }, v.id)) });
 }
-function AssumptionsList(props) {
+var _KIND_BAND = {
+  technical: { name: "Technical", band: "border-l-blue-400 bg-blue-50/40 dark:bg-blue-900/10" },
+  business: {
+    name: "Business",
+    band: "border-l-amber-400 bg-amber-50/40 dark:bg-amber-900/10"
+  },
+  ux: { name: "UX", band: "border-l-violet-400 bg-violet-50/40 dark:bg-violet-900/10" },
+  scope: {
+    name: "Scope",
+    band: "border-l-emerald-400 bg-emerald-50/40 dark:bg-emerald-900/10"
+  }
+};
+var _KIND_ORDER = ["technical", "ux", "business", "scope"];
+function AssumptionsGrid(props) {
   if (!props.items.length) {
     return /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "No assumptions on the current version yet." });
   }
   const open = props.items.filter((a) => a.status === "open");
   const resolved = props.items.filter((a) => a.status !== "open");
-  return /* @__PURE__ */ jsxs2("div", { className: "space-y-3", children: [
-    open.map((a) => /* @__PURE__ */ jsx2(
-      AssumptionCard,
-      {
-        assumption: a,
-        disabled: props.disabled,
-        onResolve: (body) => props.onResolve(a.id, body)
-      },
-      a.id
-    )),
+  const grouped = {
+    technical: [],
+    ux: [],
+    business: [],
+    scope: []
+  };
+  for (const a of open) grouped[a.kind].push(a);
+  return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
+    _KIND_ORDER.map((kind) => {
+      const items = grouped[kind];
+      if (!items.length) return null;
+      const meta = _KIND_BAND[kind];
+      const dotColor = (meta.band.split(" ")[0] ?? "").replace("border-l-", "bg-");
+      return /* @__PURE__ */ jsxs2("section", { children: [
+        /* @__PURE__ */ jsxs2("div", { className: "mb-1.5 flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx2("span", { className: `inline-block h-2 w-2 rounded-full ${dotColor}` }),
+          /* @__PURE__ */ jsx2("h4", { className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: meta.name }),
+          /* @__PURE__ */ jsx2("span", { className: "rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground", children: items.length })
+        ] }),
+        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-2 xl:grid-cols-2", children: items.map((a) => /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+          AssumptionCard,
+          {
+            assumption: a,
+            disabled: props.disabled,
+            onResolve: (body) => props.onResolve(a.id, body)
+          }
+        ) }, a.id)) })
+      ] }, kind);
+    }),
     resolved.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-2", children: [
       /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold", children: [
         "Resolved (",
         resolved.length,
         ")"
       ] }),
-      /* @__PURE__ */ jsx2("div", { className: "mt-2 space-y-2", children: resolved.map((a) => /* @__PURE__ */ jsx2(
+      /* @__PURE__ */ jsx2("div", { className: "mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2", children: resolved.map((a) => /* @__PURE__ */ jsx2(
         AssumptionCard,
         {
           assumption: a,
@@ -485,52 +585,130 @@ function ErrorBanner(props) {
     /* @__PURE__ */ jsx2("div", { className: "mt-1 text-xs", children: props.message })
   ] });
 }
-function WorkingDocument({ markdown }) {
+var _SECTION_SKELETONS = [
+  { key: "personas", heading: "Personas", hint: "Who uses this?" },
+  { key: "user_stories", heading: "User Stories", hint: "What do they do?" },
+  { key: "spec", heading: "Spec", hint: "How does it work?" },
+  { key: "diagram", heading: "Diagram", hint: "Flow diagram" }
+];
+function StreamingSkeleton({
+  activeSection
+}) {
+  return /* @__PURE__ */ jsxs2("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
+    /* @__PURE__ */ jsxs2("p", { className: "flex items-center gap-2 text-muted-foreground", children: [
+      /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin text-primary" }),
+      "Drafting working document \u2014 typically 90\u2013240s with Gemma. Sections light up as they arrive."
+    ] }),
+    _SECTION_SKELETONS.map((s, idx) => {
+      const isActive = activeSection === s.key;
+      const isPast = activeSection && _SECTION_SKELETONS.findIndex((x) => x.key === activeSection) > idx;
+      const cardClass = isActive ? "border-primary bg-primary/5" : isPast ? "border-emerald-200 bg-emerald-50/40" : "border-input bg-muted/30";
+      const titleClass = isActive ? "text-primary" : isPast ? "text-emerald-700" : "";
+      const barBaseClass = isActive ? "animate-pulse bg-primary/30" : "bg-muted";
+      return /* @__PURE__ */ jsxs2("div", { className: `rounded-md border p-4 transition-colors ${cardClass}`, children: [
+        /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx2("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
+          isActive && /* @__PURE__ */ jsx2("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
+          isPast && /* @__PURE__ */ jsx2("span", { className: "text-xs text-emerald-700", children: "done" })
+        ] }),
+        /* @__PURE__ */ jsx2("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
+        /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
+        ] })
+      ] }, s.key);
+    })
+  ] });
+}
+var _DOC_TYPOGRAPHY = [
+  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed",
+  "[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
+  "[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
+  "[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold",
+  "[&_p]:my-2 [&_p]:text-foreground/90",
+  "[&_ul]:my-2 [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-1",
+  "[&_ol]:my-2 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-1",
+  "[&_li]:text-foreground/90",
+  "[&_strong]:font-semibold [&_strong]:text-foreground",
+  "[&_em]:italic",
+  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
+  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs",
+  "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
+  "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
+  "[&_hr]:my-4 [&_hr]:border-border",
+  "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline"
+].join(" ");
+function WorkingDocumentPanel(props) {
+  const [editing, setEditing] = useState3(false);
+  const [draft, setDraft] = useState3("");
+  const startEditing = () => {
+    setDraft(props.markdown);
+    setEditing(true);
+  };
+  const cancelEditing = () => {
+    setEditing(false);
+    setDraft("");
+  };
+  const save = async () => {
+    if (!draft.trim()) return;
+    await props.onSaveEdit(draft);
+    setEditing(false);
+  };
+  if (props.streaming) {
+    return /* @__PURE__ */ jsx2(StreamingSkeleton, { activeSection: props.activeSection });
+  }
+  if (!props.markdown) {
+    return /* @__PURE__ */ jsx2("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
+  }
+  return /* @__PURE__ */ jsxs2("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxs2("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
+      !editing && props.editable && /* @__PURE__ */ jsxs2(Button, { size: "sm", variant: "outline", onClick: startEditing, children: [
+        /* @__PURE__ */ jsx2(Pencil, { className: "h-3 w-3" }),
+        " Edit"
+      ] }),
+      editing && /* @__PURE__ */ jsxs2(Fragment, { children: [
+        /* @__PURE__ */ jsxs2(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx2(X, { className: "h-3 w-3" }),
+          " Cancel"
+        ] }),
+        /* @__PURE__ */ jsxs2(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx2(Save, { className: "h-3 w-3" }),
+          props.saving ? "Saving\u2026" : "Save edits"
+        ] })
+      ] })
+    ] }),
+    editing ? /* @__PURE__ */ jsx2(
+      Textarea,
+      {
+        value: draft,
+        onChange: (e) => setDraft(e.target.value),
+        rows: 28,
+        className: "flex-1 min-h-[28rem] font-mono text-xs"
+      }
+    ) : /* @__PURE__ */ jsx2(RenderedMarkdown, { markdown: props.markdown })
+  ] });
+}
+function RenderedMarkdown({ markdown }) {
   const ref = useRef2(null);
   useEffect(() => {
     let cancelled = false;
     const el = ref.current;
     if (!el) return;
-    if (!markdown) {
-      el.textContent = "";
-      return;
-    }
     void import("markdown-it").then(({ default: MarkdownIt }) => {
       if (cancelled || !ref.current) return;
       const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
-      ref.current.innerHTML = md.render(markdown);
+      const html = md.render(markdown);
+      const range = document.createRange();
+      range.selectNodeContents(ref.current);
+      const fragment = range.createContextualFragment(html);
+      ref.current.replaceChildren(fragment);
     });
     return () => {
       cancelled = true;
     };
   }, [markdown]);
-  if (!markdown) {
-    return /* @__PURE__ */ jsx2("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
-  }
-  return /* @__PURE__ */ jsx2(
-    "article",
-    {
-      ref,
-      className: [
-        "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed",
-        "[&_h1]:mt-6 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
-        "[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
-        "[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold",
-        "[&_p]:my-2 [&_p]:text-foreground/90",
-        "[&_ul]:my-2 [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-1",
-        "[&_ol]:my-2 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-1",
-        "[&_li]:text-foreground/90",
-        "[&_strong]:font-semibold [&_strong]:text-foreground",
-        "[&_em]:italic",
-        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
-        "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs",
-        "[&_pre_code]:bg-transparent [&_pre_code]:p-0",
-        "[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-muted-foreground/30 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-        "[&_hr]:my-4 [&_hr]:border-border",
-        "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline"
-      ].join(" ")
-    }
-  );
+  return /* @__PURE__ */ jsx2("article", { ref, className: _DOC_TYPOGRAPHY });
 }
 function _pickLatest(versions) {
   if (!versions.length) return null;
@@ -546,4 +724,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-IHOGGX5S.js.map
+//# sourceMappingURL=IterWorkspace-T4D2UGZM.js.map

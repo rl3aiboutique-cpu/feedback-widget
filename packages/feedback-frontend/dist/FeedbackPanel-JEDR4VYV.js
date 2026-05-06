@@ -15,7 +15,7 @@ import {
   SheetTitle,
   captureElementScreenshot,
   capturePageScreenshot
-} from "./chunk-GZ25FTZP.js";
+} from "./chunk-CF4IQYL3.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -23,7 +23,7 @@ import {
   cn,
   redactBundle,
   useFeedbackAdapter
-} from "./chunk-MXDE3JO7.js";
+} from "./chunk-6R2CBXYH.js";
 
 // src/FeedbackPanel.tsx
 import { Sparkles } from "lucide-react";
@@ -873,4 +873,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-DNT4LOBP.js.map
+//# sourceMappingURL=FeedbackPanel-JEDR4VYV.js.map

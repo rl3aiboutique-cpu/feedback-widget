@@ -26,6 +26,7 @@ from .protocol import (
     LLMAttachment,
     LLMProviderError,
     LLMProviderFatalError,
+    LLMProviderRateLimitedError,
     LLMProviderTimeoutError,
     LLMProviderTransientError,
     LLMResult,
@@ -53,9 +54,24 @@ def _resolve_model(settings: FeedbackSettings) -> str:
     if not model:
         raise LLMProviderError(
             "FEEDBACK_ITER_GEMINI_MODEL is empty. Set it in your .env "
-            "(default: gemma-3-27b-it)."
+            "(default: gemma-4-26b-a4b-it)."
         )
     return model
+
+
+def _resolve_fallback_chain(settings: FeedbackSettings) -> list[str]:
+    """Parse the CSV fallback chain. Primary model is at index 0;
+    fallbacks come from FEEDBACK_ITER_GEMINI_MODELS_FALLBACK in order.
+    Empty string ⇒ no fallback."""
+    primary = _resolve_model(settings)
+    chain: list[str] = [primary]
+    raw = (settings.ITER_GEMINI_MODELS_FALLBACK or "").strip()
+    if raw:
+        for entry in raw.split(","):
+            name = entry.strip()
+            if name and name != primary and name not in chain:
+                chain.append(name)
+    return chain
 
 
 def _resolve_api_key(settings: FeedbackSettings) -> str:
@@ -141,14 +157,36 @@ def _wrap_provider_error(exc: BaseException) -> LLMProviderError:
 
 
 class GeminiProvider:
-    """:class:`LLMProvider` for Gemini / Gemma 3 via google-genai."""
+    """:class:`LLMProvider` for Gemini / Gemma via google-genai.
+
+    Carries a fallback chain: on rate-limit or transient errors the
+    next model in :attr:`_chain` is tried before surfacing the
+    failure. Default chain is just the primary; hosts can extend
+    via FEEDBACK_ITER_GEMINI_MODELS_FALLBACK.
+    """
 
     name = "gemini"
 
     def __init__(self, settings: FeedbackSettings) -> None:
         self._settings = settings
-        self._model = _resolve_model(settings)
+        self._chain = _resolve_fallback_chain(settings)
+        # ``_model`` is the *currently selected* model — switches
+        # on fallback for the lifetime of one provider instance.
+        self._model = self._chain[0]
         self._client = genai.Client(api_key=_resolve_api_key(settings))
+
+    def _try_next_model(self, after: str) -> str | None:
+        """Return the next model in the chain after ``after``, or
+        ``None`` if exhausted."""
+        try:
+            idx = self._chain.index(after)
+        except ValueError:
+            return None
+        if idx + 1 >= len(self._chain):
+            return None
+        nxt = self._chain[idx + 1]
+        self._model = nxt
+        return nxt
 
     async def generate(
         self,
@@ -165,17 +203,26 @@ class GeminiProvider:
 
         loop = asyncio.get_running_loop()
         start = loop.time()
-        try:
-            response = await asyncio.wait_for(
-                self._client.aio.models.generate_content(
-                    model=self._model,
-                    contents=[gtypes.Content(role="user", parts=parts)],
-                    config=cfg,
-                ),
-                timeout=timeout_seconds,
-            )
-        except BaseException as exc:
-            raise _wrap_provider_error(exc) from exc
+        # Try the model chain — fall through on rate-limit / transient.
+        while True:
+            try:
+                response = await asyncio.wait_for(
+                    self._client.aio.models.generate_content(
+                        model=self._model,
+                        contents=[gtypes.Content(role="user", parts=parts)],
+                        config=cfg,
+                    ),
+                    timeout=timeout_seconds,
+                )
+                break
+            except BaseException as exc:
+                wrapped = _wrap_provider_error(exc)
+                if isinstance(
+                    wrapped,
+                    LLMProviderTransientError | LLMProviderRateLimitedError,
+                ) and self._try_next_model(self._model) is not None:
+                    continue
+                raise wrapped from exc
         latency_ms = int((loop.time() - start) * 1000)
 
         raw_text = response.text or ""

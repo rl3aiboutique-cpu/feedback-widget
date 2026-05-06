@@ -75,6 +75,7 @@ export type { IterWorkspaceProps } from "./iter/IterWorkspace";
 // directly (e.g., to start a session from a custom button).
 export {
   abandonIterSession,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,

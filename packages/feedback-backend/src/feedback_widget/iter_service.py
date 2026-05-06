@@ -420,6 +420,54 @@ class IterService:
         db.refresh(asm)
         return asm
 
+    # ── Manual markdown edit ────────────────────────────────────────
+
+    def edit_version_markdown(
+        self,
+        db: Session,
+        *,
+        session_id: uuid.UUID,
+        version_id: uuid.UUID,
+        new_markdown: str,
+        caller: CallerIdentity,
+    ) -> FeedbackIterVersion:
+        """Replace the rendered markdown on the LATEST non-finalized
+        version. Lets users polish the spec by hand before finalize.
+        Mutates the row in place (one exception to the otherwise
+        append-only convention) and stamps a flag inside output_json
+        so admins can tell hand-edits from LLM output."""
+        session = self._load_session(db, session_id)
+        self._enforce_session_ownership(session, caller)
+        if session.status in {
+            FeedbackIterSessionStatus.FINALIZED,
+            FeedbackIterSessionStatus.ABANDONED,
+        }:
+            raise IterStateError(
+                "cannot edit markdown on a terminal session"
+            )
+        if session.current_iteration_id != version_id:
+            raise IterStateError(
+                "only the latest version's markdown is editable"
+            )
+        version = db.get(FeedbackIterVersion, version_id)
+        if version is None:
+            raise IterNotFoundError(f"version {version_id} not found")
+        version.output_markdown = new_markdown
+        # Stamp the JSON snapshot so admin tooling shows "manually
+        # edited" beside the version row.
+        snapshot = dict(version.output_json or {})
+        snapshot["markdown_rendered"] = new_markdown
+        snapshot["manually_edited"] = True
+        snapshot["manually_edited_at"] = datetime.now(UTC).isoformat()
+        snapshot["manually_edited_by"] = str(caller.user_id)
+        version.output_json = snapshot
+        session.updated_at = datetime.now(UTC)
+        db.add(version)
+        db.add(session)
+        db.commit()
+        db.refresh(version)
+        return version
+
     # ── Finalize ────────────────────────────────────────────────────
 
     def finalize_session(

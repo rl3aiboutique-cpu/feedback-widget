@@ -16,7 +16,7 @@ import {
   SheetTitle,
   describeElement,
   useMyPendingActionCount
-} from "./chunk-GZ25FTZP.js";
+} from "./chunk-CF4IQYL3.js";
 import {
   Button,
   FeedbackProvider,
@@ -26,6 +26,7 @@ import {
   abandonIterSession,
   cn,
   createAdapter,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,
@@ -41,7 +42,7 @@ import {
   useFeedbackDetailQuery,
   useFeedbackListQuery,
   useUpdateFeedbackStatusMutation
-} from "./chunk-MXDE3JO7.js";
+} from "./chunk-6R2CBXYH.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -631,7 +632,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-DNT4LOBP.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-JEDR4VYV.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -725,6 +726,7 @@ export {
   VERSION,
   abandonIterSession,
   createAdapter,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,

@@ -712,6 +712,17 @@ async function listIterVersions(bindings, sessionId) {
   if (!resp.ok) await _throwOn(url, resp);
   return resp.json();
 }
+async function editIterVersionMarkdown(bindings, sessionId, versionId, body) {
+  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/iterations/${versionId}/markdown`;
+  const resp = await fetch(url, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...await _headers(bindings) },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) await _throwOn(url, resp);
+  return resp.json();
+}
 async function listIterAssumptions(bindings, sessionId) {
   const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/assumptions`;
   const resp = await fetch(url, {
@@ -834,10 +845,11 @@ export {
   getIterSession,
   abandonIterSession,
   listIterVersions,
+  editIterVersionMarkdown,
   listIterAssumptions,
   resolveIterAssumption,
   finalizeIterSession,
   getIterPackage,
   runIterationStream
 };
-//# sourceMappingURL=chunk-MXDE3JO7.js.map
+//# sourceMappingURL=chunk-6R2CBXYH.js.map

@@ -225,6 +225,10 @@ export interface IterAssumptionResolveRequest {
   user_response?: string | null
 }
 
+export interface IterVersionMarkdownEditRequest {
+  output_markdown: string
+}
+
 export interface IterRateLimitErrorBody {
   error: "rate_limited"
   scope: "session" | "user_week"

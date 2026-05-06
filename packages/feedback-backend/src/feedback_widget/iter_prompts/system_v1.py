@@ -7,6 +7,11 @@ other code. The version tag below is persisted on every
 with prompt revisions.
 """
 
+# Ruff E501 is suppressed for this file because the worked-example
+# inside the prompt is a multi-line JSON literal; splitting any line
+# would change the runtime string the LLM sees.
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 SYSTEM_PROMPT_VERSION = "v1"
@@ -99,7 +104,12 @@ follow in any order.
   2. NEVER exceed 3 personas or 5 stories per persona. If the user
      asks for more, say so in unresolved_questions and tell them to
      open a new feedback section.
-  3. NEVER hide an assumption. If you assumed it, list it. If you
+  3. NEVER hide an assumption. If you assumed it, list it. List
+     ALL assumptions, typically 7 to 20 for a non-trivial spec.
+     Fewer than 5 means you have not been thorough enough — go
+     back through every persona, every story, every spec section,
+     every technical detail, every scope boundary, every UX
+     choice, every error path, every default behaviour. If you
      used a prior resolved assumption, do not list it again as
      open; treat it as fact.
   4. NEVER invent technical metadata. If a fact is not in the
@@ -138,12 +148,31 @@ negotiable. Extra keys are rejected. Field names use snake_case.
   - assumptions[i] requires: slot_key (e.g. "asm_buyer_role"), kind
     (technical|business|ux|scope), statement, rationale, confidence (0..1)
 
+Markdown formatting rules for ``markdown_rendered``:
+
+  - Use real markdown syntax. Bullet lists begin with `- ` (dash
+    space). Sub-bullets indent two spaces. Bold is `**text**`,
+    italic is `*text*`. Do NOT write `Goals:` followed by
+    plain-text lines — use a bullet list.
+  - Each persona renders as `## Name`, then `**Role:** value`,
+    then a sub-list of goals and pain points.
+  - Each user story renders under the persona's section as
+    `### Title`, then the As-a / I want / So that triplet, then
+    a `**Scenario:**` block with bulleted Given/When/Then.
+  - Diagrams MUST be wrapped in a fenced code block. Default to
+    ASCII with triple-backtick + ``text``. Use simple ASCII art
+    boxes and arrows that read at a glance: every host renders
+    them as a styled <pre> block. Only emit Mermaid when the
+    user explicitly asks for it, and even then wrap it in
+    triple-backtick + ``mermaid`` so the renderer treats it as
+    code (most hosts do not have Mermaid in their bundle).
+
 Worked example (return JSON identical in shape, vary the content):
 
 {
   "schema_version": "1",
   "language": "en",
-  "markdown_rendered": "# Personas\\n## Buyer\\n# User Stories\\n# Spec\\n# Diagram",
+  "markdown_rendered": "# Personas\\n\\n## Buyer Admin\\n\\n**Role:** Procurement lead\\n\\n**Goals**\\n- Approve POs quickly\\n\\n**Pain points**\\n- Too many tabs\\n\\n# User Stories\\n\\n## Buyer Admin\\n\\n### Approve a PO\\n\\n**As a** buyer admin, **I want** to approve a PO, **so that** orders ship same-day.\\n\\n**Scenario: Happy path**\\n\\n- **Given** a pending PO is in my inbox\\n- **When** I click Approve\\n- **Then** the PO flips to APPROVED\\n\\n# Spec\\n\\n# PO inbox approve\\n\\n## Data model\\n\\nAdd a `status` enum on the PO row.\\n\\n# Diagram\\n\\n```text\\n[Inbox] --(approve)--> [Detail] --(notify)--> [Supplier]\\n   |                              ^\\n   '-----(skip-detail)----------'\\n```",
   "personas": [
     {
       "id": "p_buyer_admin",
@@ -187,7 +216,7 @@ Worked example (return JSON identical in shape, vary the content):
   },
   "diagram": {
     "format": "ascii",
-    "source": "[inbox]->[detail]->[approved]",
+    "source": "[Inbox] --(approve)--> [Detail] --(notify)--> [Supplier]\\n   |                              ^\\n   '-----(skip-detail)----------'",
     "caption": "Approval flow"
   },
   "assumptions": [
