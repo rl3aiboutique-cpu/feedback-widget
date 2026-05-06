@@ -47,7 +47,7 @@ def _resolve_api_key(settings: FeedbackSettings) -> str:
     secret = settings.ITER_ANTHROPIC_API_KEY
     if secret is None:
         raise LLMProviderError(
-            "FEEDBACK_ITER_ANTHROPIC_API_KEY is not set. Add it to " "your host's .env."
+            "FEEDBACK_ITER_ANTHROPIC_API_KEY is not set. Add it to your host's .env."
         )
     return secret.get_secret_value().strip()
 

@@ -99,9 +99,7 @@ def _format_prior_versions(versions: Sequence[_PriorVersion]) -> str:
     blocks = []
     for v in versions:
         blocks.append(
-            f'  <version number="{v.version_number}">\n'
-            f"{v.markdown_rendered.rstrip()}\n"
-            f"  </version>"
+            f'  <version number="{v.version_number}">\n{v.markdown_rendered.rstrip()}\n  </version>'
         )
     return "\n".join(blocks)
 

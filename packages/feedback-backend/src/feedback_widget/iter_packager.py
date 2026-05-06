@@ -281,7 +281,7 @@ def render_spec(spec: SpecDocument) -> str:
 def render_diagram(diagram: Any) -> str:
     fence_lang = "mermaid" if diagram.format == "mermaid" else "text"
     caption = diagram.caption.strip() or "Diagram"
-    return f"# {caption}\n\n" f"```{fence_lang}\n{diagram.source}\n```\n"
+    return f"# {caption}\n\n```{fence_lang}\n{diagram.source}\n```\n"
 
 
 def render_assumptions(items: Sequence[AssumptionResolution]) -> str:
@@ -300,8 +300,7 @@ def render_assumptions(items: Sequence[AssumptionResolution]) -> str:
         response_cell = (a.user_response or "").replace("|", "\\|").replace("\n", " ")
         statement_cell = a.statement.replace("|", "\\|").replace("\n", " ")
         out.append(
-            f"| `{a.slot_key}` | {a.kind} | {a.status.value} | "
-            f"{statement_cell} | {response_cell} |"
+            f"| `{a.slot_key}` | {a.kind} | {a.status.value} | {statement_cell} | {response_cell} |"
         )
     if irrelevant:
         out.append("\n## Marked irrelevant\n")
@@ -330,7 +329,7 @@ def render_readme(
     final_summary = (final_iter.changes_summary if final_iter else "").strip()
     attachments_block = (
         "\n".join(
-            f"- `attachments/{a.filename}` &mdash; " f"`{a.content_type}`, {a.byte_size:,} bytes"
+            f"- `attachments/{a.filename}` &mdash; `{a.content_type}`, {a.byte_size:,} bytes"
             for a in attachments
         )
         or "(no attachments on the original feedback)"

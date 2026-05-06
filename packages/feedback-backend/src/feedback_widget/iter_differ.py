@@ -42,8 +42,7 @@ def enforce_no_destructive_removal(
     for op in diff:
         if isinstance(op, DiffOpRemove):
             raise IterDiffViolationError(
-                f"diff contains a 'remove' op on path {op.path!r} but "
-                "restructure_allowed is false"
+                f"diff contains a 'remove' op on path {op.path!r} but restructure_allowed is false"
             )
 
 

@@ -78,7 +78,7 @@ def test_unfenced_ascii_diagram_is_wrapped_in_text_fence() -> None:
 
 
 def test_already_fenced_diagram_is_left_alone() -> None:
-    md = "# Diagram\n\n" "```mermaid\n" "graph LR\n  A --> B\n" "```\n\n" "# Spec\nsummary\n"
+    md = "# Diagram\n\n```mermaid\ngraph LR\n  A --> B\n```\n\n# Spec\nsummary\n"
     payload = _baseline_with_md(md)
     out = parse_iteration_output(json.dumps(payload), restructure_allowed=False)
     # The wrapper must not double-wrap.

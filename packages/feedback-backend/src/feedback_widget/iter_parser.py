@@ -131,7 +131,7 @@ def _apply_business_rules(
     for story in output.user_stories:
         if story.persona_id not in persona_ids:
             errors.append(
-                f"user story {story.id!r} references unknown persona " f"{story.persona_id!r}"
+                f"user story {story.id!r} references unknown persona {story.persona_id!r}"
             )
         stories_by_persona[story.persona_id] = stories_by_persona.get(story.persona_id, 0) + 1
     for pid, count in stories_by_persona.items():

@@ -192,7 +192,7 @@ def register_feedback_iter_router(
     router = build_iter_router(deps=deps, settings=cfg, service=service)
     app.include_router(router, prefix=prefix)
     logger.info(
-        "feedback_widget: iter router mounted at %s/iterate " "(provider=%s, model=%s)",
+        "feedback_widget: iter router mounted at %s/iterate (provider=%s, model=%s)",
         prefix,
         cfg.ITER_PROVIDER,
         cfg.ITER_GEMINI_MODEL or cfg.ITER_CLAUDE_MODEL or cfg.ITER_OPENAI_MODEL or "(unset)",
