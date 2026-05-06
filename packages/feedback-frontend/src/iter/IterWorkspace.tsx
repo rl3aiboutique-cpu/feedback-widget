@@ -569,18 +569,72 @@ const _SECTION_SKELETONS: Array<{
   { key: "diagram", heading: "Diagram", hint: "Flow diagram" },
 ];
 
+// Playful rotating messages so the user can tell the AI is alive
+// during the 90-240s Gemma generation. Cycled every ~3 seconds.
+const _THINKING_MESSAGES: readonly string[] = [
+  "Reading your feedback…",
+  "Reading the attached files…",
+  "Looking at the technical metadata…",
+  "Imagining who'd use this…",
+  "Drafting personas…",
+  "Thinking through edge cases…",
+  "Naming things (the hard part)…",
+  "Writing user stories…",
+  "Sketching Gherkin scenarios…",
+  "Outlining the spec…",
+  "Sketching the diagram…",
+  "Re-reading my own draft…",
+  "Counting hidden assumptions…",
+  "Looking for the bits I'd otherwise hand-wave past…",
+  "Asking myself: what would surprise this user?",
+  "One last pass for consistency…",
+];
+
+function _useRotatingMessage(active: boolean): string {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    setIdx(0);
+    const id = window.setInterval(() => {
+      setIdx((cur) => (cur + 1) % _THINKING_MESSAGES.length);
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return _THINKING_MESSAGES[idx] ?? _THINKING_MESSAGES[0]!;
+}
+
+function ThinkingDots() {
+  return (
+    <span aria-hidden="true" className="inline-flex items-end gap-1">
+      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" />
+      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" />
+      <span className="inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" />
+    </span>
+  );
+}
+
 function StreamingSkeleton({
   activeSection,
 }: {
   activeSection: "personas" | "user_stories" | "spec" | "diagram" | "assumptions" | null;
 }) {
+  const message = _useRotatingMessage(true);
   return (
     <div className="flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm">
-      <p className="flex items-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        Drafting working document — typically 90&ndash;240s with Gemma. Sections light up as they
-        arrive.
-      </p>
+      <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
+        <p className="flex items-center gap-2 font-medium text-primary">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          AI is drafting your spec
+          <ThinkingDots />
+        </p>
+        <p className="mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity">
+          {message}
+        </p>
+        <p className="mt-2 text-[11px] text-muted-foreground/80">
+          Typical generation takes 90&ndash;240s on Gemma's free tier. Sections below turn green as
+          they arrive.
+        </p>
+      </div>
       {_SECTION_SKELETONS.map((s, idx) => {
         const isActive = activeSection === s.key;
         const isPast =

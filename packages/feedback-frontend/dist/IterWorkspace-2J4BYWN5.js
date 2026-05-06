@@ -591,13 +591,56 @@ var _SECTION_SKELETONS = [
   { key: "spec", heading: "Spec", hint: "How does it work?" },
   { key: "diagram", heading: "Diagram", hint: "Flow diagram" }
 ];
+var _THINKING_MESSAGES = [
+  "Reading your feedback\u2026",
+  "Reading the attached files\u2026",
+  "Looking at the technical metadata\u2026",
+  "Imagining who'd use this\u2026",
+  "Drafting personas\u2026",
+  "Thinking through edge cases\u2026",
+  "Naming things (the hard part)\u2026",
+  "Writing user stories\u2026",
+  "Sketching Gherkin scenarios\u2026",
+  "Outlining the spec\u2026",
+  "Sketching the diagram\u2026",
+  "Re-reading my own draft\u2026",
+  "Counting hidden assumptions\u2026",
+  "Looking for the bits I'd otherwise hand-wave past\u2026",
+  "Asking myself: what would surprise this user?",
+  "One last pass for consistency\u2026"
+];
+function _useRotatingMessage(active) {
+  const [idx, setIdx] = useState3(0);
+  useEffect(() => {
+    if (!active) return;
+    setIdx(0);
+    const id = window.setInterval(() => {
+      setIdx((cur) => (cur + 1) % _THINKING_MESSAGES.length);
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [active]);
+  return _THINKING_MESSAGES[idx] ?? _THINKING_MESSAGES[0];
+}
+function ThinkingDots() {
+  return /* @__PURE__ */ jsxs2("span", { "aria-hidden": "true", className: "inline-flex items-end gap-1", children: [
+    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" }),
+    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" }),
+    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" })
+  ] });
+}
 function StreamingSkeleton({
   activeSection
 }) {
+  const message = _useRotatingMessage(true);
   return /* @__PURE__ */ jsxs2("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
-    /* @__PURE__ */ jsxs2("p", { className: "flex items-center gap-2 text-muted-foreground", children: [
-      /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin text-primary" }),
-      "Drafting working document \u2014 typically 90\u2013240s with Gemma. Sections light up as they arrive."
+    /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-4", children: [
+      /* @__PURE__ */ jsxs2("p", { className: "flex items-center gap-2 font-medium text-primary", children: [
+        /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin" }),
+        "AI is drafting your spec",
+        /* @__PURE__ */ jsx2(ThinkingDots, {})
+      ] }),
+      /* @__PURE__ */ jsx2("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
+      /* @__PURE__ */ jsx2("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: "Typical generation takes 90\u2013240s on Gemma's free tier. Sections below turn green as they arrive." })
     ] }),
     _SECTION_SKELETONS.map((s, idx) => {
       const isActive = activeSection === s.key;
@@ -724,4 +767,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-T4D2UGZM.js.map
+//# sourceMappingURL=IterWorkspace-2J4BYWN5.js.map

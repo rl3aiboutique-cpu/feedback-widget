@@ -15,7 +15,7 @@ import {
   SheetTitle,
   captureElementScreenshot,
   capturePageScreenshot
-} from "./chunk-CF4IQYL3.js";
+} from "./chunk-JXKSO5HR.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -873,4 +873,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-JEDR4VYV.js.map
+//# sourceMappingURL=FeedbackPanel-FHX2LI4K.js.map
