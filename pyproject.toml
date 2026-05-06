@@ -38,7 +38,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 # Test fixtures often take args for their side effects; ignore unused-arg.
-"packages/feedback-backend/tests/**/*.py" = ["ARG001", "RUF043"]
+"packages/feedback-backend/tests/**/*.py" = ["ARG001"]
 # Alembic env.py callback signature is fixed by the Alembic API.
 "packages/feedback-backend/src/feedback_widget/alembic/env.py" = ["ARG001"]
 # router.py keeps `settings` arg for API parity even when unused inside.
@@ -72,6 +72,24 @@ module = [
     "feedback_widget.service",
     "feedback_widget.router",
     "feedback_widget.adapters.*",
+    # Iterate-with-AI module — same SQLModel-driven `.where(Col == x)`
+    # idiom as the original service/router, plus optional-extra LLM
+    # SDKs that may not be installed at type-check time.
+    "feedback_widget.iter_service",
+    "feedback_widget.iter_service_versions",
+    "feedback_widget.iter_router",
+    "feedback_widget.iter_rate_limit",
+    "feedback_widget.iter_packager",
+    "feedback_widget.iter_sse",
+    "feedback_widget.iter_llm.*",
 ]
 warn_unused_ignores = false
-disable_error_code = ["attr-defined", "union-attr", "arg-type", "operator", "no-any-return"]
+disable_error_code = [
+    "attr-defined",
+    "union-attr",
+    "arg-type",
+    "operator",
+    "no-any-return",
+    "import-not-found",
+    "call-overload",
+]

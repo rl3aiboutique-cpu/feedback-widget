@@ -189,6 +189,99 @@ interface FeedbackStatusUpdate {
     status: FeedbackStatus;
     triage_note?: string | null;
 }
+type IterSessionStatus = "draft" | "iterating" | "finalized" | "abandoned";
+type IterAssumptionKind = "technical" | "business" | "ux" | "scope";
+type IterAssumptionStatus = "open" | "confirmed" | "corrected" | "irrelevant";
+interface IterSessionRead {
+    id: string;
+    feedback_id: string;
+    created_by_user_id: string;
+    status: IterSessionStatus;
+    model_id: string;
+    model_provider: string;
+    language: string;
+    current_iteration_id: string | null;
+    final_package_id: string | null;
+    created_at: string;
+    updated_at: string;
+    finalized_at: string | null;
+    /** Model id of the most recent successful LLM call. May differ
+     * from ``model_id`` if the provider's fallback chain walked to
+     * a different model. Null until at least one call has succeeded. */
+    last_call_model_id?: string | null;
+    /** Primary model id from the *currently configured* fallback
+     * chain — what the next iteration would attempt first. Tracks
+     * env changes live, so when the host swaps from Gemma to Flash
+     * Lite the workspace header reflects it without a restart. */
+    current_primary_model_id?: string | null;
+}
+type IterDiffOp = {
+    op: "add";
+    path: string;
+    value: unknown;
+    note?: string | null;
+} | {
+    op: "modify";
+    path: string;
+    before: unknown;
+    after: unknown;
+    note?: string | null;
+} | {
+    op: "remove";
+    path: string;
+    before: unknown;
+    note: string;
+} | {
+    op: "mark_obsolete";
+    path: string;
+    reason: string;
+};
+interface IterVersionRead {
+    id: string;
+    session_id: string;
+    version_number: number;
+    parent_version_id: string | null;
+    user_message: string;
+    restructure_allowed: boolean;
+    output_markdown: string;
+    diff_json: IterDiffOp[];
+    changes_summary: string;
+    created_at: string;
+}
+interface IterAssumptionRead {
+    id: string;
+    version_id: string;
+    slot_key: string;
+    kind: IterAssumptionKind;
+    statement: string;
+    rationale: string;
+    confidence: number;
+    status: IterAssumptionStatus;
+    user_response: string | null;
+    resolved_at: string | null;
+    resolved_by_user_id: string | null;
+    created_at: string;
+}
+interface IterPackageRead {
+    id: string;
+    session_id: string;
+    final_version_id: string;
+    minio_zip_key: string;
+    minio_folder_prefix: string;
+    byte_size_zip: number;
+    created_at: string;
+    presigned_zip_url: string | null;
+}
+interface IterStartRequest {
+    feedback_id: string;
+}
+interface IterAssumptionResolveRequest {
+    status: "confirmed" | "corrected" | "irrelevant";
+    user_response?: string | null;
+}
+interface IterVersionMarkdownEditRequest {
+    output_markdown: string;
+}
 
 /**
  * Default + host-extensible string redactors.
@@ -323,4 +416,52 @@ declare function useFeedbackAdapter(): FeedbackAdapter;
 declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
-export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+/**
+ * Iterate-with-AI workspace.
+ *
+ * Three-column layout on desktop, stacked on mobile. Hosts mount it
+ * via `<IterWorkspace.lazy />` and own the route URL. The component
+ * reads the `sessionId` it operates on from props.
+ *
+ * Streaming is driven by `useIterRunStream`. Persisted state
+ * (versions, assumptions, package) comes from TanStack Query. The
+ * component dynamically imports markdown-it on first render so its
+ * weight stays out of the always-loaded widget bundle.
+ */
+interface IterWorkspaceProps {
+    sessionId: string;
+    /** Called when the user clicks the close / back button. */
+    onClose?: () => void;
+}
+
+declare function IterWorkspaceLazy(props: IterWorkspaceProps): react_jsx_runtime.JSX.Element;
+
+/**
+ * HTTP + SSE client for the Iterate-with-AI module.
+ *
+ * Mirrors the patterns in ../adapter.ts (CSRF + optional bearer +
+ * apiBaseUrl/apiPathPrefix) but stays scoped to iter endpoints so
+ * the always-loaded bundle doesn't pull in markdown rendering or
+ * SSE consumer code unless the user opens the workspace.
+ */
+
+declare class IterApiError extends Error {
+    readonly status: number;
+    readonly path: string;
+    readonly detail: string;
+    readonly retryAfter: string | null;
+    constructor(status: number, path: string, detail: string, retryAfter: string | null);
+}
+declare function newIdempotencyKey(): string;
+declare function startIterSession(bindings: FeedbackHostBindings, body: IterStartRequest): Promise<IterSessionRead>;
+declare function getIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
+declare function listIterSessionsForFeedback(bindings: FeedbackHostBindings, feedbackId: string): Promise<IterSessionRead[]>;
+declare function abandonIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
+declare function listIterVersions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterVersionRead[]>;
+declare function editIterVersionMarkdown(bindings: FeedbackHostBindings, sessionId: string, versionId: string, body: IterVersionMarkdownEditRequest): Promise<IterVersionRead>;
+declare function listIterAssumptions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterAssumptionRead[]>;
+declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptionId: string, body: IterAssumptionResolveRequest): Promise<IterAssumptionRead>;
+declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
+declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
+
+export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

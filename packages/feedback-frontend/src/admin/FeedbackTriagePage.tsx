@@ -11,10 +11,14 @@
  * imported directly here.
  */
 
-import { Download } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Download, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { useFeedbackBindings } from "../FeedbackProvider";
 import type { FeedbackAttachmentRead, FeedbackRead, FeedbackStatus, FeedbackType } from "../client";
+import { getIterPackage, listIterSessionsForFeedback } from "../client/iter";
+import type { IterSessionRead } from "../client/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -361,6 +365,8 @@ function DetailBody({
 
       <CommentThread feedbackId={data.id} />
 
+      <IterSessionsSection feedbackId={data.id} />
+
       <details className="text-xs">
         <summary className="cursor-pointer font-medium text-foreground">
           Technical metadata (redacted)
@@ -445,6 +451,145 @@ function DetailBody({
         </div>
       </section>
     </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────
+// AI iterations sub-section
+// ──────────────────────────────────────────────────────────────────
+
+function IterSessionsSection({ feedbackId }: { feedbackId: string }) {
+  const bindings = useFeedbackBindings();
+  const sessions = useQuery({
+    queryKey: ["iter-sessions-for-feedback", feedbackId],
+    queryFn: () => listIterSessionsForFeedback(bindings, feedbackId),
+  });
+
+  const items: IterSessionRead[] = sessions.data ?? [];
+  const hasAny = items.length > 0;
+
+  const openSession = (sid: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("iter", sid);
+    window.history.pushState({}, "", url.toString());
+    // Force the host route to re-evaluate ?iter — TanStack Router
+    // listens to popstate, not pushState, so dispatch a popstate so
+    // the workspace mounts without a full reload.
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const startNew = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("startIter", feedbackId);
+    window.history.pushState({}, "", url.toString());
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  return (
+    <section className="rounded-md border p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium flex items-center gap-1.5">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          AI iterations
+        </h3>
+        <Button type="button" size="sm" variant="outline" onClick={startNew}>
+          Start new iteration
+        </Button>
+      </div>
+
+      {sessions.isLoading && <p className="text-xs text-muted-foreground">Loading…</p>}
+      {sessions.isError && (
+        <p className="text-xs text-destructive">
+          Could not load AI iterations: {String(sessions.error)}
+        </p>
+      )}
+      {!sessions.isLoading && !hasAny && (
+        <p className="text-xs text-muted-foreground">No AI iterations yet on this feedback.</p>
+      )}
+
+      {hasAny && (
+        <ul className="space-y-1.5">
+          {items.map((s) => (
+            <IterSessionRow key={s.id} session={s} onOpen={() => openSession(s.id)} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function IterSessionRow({
+  session,
+  onOpen,
+}: {
+  session: IterSessionRead;
+  onOpen: () => void;
+}) {
+  const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
+  const [downloading, setDownloading] = useState(false);
+
+  const onDownload = async () => {
+    try {
+      setDownloading(true);
+      const pkg = await getIterPackage(bindings, session.id);
+      if (!pkg.presigned_zip_url) {
+        adapter.toast.error("Package URL is not available yet");
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = pkg.presigned_zip_url;
+      link.download = `iter-${session.id.slice(0, 8)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      adapter.toast.success("Download started");
+    } catch (err) {
+      adapter.toast.error(`Could not download: ${String(err)}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const isFinal = session.status === "finalized";
+  return (
+    <li className="flex items-center justify-between gap-2 rounded-md border p-2 text-xs">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] text-muted-foreground">
+            {session.id.slice(0, 8)}
+          </span>
+          <Badge
+            variant={
+              isFinal ? "default" : session.status === "abandoned" ? "destructive" : "secondary"
+            }
+          >
+            {session.status}
+          </Badge>
+        </div>
+        <div className="text-muted-foreground">
+          {session.created_at?.slice(0, 16) ?? ""}
+          {session.finalized_at ? ` → finalized ${session.finalized_at.slice(0, 16)}` : ""}
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-1.5">
+        <Button type="button" size="sm" variant="outline" onClick={onOpen}>
+          Open
+        </Button>
+        {isFinal && (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onDownload}
+            disabled={downloading}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            {downloading ? "…" : "Package .zip"}
+          </Button>
+        )}
+      </div>
+    </li>
   );
 }
 

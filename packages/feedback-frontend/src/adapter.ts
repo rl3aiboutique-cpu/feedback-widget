@@ -457,7 +457,9 @@ async function _postJson<T>(
   path: string,
   body: unknown,
 ): Promise<T> {
-  const headers = await _buildHeaders(bindings, { "Content-Type": "application/json" });
+  const headers = await _buildHeaders(bindings, {
+    "Content-Type": "application/json",
+  });
   const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}${path}`;
   const resp = await fetch(url, {
     method: "POST",

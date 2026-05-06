@@ -91,6 +91,24 @@ class StorageBackend:
         except ClientError:
             logger.exception("storage delete failed for key=%s", key)
 
+    def copy_object(
+        self,
+        *,
+        source_key: str,
+        dest_key: str,
+        bucket: str | None = None,
+        source_bucket: str | None = None,
+    ) -> None:
+        """Server-side copy ``source_key`` to ``dest_key`` (same backend)."""
+        client = self._client()
+        src = source_bucket or self._resolve_bucket(bucket)
+        dst = self._resolve_bucket(bucket)
+        client.copy_object(  # type: ignore[attr-defined]
+            Bucket=dst,
+            Key=dest_key,
+            CopySource={"Bucket": src, "Key": source_key},
+        )
+
     def presigned_url(
         self,
         *,

@@ -26,12 +26,15 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
-        args: ["--ignore-words-list=crate,fo,nd"]
+        args:
+          - "--ignore-words-list=crate,fo,nd,hace,diagrama,covert,re-declares"
         exclude: |
           (?x)^(
             .*\.lock|
             .*\.svg|
+            .*\.map|
             packages/feedback-frontend/src/client/.*|
+            packages/feedback-frontend/dist/.*|
             apps/sandbox-host/.*/dist/.*
           )$
 

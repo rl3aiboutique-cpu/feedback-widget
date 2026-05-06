@@ -17,6 +17,7 @@
  *      error.
  */
 
+import { Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import type { LockedElement } from "./FeedbackButton";
@@ -68,8 +69,14 @@ export function FeedbackPanel({
   }));
   const [mode, setMode] = useState<CaptureMode>(locked ? "element" : "page");
   const [submitting, setSubmitting] = useState(false);
+  // True when the user clicked "Send and Iterate" (vs. plain "Send").
+  // Drives the post-submit auto-iter handoff.
+  const [submittingWithIter, setSubmittingWithIter] = useState(false);
   const [hasOpenedOnce, setHasOpenedOnce] = useState(open);
   const [tab, setTab] = useState<"submit" | "mine">("submit");
+  // After a successful submit we hand the new ticket id to the
+  // MyTicketsPanel so it can auto-launch the iter workspace.
+  const [autoIterId, setAutoIterId] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) setHasOpenedOnce(true);
@@ -156,7 +163,8 @@ export function FeedbackPanel({
     }
   };
 
-  const onSubmit = async (): Promise<void> => {
+  const onSubmit = async (opts?: { thenIterate?: boolean }): Promise<void> => {
+    const thenIterate = opts?.thenIterate ?? false;
     const v = validate();
     if (!v.ok) {
       const reason = v.reason;
@@ -181,6 +189,7 @@ export function FeedbackPanel({
     }
     setFieldErrors({});
     setSubmitting(true);
+    setSubmittingWithIter(thenIterate);
     try {
       const shotPromise = (async () => {
         await new Promise((resolve) => requestAnimationFrame(resolve));
@@ -236,7 +245,17 @@ export function FeedbackPanel({
         url: link,
         actionLabel: t("feedback.toast_success_link"),
       });
-      onOpenChange(false);
+      setValues({ ...EMPTY_FORM });
+      setTab("mine");
+      if (thenIterate) {
+        // Auto-launch the iter workspace immediately. MyTicketsPanel
+        // expands the new row and opens IterWorkspace as overlay.
+        setAutoIterId(created.id);
+      } else {
+        // Just expand the row in the list so the user can see the
+        // "Iterate" button; don't auto-launch.
+        setAutoIterId(null);
+      }
     } catch (err) {
       if (err instanceof SubmitFeedbackError && err.status === 429) {
         const seconds = err.retryAfter ?? "?";
@@ -246,6 +265,7 @@ export function FeedbackPanel({
       }
     } finally {
       setSubmitting(false);
+      setSubmittingWithIter(false);
     }
   };
 
@@ -300,7 +320,7 @@ export function FeedbackPanel({
             </button>
           </div>
 
-          {tab === "mine" ? <MyTicketsPanel /> : null}
+          {tab === "mine" ? <MyTicketsPanel autoOpenIterFor={autoIterId} /> : null}
 
           {tab === "submit" ? (
             <>
@@ -378,14 +398,29 @@ export function FeedbackPanel({
             {t("feedback.cancel")}
           </Button>
           {tab === "submit" ? (
-            <Button
-              type="button"
-              onClick={onSubmit}
-              disabled={submitting || !values.type}
-              data-feedback-id="feedback.submit"
-            >
-              {submitting ? t("feedback.submitting") : t("feedback.submit")}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onSubmit({ thenIterate: false })}
+                disabled={submitting || !values.type}
+                data-feedback-id="feedback.submit"
+              >
+                {submitting && !submittingWithIter
+                  ? t("feedback.submitting")
+                  : t("feedback.submit")}
+              </Button>
+              <Button
+                type="button"
+                onClick={() => onSubmit({ thenIterate: true })}
+                disabled={submitting || !values.type}
+                data-feedback-id="feedback.submit-and-iterate"
+                title="Submit the feedback and immediately open the Iterate-with-AI workspace"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {submitting && submittingWithIter ? "Submitting…" : "Send and Iterate"}
+              </Button>
+            </>
           ) : null}
         </SheetFooter>
       </SheetContent>

@@ -1,9 +1,8 @@
 import {
   Badge,
-  Button,
   CommentThread,
-  FeedbackProvider,
   Input,
+  IterWorkspaceLazy,
   Rl3Mark,
   Select,
   SelectContent,
@@ -15,20 +14,36 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  describeElement,
+  useMyPendingActionCount
+} from "./chunk-UWNGSMXG.js";
+import {
+  Button,
+  FeedbackProvider,
+  IterApiError,
   SubmitFeedbackError,
   Textarea,
+  abandonIterSession,
   cn,
   createAdapter,
-  describeElement,
+  editIterVersionMarkdown,
+  finalizeIterSession,
+  getIterPackage,
+  getIterSession,
+  listIterAssumptions,
+  listIterSessionsForFeedback,
+  listIterVersions,
+  newIdempotencyKey,
+  resolveIterAssumption,
+  startIterSession,
   useDeleteFeedbackMutation,
   useFeedbackAdapter,
   useFeedbackBindings,
   useFeedbackConfig,
   useFeedbackDetailQuery,
   useFeedbackListQuery,
-  useMyPendingActionCount,
   useUpdateFeedbackStatusMutation
-} from "./chunk-ZFZJOTGZ.js";
+} from "./chunk-RUMDEDKD.js";
 
 // src/version.ts
 var VERSION = "0.1.0";
@@ -44,7 +59,8 @@ function useCanTriageFeedback() {
 }
 
 // src/admin/FeedbackTriagePage.tsx
-import { Download } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Download, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 // src/ui/table.tsx
@@ -377,6 +393,7 @@ function DetailBody({
       )) })
     ] }) : null,
     /* @__PURE__ */ jsx2(CommentThread, { feedbackId: data.id }),
+    /* @__PURE__ */ jsx2(IterSessionsSection, { feedbackId: data.id }),
     /* @__PURE__ */ jsxs("details", { className: "text-xs", children: [
       /* @__PURE__ */ jsx2("summary", { className: "cursor-pointer font-medium text-foreground", children: "Technical metadata (redacted)" }),
       /* @__PURE__ */ jsx2("pre", { className: "whitespace-pre-wrap rounded-md bg-muted/50 p-3 border mt-2 max-h-96 overflow-auto", children: JSON.stringify(data.metadata_bundle, null, 2) })
@@ -457,6 +474,108 @@ function DetailBody({
           }
         )
       ] })
+    ] })
+  ] });
+}
+function IterSessionsSection({ feedbackId }) {
+  const bindings = useFeedbackBindings();
+  const sessions = useQuery({
+    queryKey: ["iter-sessions-for-feedback", feedbackId],
+    queryFn: () => listIterSessionsForFeedback(bindings, feedbackId)
+  });
+  const items = sessions.data ?? [];
+  const hasAny = items.length > 0;
+  const openSession = (sid) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("iter", sid);
+    window.history.pushState({}, "", url.toString());
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+  const startNew = () => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("startIter", feedbackId);
+    window.history.pushState({}, "", url.toString());
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+  return /* @__PURE__ */ jsxs("section", { className: "rounded-md border p-3 space-y-3", children: [
+    /* @__PURE__ */ jsxs("div", { className: "flex items-center justify-between gap-2", children: [
+      /* @__PURE__ */ jsxs("h3", { className: "text-sm font-medium flex items-center gap-1.5", children: [
+        /* @__PURE__ */ jsx2(Sparkles, { className: "h-3.5 w-3.5 text-primary" }),
+        "AI iterations"
+      ] }),
+      /* @__PURE__ */ jsx2(Button, { type: "button", size: "sm", variant: "outline", onClick: startNew, children: "Start new iteration" })
+    ] }),
+    sessions.isLoading && /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "Loading\u2026" }),
+    sessions.isError && /* @__PURE__ */ jsxs("p", { className: "text-xs text-destructive", children: [
+      "Could not load AI iterations: ",
+      String(sessions.error)
+    ] }),
+    !sessions.isLoading && !hasAny && /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "No AI iterations yet on this feedback." }),
+    hasAny && /* @__PURE__ */ jsx2("ul", { className: "space-y-1.5", children: items.map((s) => /* @__PURE__ */ jsx2(IterSessionRow, { session: s, onOpen: () => openSession(s.id) }, s.id)) })
+  ] });
+}
+function IterSessionRow({
+  session,
+  onOpen
+}) {
+  const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
+  const [downloading, setDownloading] = useState(false);
+  const onDownload = async () => {
+    try {
+      setDownloading(true);
+      const pkg = await getIterPackage(bindings, session.id);
+      if (!pkg.presigned_zip_url) {
+        adapter.toast.error("Package URL is not available yet");
+        return;
+      }
+      const link = document.createElement("a");
+      link.href = pkg.presigned_zip_url;
+      link.download = `iter-${session.id.slice(0, 8)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      adapter.toast.success("Download started");
+    } catch (err) {
+      adapter.toast.error(`Could not download: ${String(err)}`);
+    } finally {
+      setDownloading(false);
+    }
+  };
+  const isFinal = session.status === "finalized";
+  return /* @__PURE__ */ jsxs("li", { className: "flex items-center justify-between gap-2 rounded-md border p-2 text-xs", children: [
+    /* @__PURE__ */ jsxs("div", { className: "min-w-0 flex-1", children: [
+      /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-1.5", children: [
+        /* @__PURE__ */ jsx2("span", { className: "font-mono text-[10px] text-muted-foreground", children: session.id.slice(0, 8) }),
+        /* @__PURE__ */ jsx2(
+          Badge,
+          {
+            variant: isFinal ? "default" : session.status === "abandoned" ? "destructive" : "secondary",
+            children: session.status
+          }
+        )
+      ] }),
+      /* @__PURE__ */ jsxs("div", { className: "text-muted-foreground", children: [
+        session.created_at?.slice(0, 16) ?? "",
+        session.finalized_at ? ` \u2192 finalized ${session.finalized_at.slice(0, 16)}` : ""
+      ] })
+    ] }),
+    /* @__PURE__ */ jsxs("div", { className: "flex shrink-0 gap-1.5", children: [
+      /* @__PURE__ */ jsx2(Button, { type: "button", size: "sm", variant: "outline", onClick: onOpen, children: "Open" }),
+      isFinal && /* @__PURE__ */ jsxs(
+        Button,
+        {
+          type: "button",
+          size: "sm",
+          variant: "outline",
+          onClick: onDownload,
+          disabled: downloading,
+          children: [
+            /* @__PURE__ */ jsx2(Download, { className: "mr-1 h-3.5 w-3.5" }),
+            downloading ? "\u2026" : "Package .zip"
+          ]
+        }
+      )
     ] })
   ] });
 }
@@ -618,7 +737,7 @@ function ElementSelector({ onLock, onCancel }) {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-YBO5HVE2.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-IBZUCBGH.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -706,9 +825,22 @@ export {
   FeedbackButton_default as FeedbackButtonDefault,
   FeedbackProvider,
   FeedbackTriagePage,
+  IterApiError,
+  IterWorkspaceLazy as IterWorkspace,
   SubmitFeedbackError,
   VERSION,
+  abandonIterSession,
   createAdapter,
+  editIterVersionMarkdown,
+  finalizeIterSession,
+  getIterPackage,
+  getIterSession,
+  listIterAssumptions,
+  listIterSessionsForFeedback,
+  listIterVersions,
+  newIdempotencyKey,
+  resolveIterAssumption,
+  startIterSession,
   useCanTriageFeedback,
   useFeedbackAdapter,
   useFeedbackBindings,

@@ -58,4 +58,32 @@ export type {
   FeedbackStatus,
   FeedbackStatusUpdate,
   FeedbackType,
-} from "./client";
+  IterAssumptionRead,
+  IterAssumptionStatus,
+  IterPackageRead,
+  IterSessionRead,
+  IterSessionStatus,
+  IterVersionRead,
+} from "./client/types";
+
+// Iter workspace — lazy-loaded; the markdown-it dependency only
+// downloads when a host actually mounts this component.
+export { IterWorkspaceLazy as IterWorkspace } from "./iter/IterWorkspace.lazy";
+export type { IterWorkspaceProps } from "./iter/IterWorkspace";
+
+// Programmatic API for hosts that need to call iter endpoints
+// directly (e.g., to start a session from a custom button).
+export {
+  abandonIterSession,
+  editIterVersionMarkdown,
+  finalizeIterSession,
+  getIterPackage,
+  getIterSession,
+  IterApiError,
+  listIterAssumptions,
+  listIterSessionsForFeedback,
+  listIterVersions,
+  newIdempotencyKey,
+  resolveIterAssumption,
+  startIterSession,
+} from "./client/iter";

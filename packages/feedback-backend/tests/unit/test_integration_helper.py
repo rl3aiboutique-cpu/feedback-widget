@@ -50,7 +50,7 @@ def test_mount_helper_raises_if_neither_auth_nor_secret_provided(
     monkeypatch.setenv("FEEDBACK_DATABASE_URL", "postgresql+psycopg://x:y@127.0.0.1:1/none")
     app = FastAPI()
     # Eager DB connect would fail anyway, but the auth check fires first.
-    with pytest.raises(RuntimeError, match="auth=|secret_key="):
+    with pytest.raises(RuntimeError, match=r"auth=|secret_key="):
         mount_feedback_widget_for_async_host(app)
 
 

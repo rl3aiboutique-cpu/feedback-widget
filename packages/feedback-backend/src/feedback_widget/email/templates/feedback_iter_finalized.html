@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block body %}
+  <h2 style="margin:0 0 16px 0;font-size:18px;color:#111827;">
+    [Iterate-with-AI finalized] {{ feedback.title }}
+  </h2>
+
+  <p style="margin:0 0 16px 0;font-size:13px;color:#374151;">
+    A user has finalized an &ldquo;Iterate with AI&rdquo; session and the
+    package is ready for download.
+  </p>
+
+  <table role="presentation" width="100%" cellpadding="6" cellspacing="0"
+    style="border-collapse:collapse;font-size:13px;color:#374151;border:1px solid #e5e7eb;border-radius:6px;margin-bottom:16px;">
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;width:140px;">Submitter</td><td style="border-bottom:1px solid #f3f4f6;">{{ submitter_email }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Tenant</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.tenant_id }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Feedback id</td><td style="border-bottom:1px solid #f3f4f6;">{{ feedback.id }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">Versions</td><td style="border-bottom:1px solid #f3f4f6;">{{ version_count }}</td></tr>
+    <tr><td style="border-bottom:1px solid #f3f4f6;color:#6b7280;">LLM calls</td><td style="border-bottom:1px solid #f3f4f6;">{{ call_count }}</td></tr>
+    <tr><td style="color:#6b7280;">Model</td><td>{{ model_id }}</td></tr>
+  </table>
+
+  <p style="margin:16px 0;font-size:13px;">
+    <a href="{{ presigned_zip_url }}"
+      style="display:inline-block;background:#1E40AF;color:#ffffff;text-decoration:none;padding:8px 14px;border-radius:6px;font-weight:600;">
+      Download package ZIP
+    </a>
+  </p>
+
+  <p style="margin:0 0 16px 0;font-size:12px;color:#6b7280;word-break:break-all;">
+    Direct link: <a href="{{ presigned_zip_url }}" style="color:#1E40AF;">{{ presigned_zip_url }}</a>
+  </p>
+
+  <p style="margin:16px 0 0 0;font-size:13px;color:#374151;">
+    The package contains a folder of role-tagged Markdown files plus
+    the original feedback's attachments. Hand the ZIP (or the folder)
+    to <strong>{{ consumer_model }}</strong> for downstream implementation.
+  </p>
+
+  {% if deep_link %}
+    <p style="margin:20px 0 0 0;font-size:13px;">
+      <a href="{{ deep_link }}" style="color:#1E40AF;text-decoration:underline;">
+        Open the iter session in {{ brand_name }} admin
+      </a>
+    </p>
+  {% endif %}
+{% endblock %}
