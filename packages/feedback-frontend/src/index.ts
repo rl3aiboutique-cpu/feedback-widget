@@ -21,49 +21,49 @@ export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback";
 
 export { FeedbackTriagePage } from "./admin/FeedbackTriagePage";
 export {
-  default as FeedbackButtonDefault,
-  FeedbackButton,
+	default as FeedbackButtonDefault,
+	FeedbackButton,
 } from "./FeedbackButton";
 
 export {
-  type FeedbackConfig,
-  type FeedbackPosition,
-  FeedbackProvider,
-  useFeedbackAdapter,
-  useFeedbackBindings,
-  useFeedbackConfig,
+	type FeedbackConfig,
+	type FeedbackPosition,
+	FeedbackProvider,
+	useFeedbackAdapter,
+	useFeedbackBindings,
+	useFeedbackConfig,
 } from "./FeedbackProvider";
 
 export {
-  createAdapter,
-  type FeedbackAdapter,
-  type FeedbackHostBindings,
-  SubmitFeedbackError,
+	createAdapter,
+	type FeedbackAdapter,
+	type FeedbackHostBindings,
+	SubmitFeedbackError,
 } from "./adapter";
 
 export type {
-  CurrentUserSnapshot,
-  FeedbackReadShape,
-  FeedbackStatusKey,
-  FeedbackTypeKey,
-  ToastApi,
-  ToastOptions,
-  Translator,
+	CurrentUserSnapshot,
+	FeedbackReadShape,
+	FeedbackStatusKey,
+	FeedbackTypeKey,
+	ToastApi,
+	ToastOptions,
+	Translator,
 } from "./types";
 
 export type {
-  FeedbackAttachmentRead,
-  FeedbackListResponse,
-  FeedbackRead,
-  FeedbackStatus,
-  FeedbackStatusUpdate,
-  FeedbackType,
-  IterAssumptionRead,
-  IterAssumptionStatus,
-  IterPackageRead,
-  IterSessionRead,
-  IterSessionStatus,
-  IterVersionRead,
+	FeedbackAttachmentRead,
+	FeedbackListResponse,
+	FeedbackRead,
+	FeedbackStatus,
+	FeedbackStatusUpdate,
+	FeedbackType,
+	IterAssumptionRead,
+	IterAssumptionStatus,
+	IterPackageRead,
+	IterSessionRead,
+	IterSessionStatus,
+	IterVersionRead,
 } from "./client/types";
 
 // Iter workspace — lazy-loaded; the markdown-it dependency only
@@ -74,16 +74,16 @@ export type { IterWorkspaceProps } from "./iter/IterWorkspace";
 // Programmatic API for hosts that need to call iter endpoints
 // directly (e.g., to start a session from a custom button).
 export {
-  abandonIterSession,
-  editIterVersionMarkdown,
-  finalizeIterSession,
-  getIterPackage,
-  getIterSession,
-  IterApiError,
-  listIterAssumptions,
-  listIterSessionsForFeedback,
-  listIterVersions,
-  newIdempotencyKey,
-  resolveIterAssumption,
-  startIterSession,
+	abandonIterSession,
+	editIterVersionMarkdown,
+	finalizeIterSession,
+	getIterPackage,
+	getIterSession,
+	IterApiError,
+	listIterAssumptions,
+	listIterSessionsForFeedback,
+	listIterVersions,
+	newIdempotencyKey,
+	resolveIterAssumption,
+	startIterSession,
 } from "./client/iter";
