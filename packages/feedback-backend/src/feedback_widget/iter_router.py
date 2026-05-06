@@ -71,6 +71,7 @@ from feedback_widget.iter_service import (
     IterNotFoundError,
     IterServiceError,
     IterStateError,
+    IterTurnBudgetExhaustedError,
 )
 from feedback_widget.iter_sse import format_sse
 from feedback_widget.models import Feedback
@@ -102,6 +103,10 @@ def _to_session_read(
     *,
     last_call_model_id: str | None = None,
     current_primary_model_id: str | None = None,
+    remaining_turns: int = 0,
+    max_turns: int = 0,
+    is_complete: bool = False,
+    completion_reason: str | None = None,
 ) -> IterSessionRead:
     return IterSessionRead(
         id=s.id,
@@ -118,6 +123,51 @@ def _to_session_read(
         finalized_at=s.finalized_at,
         last_call_model_id=last_call_model_id,
         current_primary_model_id=current_primary_model_id,
+        remaining_turns=remaining_turns,
+        max_turns=max_turns,
+        is_complete=is_complete,
+        completion_reason=completion_reason,
+    )
+
+
+def _project_session(
+    db: Session,
+    s: FeedbackIterSession,
+    *,
+    service: "object",  # IterService
+    settings: FeedbackSettings,
+) -> IterSessionRead:
+    """Resolve every wire-shaped field in one place.
+
+    The router's read endpoints used to compute model-id and
+    remaining-turns inline; consolidating here keeps the response
+    consistent across ``start_session`` / ``get_session`` /
+    ``abandon_session`` / ``list_sessions_for_feedback`` and gives
+    the frontend a single source of truth for the convergence UI.
+    """
+    from feedback_widget.iter_service import IterService
+
+    assert isinstance(service, IterService)
+    last_call = service.get_last_call_model_id(db, session_id=s.id)
+    primary = service.get_current_primary_model_id()
+    used = service.count_session_turns(db, s.id)
+    max_turns = settings.ITER_MAX_TURNS
+    remaining = max(0, max_turns - used)
+    is_complete = False
+    completion_reason: str | None = None
+    if s.current_iteration_id is not None:
+        latest = db.get(FeedbackIterVersion, s.current_iteration_id)
+        if latest is not None:
+            is_complete = bool(getattr(latest, "is_complete", False))
+            completion_reason = latest.completion_reason or None
+    return _to_session_read(
+        s,
+        last_call_model_id=last_call,
+        current_primary_model_id=primary,
+        remaining_turns=remaining,
+        max_turns=max_turns,
+        is_complete=is_complete,
+        completion_reason=completion_reason,
     )
 
 
@@ -144,6 +194,8 @@ def _to_version_read(v: FeedbackIterVersion) -> IterVersionRead:
         output_markdown=rendered_md,
         diff_json=list(v.diff_json or []),
         changes_summary=summary,
+        is_complete=bool(getattr(v, "is_complete", False)),
+        completion_reason=v.completion_reason or None,
         created_at=v.created_at or datetime.now(UTC),
     )
 
@@ -161,6 +213,7 @@ def _to_assumption_read(a: FeedbackIterAssumption) -> IterAssumptionRead:
         user_response=a.user_response,
         resolved_at=a.resolved_at,
         resolved_by_user_id=a.resolved_by_user_id,
+        options=list(a.options) if a.options else None,
         created_at=a.created_at or datetime.now(UTC),
     )
 
@@ -206,6 +259,8 @@ def _service_error_to_http(exc: IterServiceError) -> HTTPException:
     if isinstance(exc, IterAccessDeniedError):
         return HTTPException(status.HTTP_403_FORBIDDEN, detail=str(exc))
     if isinstance(exc, IterAssumptionsOpenError):
+        return HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
+    if isinstance(exc, IterTurnBudgetExhaustedError):
         return HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
     if isinstance(exc, IterStateError):
         return HTTPException(status.HTTP_409_CONFLICT, detail=str(exc))
@@ -257,11 +312,7 @@ def build_iter_router(
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
-        return _to_session_read(
-            row,
-            last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
-            current_primary_model_id=service.get_current_primary_model_id(),
-        )
+        return _project_session(db, row, service=service, settings=settings)
 
     @router.get(
         "/iterate/sessions/{session_id}",
@@ -278,11 +329,7 @@ def build_iter_router(
                 session_id=session_id,
                 caller=_caller_from(user, deps),
             )
-            return _to_session_read(
-                row,
-                last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
-                current_primary_model_id=service.get_current_primary_model_id(),
-            )
+            return _project_session(db, row, service=service, settings=settings)
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
 
@@ -298,11 +345,7 @@ def build_iter_router(
                 session_id=session_id,
                 caller=_caller_from(user, deps),
             )
-            return _to_session_read(
-                row,
-                last_call_model_id=service.get_last_call_model_id(db, session_id=row.id),
-                current_primary_model_id=service.get_current_primary_model_id(),
-            )
+            return _project_session(db, row, service=service, settings=settings)
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
 
@@ -346,6 +389,11 @@ def build_iter_router(
                 yield _format_error_event(
                     "rate_limited", json.dumps(exc.body.model_dump(mode="json"))
                 )
+            except IterTurnBudgetExhaustedError as exc:
+                # Stable error code so the frontend can swap "Run
+                # iteration" for "Mark ready" / "Abandon" without
+                # string-matching the message.
+                yield _format_error_event("turn_budget_exhausted", str(exc))
             except IterServiceError as exc:
                 yield _format_error_event(
                     type(exc).__name__,
@@ -575,14 +623,7 @@ def build_iter_router(
             )
         except IterServiceError as exc:
             raise _service_error_to_http(exc) from exc
-        return [
-            _to_session_read(
-                r,
-                last_call_model_id=service.get_last_call_model_id(db, session_id=r.id),
-                current_primary_model_id=service.get_current_primary_model_id(),
-            )
-            for r in rows
-        ]
+        return [_project_session(db, r, service=service, settings=settings) for r in rows]
 
     @router.get(
         "/iterate/sessions/{session_id}/package",

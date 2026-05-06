@@ -7,6 +7,80 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-07
+
+Single-canvas UX rebuild + iter that converges. The Submit/Mine tab
+pattern is gone; the iter modal-over-Sheet is gone; Iterate-with-AI
+now runs inline in the expanded ticket card. The iter agent has a
+hard turn budget, an explicit `is_complete` signal, server-side
+jargon scrubbing, and multiple-choice phrasing — so the user is no
+longer trapped in a casino of open-ended questions written in
+developer dialect.
+
+### Added
+
+- **`Canvas.tsx`** — single scrolling surface with sticky `<Compose>`
+  at top and a vertical card feed below. Replaces the v0.3.x
+  `FeedbackPanel` Submit/Mine tab pattern.
+- **`Compose.tsx`** — extracted compose form (validation, screenshot,
+  submit pipeline). Lives sticky inside the canvas.
+- **`iter/InlineIterPane.tsx`** — replaces the fullscreen
+  `IterWorkspace` for the submitter flow. Same data hooks, but
+  rendered inline inside the expanded ticket card; surfaces a
+  one-question-at-a-time disclosure and the "Round N of M" /
+  "Mark ready" / "Abandon" controls.
+- **`iter_scrubber.py`** — server-side forbidden-word scan against
+  every parsed assumption. Quiet-rewrites via the host glossary
+  when possible; drops assumptions that are ≥ 50 % jargon. Audit
+  log persisted on `feedback_iter_call.scrub_log`.
+- **`register_feedback_iter_router(..., iter_glossary=...)`** —
+  hosts can pass a `{term: canonical_phrasing}` map that is
+  injected into the iter system prompt as a `<glossary>` block
+  AND used by the scrubber as a rewrite map.
+- **`FEEDBACK_ITER_MAX_TURNS=5`** + **`FEEDBACK_ITER_FORBIDDEN_WORDS`** —
+  new settings driving the convergence budget and the scrubber's
+  default word list.
+- **`is_complete` / `completion_reason`** on `IterationOutput`,
+  `FeedbackIterVersion`, and `IterSessionRead`. The model signals
+  when the spec is ready; the UI swaps "Run iteration" for
+  "Mark ready".
+- **`options[]`** on `Assumption` + `IterAssumptionRead` +
+  `FeedbackIterAssumption`. When set, `AssumptionCard` renders
+  radio buttons instead of an open Confirm/Correct.
+- **`Skip` action** on `AssumptionCard`. Reuses the existing
+  `irrelevant` enum value with a marker token in `user_response`
+  so we don't burn a destructive enum migration.
+- **Migration `0006_iter_scrub_completion`** — adds the new columns
+  on `feedback_iter_version`, `feedback_iter_assumption`, and
+  `feedback_iter_call`. Additive + nullable; downgrade reverses
+  cleanly.
+
+### Changed
+
+- **`FeedbackPanel.tsx`** stripped to a thin Sheet shell that mounts
+  the `<Canvas>`. Wider on `lg+` (`max-w-2xl xl:max-w-[560px]`) so
+  the inline iter pane has room.
+- **`MyTicketsPanel.tsx`** shrunk to a one-line shim that re-exports
+  `useMyPendingActionCount` (kept for `FeedbackButton` import
+  stability). All card-list logic moved into `Canvas`.
+- **`AssumptionCard.tsx`** renders multiple-choice radios when the
+  assumption ships with `options[]`; falls back to the legacy
+  Confirm/Correct/Mark irrelevant trio otherwise.
+- **`system_v1.py`** prompt extended with convergence rules
+  (`is_complete`/`completion_reason`), phrasing rules
+  (prefer 2-4 `options[]` for finite-answer ambiguities), and a
+  `<glossary>` block reference.
+- **`iter_router.py`** surfaces `remaining_turns` / `max_turns` /
+  `is_complete` / `completion_reason` on every session response;
+  emits a stable `turn_budget_exhausted` SSE error code when the
+  budget is gone, so the frontend can swap UI without string
+  matching the message.
+- **`iter_service.py`** runs the scrubber after parse and persists
+  the audit log. `IterService` now accepts a `glossary=` kwarg.
+- **`IterWorkspace.tsx`** kept as the wide 3-tab admin/deep-link view
+  (used by `/admin/feedback?iter=…` hosts); the widget itself uses
+  the new inline pane.
+
 ## [0.2.4] — 2026-04-30
 
 QA pass — fixes the silent-failure findings + type-contract gaps that

@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +159,7 @@ def register_feedback_iter_router(
     settings: FeedbackSettings | None = None,
     prefix: str = "/feedback",
     storage: StorageBackend | None = None,
+    iter_glossary: dict[str, str] | None = None,
 ) -> None:
     """Mount the Iterate-with-AI router on a FastAPI app.
 
@@ -173,6 +174,16 @@ def register_feedback_iter_router(
     Parameters mirror :func:`register_feedback_router` so wiring
     both into the same ``register_*`` block in the host is a
     one-line copy-paste.
+
+    Parameters
+    ----------
+    iter_glossary:
+        Optional ``{term: canonical_phrasing}`` map injected into the
+        iter system prompt as a ``<glossary>`` block. Lets the host
+        steer the model toward domain vocabulary (e.g. "lead" instead
+        of "user") and gives the iter scrubber a canonical-term map
+        to rewrite forbidden words into. ``None`` disables the
+        feature; the prompt still ships an empty ``<glossary>`` block.
     """
     from feedback_widget.deps import build_dependencies as _bd
     from feedback_widget.iter_router import build_iter_router
@@ -188,14 +199,17 @@ def register_feedback_iter_router(
 
     s3 = storage or get_storage_backend(cfg)
     deps = _bd(auth=auth, engine=engine, settings=cfg)
-    service = IterService(storage=s3, settings=cfg)
+    service = IterService(storage=s3, settings=cfg, glossary=iter_glossary)
     router = build_iter_router(deps=deps, settings=cfg, service=service)
     app.include_router(router, prefix=prefix)
     logger.info(
-        "feedback_widget: iter router mounted at %s/iterate (provider=%s, model=%s)",
+        "feedback_widget: iter router mounted at %s/iterate "
+        "(provider=%s, model=%s, max_turns=%d, glossary_terms=%d)",
         prefix,
         cfg.ITER_PROVIDER,
         cfg.ITER_GEMINI_MODEL or cfg.ITER_CLAUDE_MODEL or cfg.ITER_OPENAI_MODEL or "(unset)",
+        cfg.ITER_MAX_TURNS,
+        len(iter_glossary or {}),
     )
 
 

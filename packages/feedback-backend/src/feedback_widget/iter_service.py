@@ -35,6 +35,7 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlmodel import Session
@@ -88,6 +89,7 @@ from .iter_schemas import (
     SSEEventSection,
     SSEEventToken,
 )
+from .iter_scrubber import scrub_assumptions
 from .iter_sse import SectionDetector
 from .models import Feedback, FeedbackAttachment, FeedbackAttachmentKind
 from .settings import FeedbackSettings
@@ -153,6 +155,12 @@ class IterAssumptionsOpenError(IterServiceError):
     assumptions (spec §3.5)."""
 
 
+class IterTurnBudgetExhaustedError(IterServiceError):
+    """Run blocked because the session already used its full
+    ``ITER_MAX_TURNS`` budget. The UI should swap "Run iteration"
+    for "Mark ready" / "Abandon" once this fires."""
+
+
 # ────────────────────────────────────────────────────────────────────
 # Service entry point
 # ────────────────────────────────────────────────────────────────────
@@ -179,10 +187,16 @@ class IterService:
         storage: StorageBackend,
         settings: FeedbackSettings,
         rate_limiter: IterRateLimiter | None = None,
+        glossary: dict[str, str] | None = None,
     ) -> None:
         self._storage = storage
         self._settings = settings
         self._rate_limiter = rate_limiter or IterRateLimiter()
+        # Host-supplied domain glossary; injected into the user prompt
+        # so the model picks up canonical terms (e.g. "lead" not
+        # "user") and so the scrubber can rewrite forbidden words to
+        # the host's preferred phrasing. ``None`` ⇒ no glossary.
+        self._glossary = dict(glossary) if glossary else None
 
     @property
     def rate_limiter(self) -> IterRateLimiter:
@@ -245,6 +259,7 @@ class IterService:
         self._enforce_session_ownership(session, caller)
         self._check_session_runnable(session)
         self._check_no_open_assumptions(db, session)
+        self._check_turn_budget(db, session)
 
         # Idempotency replay.
         if idempotency_key:
@@ -274,6 +289,7 @@ class IterService:
             resolved_assumptions=resolved,
             user_iteration_message=user_message,
             restructure_allowed=restructure_allowed,
+            glossary=self._glossary,
         )
         system_prompt = SYSTEM_PROMPT_V1
         ph = prompt_sha256(system_prompt, user_prompt)
@@ -357,6 +373,17 @@ class IterService:
         # Belt-and-braces: enforce no-remove invariant after parse.
         enforce_no_destructive_removal(list(parsed.diff), restructure_allowed=restructure_allowed)
 
+        # Server-side jargon scrub. The prompt forbids these words but
+        # open-weight models leak them anyway; this is the safety net.
+        # Drops + rewrites are recorded on FeedbackIterCall.scrub_log.
+        scrub_result = scrub_assumptions(
+            list(parsed.assumptions),
+            forbidden_words=self._settings.forbidden_words_list,
+            glossary=self._glossary,
+        )
+        parsed = parsed.model_copy(update={"assumptions": scrub_result.kept})
+        scrub_log_dicts = [e.to_dict() for e in scrub_result.log]
+
         # Persist version + call + assumptions.
         version_id, version_number = await asyncio.to_thread(
             self._persist_success,
@@ -372,6 +399,7 @@ class IterService:
             idempotency_key=idempotency_key,
             latency_ms=latency_ms,
             provider=provider,
+            scrub_log=scrub_log_dicts,
         )
         yield SSEEventDone(version_id=version_id, version_number=version_number)
 
@@ -676,6 +704,7 @@ class IterService:
         idempotency_key: str | None,
         latency_ms: int,
         provider: LLMProvider,
+        scrub_log: list[dict[str, Any]] | None = None,
     ) -> tuple[uuid.UUID, int]:
         # Allocate the next version number atomically.
         latest = db.execute(
@@ -696,6 +725,8 @@ class IterService:
             output_json=parsed.model_dump(mode="json"),
             output_markdown=parsed.markdown_rendered,
             diff_json=[op.model_dump(mode="json") for op in parsed.diff],
+            is_complete=bool(parsed.is_complete),
+            completion_reason=parsed.completion_reason or None,
         )
         db.add(version)
         db.flush()  # need version.id for FK below
@@ -716,6 +747,7 @@ class IterService:
                 user_response=prior.user_response if prior is not None else None,
                 resolved_at=prior.resolved_at if prior is not None else None,
                 resolved_by_user_id=(prior.resolved_by_user_id if prior is not None else None),
+                options=list(asm.options) if asm.options else None,
             )
             db.add(row)
 
@@ -735,6 +767,7 @@ class IterService:
             error_message=None,
             prompt_sha256=prompt_hash,
             idempotency_key=idempotency_key,
+            scrub_log=scrub_log if scrub_log else None,
         )
         db.add(call)
 
@@ -1149,6 +1182,43 @@ class IterService:
             raise IterAssumptionsOpenError(
                 "resolve all assumptions on the latest version before iterating"
             )
+
+    def _check_turn_budget(
+        self,
+        db: Session,
+        session: FeedbackIterSession,
+    ) -> None:
+        """Reject the run if the session has used its full ITER_MAX_TURNS budget.
+
+        Counts persisted versions — one per successful iteration. The
+        cap exists to force convergence; once exhausted, the UI swaps
+        "Run iteration" for "Mark ready" / "Abandon".
+        """
+        max_turns = self._settings.ITER_MAX_TURNS
+        if max_turns <= 0:
+            return  # disabled
+        used = self.count_session_turns(db, session.id)
+        if used >= max_turns:
+            raise IterTurnBudgetExhaustedError(
+                f"session has used its {max_turns}-turn budget; finalize or abandon"
+            )
+
+    @staticmethod
+    def count_session_turns(db: Session, session_id: uuid.UUID) -> int:
+        """Number of persisted versions on the session (1 per successful turn).
+
+        Public so the router can compute ``remaining_turns`` without
+        leaking the count query to the wire layer.
+        """
+        from sqlalchemy import func
+
+        return int(
+            db.execute(
+                select(func.count())
+                .select_from(FeedbackIterVersion)
+                .where(FeedbackIterVersion.session_id == session_id)
+            ).scalar_one()
+        )
 
     # ── Misc ────────────────────────────────────────────────────────
 

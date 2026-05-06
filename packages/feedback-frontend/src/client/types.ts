@@ -129,6 +129,16 @@ export interface IterSessionRead {
    * env changes live, so when the host swaps from Gemma to Flash
    * Lite the workspace header reflects it without a restart. */
   current_primary_model_id?: string | null;
+  /** Iterations remaining before the hard cap blocks new runs.
+   * Counts persisted versions; surfaces "Round N of M" in the UI
+   * and swaps "Run iteration" for "Mark ready" once exhausted. */
+  remaining_turns?: number;
+  max_turns?: number;
+  /** Mirrors the latest version's convergence signal so the UI
+   * doesn't need to fetch the version detail to know whether to
+   * show the "Mark ready" CTA. */
+  is_complete?: boolean;
+  completion_reason?: string | null;
 }
 
 export type IterDiffOp =
@@ -153,6 +163,8 @@ export interface IterVersionRead {
   output_markdown: string;
   diff_json: IterDiffOp[];
   changes_summary: string;
+  is_complete?: boolean;
+  completion_reason?: string | null;
   created_at: string;
 }
 
@@ -168,6 +180,10 @@ export interface IterAssumptionRead {
   user_response: string | null;
   resolved_at: string | null;
   resolved_by_user_id: string | null;
+  /** When present, the assumption is multiple-choice — UI renders
+   * radio buttons over the listed options instead of an open
+   * Confirm/Correct. */
+  options?: string[] | null;
   created_at: string;
 }
 

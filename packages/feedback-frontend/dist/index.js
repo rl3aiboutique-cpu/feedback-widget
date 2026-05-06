@@ -2,7 +2,6 @@ import {
   Badge,
   CommentThread,
   Input,
-  IterWorkspaceLazy,
   Rl3Mark,
   Select,
   SelectContent,
@@ -14,9 +13,8 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  describeElement,
-  useMyPendingActionCount
-} from "./chunk-UWNGSMXG.js";
+  describeElement
+} from "./chunk-UAYBADBI.js";
 import {
   Button,
   FeedbackProvider,
@@ -42,11 +40,12 @@ import {
   useFeedbackConfig,
   useFeedbackDetailQuery,
   useFeedbackListQuery,
+  useMyFeedbackQuery,
   useUpdateFeedbackStatusMutation
 } from "./chunk-RUMDEDKD.js";
 
 // src/version.ts
-var VERSION = "0.3.2";
+var VERSION = "0.4.0";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
@@ -735,9 +734,15 @@ function ElementSelector({ onLock, onCancel }) {
   );
 }
 
+// src/MyTicketsPanel.tsx
+function useMyPendingActionCount() {
+  const query = useMyFeedbackQuery(25);
+  return (query.data ?? []).filter((r) => r.status === "done").length;
+}
+
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-IBZUCBGH.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-WBHVTDKN.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -820,6 +825,23 @@ function FeedbackButton() {
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
+
+// src/iter/IterWorkspace.lazy.tsx
+import { Suspense as Suspense2, lazy as lazy2 } from "react";
+import { jsx as jsx5 } from "react/jsx-runtime";
+var _Inner = lazy2(async () => {
+  const mod = await import("./IterWorkspace-HDVDUBHL.js");
+  return { default: mod.default };
+});
+function IterWorkspaceLazy(props) {
+  return /* @__PURE__ */ jsx5(
+    Suspense2,
+    {
+      fallback: /* @__PURE__ */ jsx5("div", { className: "fixed inset-0 z-[60] flex items-center justify-center bg-background text-sm text-muted-foreground", children: "Loading workspace\u2026" }),
+      children: /* @__PURE__ */ jsx5(_Inner, { ...props })
+    }
+  );
+}
 export {
   FeedbackButton,
   FeedbackButton_default as FeedbackButtonDefault,

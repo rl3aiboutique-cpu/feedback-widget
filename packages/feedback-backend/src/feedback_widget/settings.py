@@ -139,6 +139,24 @@ class FeedbackSettings(BaseSettings):
     ITER_MAX_CALLS_PER_SESSION: int = 20
     ITER_MAX_CALLS_PER_USER_WEEK: int = 100
 
+    # Convergence: hard cap on successful iteration turns per session.
+    # The router rejects new POST /iterations once this many versions
+    # already exist; the UI swaps "Run iteration" for "Mark ready".
+    # A budget of 5 matches the brainstorming-skill heuristic of 2-3
+    # focused passes plus a buffer for review iterations.
+    ITER_MAX_TURNS: int = 5
+
+    # Comma-separated forbidden words the iter scrubber matches against
+    # assumption text. Default = a curated subset of what system_v1.py
+    # already forbids in the prompt; hosts can extend per domain.
+    ITER_FORBIDDEN_WORDS: str = (
+        "endpoint,api,async,asynchronous,synchronous,backend,frontend,"
+        "middleware,cache,debounce,throttle,polling,websocket,jwt,oauth,"
+        "payload,json,schema,database,migration,index,join,foreign key,"
+        "fk,ttl,race condition,mutex,queue,dom,css,html,patch,post,"
+        "get,put,delete request,http"
+    )
+
     # Diagram rendering. Off by default — Mermaid is not in the widget
     # bundle and would blow the 300KB size budget.
     ITER_RENDER_MERMAID: bool = False
@@ -168,6 +186,16 @@ class FeedbackSettings(BaseSettings):
     def s3_public_endpoint(self) -> str:
         """Endpoint used when generating presigned URLs (browser-reachable)."""
         return self.S3_PUBLIC_ENDPOINT_URL or self.S3_ENDPOINT_URL
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def forbidden_words_list(self) -> list[str]:
+        """Parse ``ITER_FORBIDDEN_WORDS`` (CSV) into a lowercased list.
+
+        The scrubber lowercases incoming text before matching, so
+        normalising once at parse time avoids per-call work.
+        """
+        return [w.strip().lower() for w in self.ITER_FORBIDDEN_WORDS.split(",") if w.strip()]
 
     @computed_field  # type: ignore[prop-decorator]
     @property

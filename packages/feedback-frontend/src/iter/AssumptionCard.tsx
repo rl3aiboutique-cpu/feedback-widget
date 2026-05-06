@@ -29,13 +29,19 @@ export interface AssumptionCardProps {
     status: "confirmed" | "corrected" | "irrelevant";
     user_response?: string;
   }) => Promise<unknown> | undefined;
+  /** Optional: Skip = "I can't answer this; let the AI infer it
+   * from context". Surfaces the "Skip" action button when present.
+   * The InlineIterPane wires this to a status=irrelevant resolution
+   * with a marker token in user_response. */
+  onSkip?: () => Promise<unknown> | undefined;
   disabled?: boolean;
 }
 
-export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCardProps) {
+export function AssumptionCard({ assumption, onResolve, onSkip, disabled }: AssumptionCardProps) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
   // Resolved cards become re-editable when the user clicks the
   // pencil icon — they get the same Confirm/Correct/Mark
   // irrelevant choices as an open card so they can fix a wrong
@@ -43,6 +49,7 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
   const [reopen, setReopen] = useState(false);
 
   const isOpen = assumption.status === "open" || reopen;
+  const hasOptions = !!assumption.options && assumption.options.length > 0;
 
   const click = async (
     status: "confirmed" | "corrected" | "irrelevant",
@@ -53,6 +60,28 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
       await onResolve({ status, user_response });
       setEditing(false);
       setText("");
+      setSelectedOption(null);
+      setReopen(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitSelectedOption = async () => {
+    if (!selectedOption) return;
+    // Treat the selected radio as a "corrected" answer so the user's
+    // exact pick lands on `user_response` and feeds the next prompt.
+    await click("corrected", selectedOption);
+  };
+
+  const skip = async () => {
+    if (!onSkip) return;
+    setBusy(true);
+    try {
+      await onSkip();
+      setEditing(false);
+      setText("");
+      setSelectedOption(null);
       setReopen(false);
     } finally {
       setBusy(false);
@@ -109,7 +138,60 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
         </button>
       )}
 
-      {isOpen && !editing && (
+      {isOpen && hasOptions && !editing && (
+        <div className="space-y-2">
+          <fieldset className="space-y-1">
+            <legend className="sr-only">Choose one option</legend>
+            {assumption.options?.map((opt) => (
+              <label
+                key={opt}
+                className="flex items-start gap-2 rounded border border-input bg-background p-2 text-[12px] hover:bg-accent"
+              >
+                <input
+                  type="radio"
+                  name={`asm-${assumption.id}`}
+                  className="mt-0.5"
+                  value={opt}
+                  checked={selectedOption === opt}
+                  onChange={() => setSelectedOption(opt)}
+                  disabled={busy || disabled}
+                />
+                <span className="leading-snug">{opt}</span>
+              </label>
+            ))}
+          </fieldset>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={busy || disabled || !selectedOption}
+              onClick={submitSelectedOption}
+            >
+              Save answer
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || disabled}
+              onClick={() => setEditing(true)}
+            >
+              Other…
+            </Button>
+            {onSkip && (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy || disabled}
+                onClick={skip}
+                title="I can't answer this — let the AI infer from context."
+              >
+                Skip
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isOpen && !hasOptions && !editing && (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" disabled={busy || disabled} onClick={() => click("confirmed")}>
             Confirm
@@ -130,6 +212,17 @@ export function AssumptionCard({ assumption, onResolve, disabled }: AssumptionCa
           >
             Mark irrelevant
           </Button>
+          {onSkip && (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy || disabled}
+              onClick={skip}
+              title="I can't answer this — let the AI infer from context."
+            >
+              Skip
+            </Button>
+          )}
         </div>
       )}
 

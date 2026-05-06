@@ -30,6 +30,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+import sqlalchemy as sa
 from sqlalchemy import (
     BigInteger,
     Column,
@@ -214,6 +215,20 @@ class FeedbackIterVersion(SQLModel, table=True):
         sa_column=Column(JSONB, nullable=False, server_default="[]"),
     )
 
+    # Convergence signal from the model — when true, the UI swaps
+    # "Run iteration" for "Mark ready" and shows ``completion_reason``.
+    # Defaults to false on legacy rows that pre-date 0006.
+    is_complete: bool = Field(
+        default=False,
+        sa_column=Column(
+            "is_complete",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.text("false"),
+        ),
+    )
+    completion_reason: str | None = Field(default=None)
+
     created_at: datetime | None = Field(
         default_factory=_utc_now,
         sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
@@ -271,6 +286,16 @@ class FeedbackIterCall(SQLModel, table=True):
     # Per-session unique via partial index (see migration). Same key on
     # the same session replays the existing call's persisted events.
     idempotency_key: str | None = Field(default=None, max_length=128)
+
+    # Audit trail of forbidden-word rewrites the iter scrubber applied
+    # to this call's parsed output. Each entry: ``{"slot_key": str,
+    # "original": str, "rewritten": str | None, "matched_words":
+    # list[str], "action": "rewrite" | "drop"}``. Null when no scrub
+    # ran (e.g. failed calls or rows pre-dating 0006).
+    scrub_log: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
 
     created_at: datetime | None = Field(
         default_factory=_utc_now,
@@ -330,6 +355,15 @@ class FeedbackIterAssumption(SQLModel, table=True):
         sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
     )
     resolved_by_user_id: uuid.UUID | None = Field(default=None)
+
+    # When the model phrased the assumption as a multiple-choice
+    # question, ``options`` carries the 2-4 candidate answers so the
+    # UI renders radio buttons instead of an open Confirm/Correct.
+    # ``None`` when the assumption is open-ended.
+    options: list[str] | None = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True),
+    )
 
     created_at: datetime | None = Field(
         default_factory=_utc_now,

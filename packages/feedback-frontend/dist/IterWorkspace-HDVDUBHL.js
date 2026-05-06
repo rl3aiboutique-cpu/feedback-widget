@@ -1,4 +1,8 @@
 import {
+  AssumptionCard,
+  useIterRunStream
+} from "./chunk-ETJUIC5W.js";
+import {
   Button,
   Textarea,
   abandonIterSession,
@@ -8,229 +12,15 @@ import {
   getIterSession,
   listIterAssumptions,
   listIterVersions,
-  newIdempotencyKey,
   resolveIterAssumption,
-  runIterationStream,
   useFeedbackBindings
 } from "./chunk-RUMDEDKD.js";
 
 // src/iter/IterWorkspace.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Pencil, Save, X } from "lucide-react";
-import { useEffect, useMemo, useRef as useRef2, useState as useState3 } from "react";
-
-// src/iter/AssumptionCard.tsx
-import { useState } from "react";
-import { jsx, jsxs } from "react/jsx-runtime";
-var _KIND_BADGE = {
-  technical: "bg-blue-100 text-blue-900",
-  business: "bg-amber-100 text-amber-900",
-  ux: "bg-violet-100 text-violet-900",
-  scope: "bg-emerald-100 text-emerald-900"
-};
-var _STATUS_BADGE = {
-  open: "bg-yellow-100 text-yellow-900",
-  confirmed: "bg-green-100 text-green-900",
-  corrected: "bg-blue-100 text-blue-900",
-  irrelevant: "bg-gray-100 text-gray-700"
-};
-function AssumptionCard({ assumption, onResolve, disabled }) {
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [reopen, setReopen] = useState(false);
-  const isOpen = assumption.status === "open" || reopen;
-  const click = async (status, user_response) => {
-    setBusy(true);
-    try {
-      await onResolve({ status, user_response });
-      setEditing(false);
-      setText("");
-      setReopen(false);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return /* @__PURE__ */ jsxs("div", { className: "rounded-md border bg-card p-3 text-sm shadow-xs", children: [
-    /* @__PURE__ */ jsxs("div", { className: "mb-2 flex items-center gap-2", children: [
-      /* @__PURE__ */ jsx(
-        "span",
-        {
-          className: `inline-block rounded px-1.5 py-0.5 text-[11px] uppercase tracking-wide ${_KIND_BADGE[assumption.kind]}`,
-          children: assumption.kind
-        }
-      ),
-      /* @__PURE__ */ jsx(
-        "span",
-        {
-          className: `inline-block rounded px-1.5 py-0.5 text-[11px] uppercase tracking-wide ${_STATUS_BADGE[assumption.status]}`,
-          children: assumption.status
-        }
-      ),
-      /* @__PURE__ */ jsxs("span", { className: "ml-auto text-[11px] text-muted-foreground", children: [
-        Math.round(Number(assumption.confidence) * 100),
-        "%"
-      ] })
-    ] }),
-    /* @__PURE__ */ jsx("p", { className: "mb-1 font-medium leading-snug", children: assumption.statement }),
-    /* @__PURE__ */ jsx("p", { className: "mb-2 text-[12px] leading-snug text-muted-foreground", children: assumption.rationale }),
-    /* @__PURE__ */ jsx("p", { className: "sr-only", "aria-label": "Internal correlation key, hidden from view", children: assumption.slot_key }),
-    assumption.status === "corrected" && assumption.user_response && /* @__PURE__ */ jsxs("div", { className: "mb-2 rounded bg-muted p-2 text-[12px]", children: [
-      /* @__PURE__ */ jsx("div", { className: "mb-1 font-semibold", children: "Your correction:" }),
-      assumption.user_response
-    ] }),
-    assumption.status !== "open" && !reopen && !disabled && /* @__PURE__ */ jsx(
-      "button",
-      {
-        type: "button",
-        onClick: () => setReopen(true),
-        className: "mb-2 text-[11px] font-medium text-primary hover:underline",
-        children: "\u270E Change my answer"
-      }
-    ),
-    isOpen && !editing && /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-2", children: [
-      /* @__PURE__ */ jsx(Button, { size: "sm", disabled: busy || disabled, onClick: () => click("confirmed"), children: "Confirm" }),
-      /* @__PURE__ */ jsx(
-        Button,
-        {
-          size: "sm",
-          variant: "outline",
-          disabled: busy || disabled,
-          onClick: () => setEditing(true),
-          children: "Correct"
-        }
-      ),
-      /* @__PURE__ */ jsx(
-        Button,
-        {
-          size: "sm",
-          variant: "ghost",
-          disabled: busy || disabled,
-          onClick: () => click("irrelevant"),
-          children: "Mark irrelevant"
-        }
-      )
-    ] }),
-    isOpen && editing && /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-      /* @__PURE__ */ jsx(
-        Textarea,
-        {
-          value: text,
-          onChange: (e) => setText(e.target.value),
-          placeholder: "What's the correct answer?",
-          rows: 3
-        }
-      ),
-      /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap gap-2", children: [
-        /* @__PURE__ */ jsx(
-          Button,
-          {
-            size: "sm",
-            disabled: busy || disabled || !text.trim(),
-            onClick: () => click("corrected", text.trim()),
-            children: "Save correction"
-          }
-        ),
-        /* @__PURE__ */ jsx(
-          Button,
-          {
-            size: "sm",
-            variant: "ghost",
-            disabled: busy,
-            onClick: () => {
-              setEditing(false);
-              setText("");
-            },
-            children: "Cancel"
-          }
-        )
-      ] })
-    ] })
-  ] });
-}
-
-// src/iter/useIterRunStream.ts
-import { useCallback, useRef, useState as useState2 } from "react";
-var _INIT = {
-  status: "idle",
-  partialMarkdown: "",
-  activeSection: null,
-  versionId: null,
-  versionNumber: null,
-  errorCode: null,
-  errorMessage: null
-};
-function useIterRunStream(bindings, sessionId) {
-  const [state, setState] = useState2(_INIT);
-  const abortRef = useRef(null);
-  const reset = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-    setState(_INIT);
-  }, []);
-  const start = useCallback(
-    async (body) => {
-      reset();
-      const ctrl = new AbortController();
-      abortRef.current = ctrl;
-      setState({ ..._INIT, status: "running" });
-      try {
-        await runIterationStream({
-          bindings,
-          sessionId,
-          body,
-          idempotencyKey: newIdempotencyKey(),
-          signal: ctrl.signal,
-          onEvent: (ev) => {
-            setState((cur) => _reduce(cur, ev));
-          }
-        });
-        setState((cur) => cur.status === "running" ? { ...cur, status: "done" } : cur);
-      } catch (err) {
-        const apiErr = err;
-        setState((cur) => ({
-          ...cur,
-          status: "error",
-          errorCode: String(apiErr?.status ?? "network"),
-          errorMessage: String(apiErr?.detail ?? apiErr?.message ?? err)
-        }));
-      } finally {
-        abortRef.current = null;
-      }
-    },
-    [bindings, sessionId, reset]
-  );
-  return { state, start, reset };
-}
-function _reduce(cur, ev) {
-  switch (ev.type) {
-    case "token":
-      return { ...cur, partialMarkdown: cur.partialMarkdown + ev.chunk };
-    case "section":
-      return { ...cur, activeSection: ev.section };
-    case "done":
-      return {
-        ...cur,
-        status: "done",
-        versionId: ev.version_id,
-        versionNumber: ev.version_number
-      };
-    case "error":
-      return {
-        ...cur,
-        status: "error",
-        errorCode: ev.error_code,
-        errorMessage: ev.message
-      };
-    case "heartbeat":
-      return cur;
-    default:
-      return cur;
-  }
-}
-
-// src/iter/IterWorkspace.tsx
-import { Fragment, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 function IterWorkspace({ sessionId, onClose }) {
   const bindings = useFeedbackBindings();
   const qc = useQueryClient();
@@ -315,14 +105,14 @@ function IterWorkspace({ sessionId, onClose }) {
   const totalAssumptions = userFacingAssumptions.length;
   const resolvedAssumptions = totalAssumptions - openAssumptionCount;
   const progress = totalAssumptions > 0 ? Math.round(resolvedAssumptions / totalAssumptions * 100) : 0;
-  const [tab, setTab] = useState3("document");
-  const [seenAssumptionsBadge, setSeenAssumptionsBadge] = useState3(false);
+  const [tab, setTab] = useState("document");
+  const [seenAssumptionsBadge, setSeenAssumptionsBadge] = useState(false);
   useEffect(() => {
     if (!seenAssumptionsBadge && openAssumptionCount > 0 && tab === "document") {
     }
   }, [openAssumptionCount, tab, seenAssumptionsBadge]);
-  return /* @__PURE__ */ jsxs2("div", { className: "fixed inset-0 z-[60] flex flex-col bg-background text-foreground", children: [
-    /* @__PURE__ */ jsx2(
+  return /* @__PURE__ */ jsxs("div", { className: "fixed inset-0 z-[60] flex flex-col bg-background text-foreground", children: [
+    /* @__PURE__ */ jsx(
       Header,
       {
         session: session.data,
@@ -336,7 +126,7 @@ function IterWorkspace({ sessionId, onClose }) {
         streamSection: stream.state.activeSection
       }
     ),
-    /* @__PURE__ */ jsx2(
+    /* @__PURE__ */ jsx(
       TabBar,
       {
         tab,
@@ -349,8 +139,8 @@ function IterWorkspace({ sessionId, onClose }) {
         versionCount: (versions.data ?? []).length
       }
     ),
-    /* @__PURE__ */ jsxs2("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
-      tab === "document" && /* @__PURE__ */ jsx2(
+    /* @__PURE__ */ jsxs("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
+      tab === "document" && /* @__PURE__ */ jsx(
         DocumentTab,
         {
           markdown: renderedMarkdown,
@@ -373,7 +163,7 @@ function IterWorkspace({ sessionId, onClose }) {
           modelHint: _modelLatencyHint(_resolveDisplayModel(session.data))
         }
       ),
-      tab === "assumptions" && /* @__PURE__ */ jsx2(
+      tab === "assumptions" && /* @__PURE__ */ jsx(
         AssumptionsTab,
         {
           items: assumptions.data ?? [],
@@ -381,9 +171,9 @@ function IterWorkspace({ sessionId, onClose }) {
           disabled: session.data?.status === "finalized" || session.data?.status === "abandoned"
         }
       ),
-      tab === "activity" && /* @__PURE__ */ jsx2(ActivityTab, { versions: versions.data ?? [] })
+      tab === "activity" && /* @__PURE__ */ jsx(ActivityTab, { versions: versions.data ?? [] })
     ] }),
-    /* @__PURE__ */ jsx2(
+    /* @__PURE__ */ jsx(
       Footer,
       {
         session: session.data,
@@ -400,25 +190,25 @@ function IterWorkspace({ sessionId, onClose }) {
   ] });
 }
 function Header(props) {
-  return /* @__PURE__ */ jsxs2("header", { className: "flex items-center gap-3 border-b bg-card px-4 py-2 text-sm", children: [
-    /* @__PURE__ */ jsx2("span", { className: "font-semibold", children: "Iterate with AI" }),
-    /* @__PURE__ */ jsx2("span", { className: "rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground", children: props.session?.status ?? "loading" }),
-    /* @__PURE__ */ jsxs2("span", { className: "hidden text-xs text-muted-foreground md:inline", children: [
+  return /* @__PURE__ */ jsxs("header", { className: "flex items-center gap-3 border-b bg-card px-4 py-2 text-sm", children: [
+    /* @__PURE__ */ jsx("span", { className: "font-semibold", children: "Iterate with AI" }),
+    /* @__PURE__ */ jsx("span", { className: "rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground", children: props.session?.status ?? "loading" }),
+    /* @__PURE__ */ jsxs("span", { className: "hidden text-xs text-muted-foreground md:inline", children: [
       "model: ",
       _resolveDisplayModel(props.session)
     ] }),
-    props.streaming && /* @__PURE__ */ jsxs2("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
-      /* @__PURE__ */ jsx2(Loader2, { className: "h-3 w-3 animate-spin" }),
+    props.streaming && /* @__PURE__ */ jsxs("span", { className: "flex items-center gap-1.5 text-xs text-primary", children: [
+      /* @__PURE__ */ jsx(Loader2, { className: "h-3 w-3 animate-spin" }),
       props.streamSection ? `Writing ${props.streamSection.replace("_", " ")}\u2026` : "AI is thinking\u2026"
     ] }),
-    props.totalCount > 0 && /* @__PURE__ */ jsxs2("div", { className: "ml-2 hidden items-center gap-2 md:flex", children: [
-      /* @__PURE__ */ jsxs2("span", { className: "text-xs text-muted-foreground", children: [
+    props.totalCount > 0 && /* @__PURE__ */ jsxs("div", { className: "ml-2 hidden items-center gap-2 md:flex", children: [
+      /* @__PURE__ */ jsxs("span", { className: "text-xs text-muted-foreground", children: [
         props.resolvedCount,
         "/",
         props.totalCount,
         " resolved"
       ] }),
-      /* @__PURE__ */ jsx2("div", { className: "h-1.5 w-24 overflow-hidden rounded-full bg-muted", children: /* @__PURE__ */ jsx2(
+      /* @__PURE__ */ jsx("div", { className: "h-1.5 w-24 overflow-hidden rounded-full bg-muted", children: /* @__PURE__ */ jsx(
         "div",
         {
           className: "h-full rounded-full bg-primary transition-all",
@@ -426,9 +216,9 @@ function Header(props) {
         }
       ) })
     ] }),
-    /* @__PURE__ */ jsxs2("div", { className: "ml-auto flex items-center gap-2", children: [
-      !props.terminal && props.onAbandon && /* @__PURE__ */ jsx2(Button, { size: "sm", variant: "ghost", onClick: props.onAbandon, children: "Discard session" }),
-      props.onClose && /* @__PURE__ */ jsx2(Button, { size: "sm", variant: "outline", onClick: props.onClose, children: "Close" })
+    /* @__PURE__ */ jsxs("div", { className: "ml-auto flex items-center gap-2", children: [
+      !props.terminal && props.onAbandon && /* @__PURE__ */ jsx(Button, { size: "sm", variant: "ghost", onClick: props.onAbandon, children: "Discard session" }),
+      props.onClose && /* @__PURE__ */ jsx(Button, { size: "sm", variant: "outline", onClick: props.onClose, children: "Close" })
     ] })
   ] });
 }
@@ -446,9 +236,9 @@ function TabBar(props) {
       badge: props.versionCount > 0 ? `v${props.versionCount}` : null
     }
   ];
-  return /* @__PURE__ */ jsx2("div", { className: "flex items-center gap-1 border-b bg-card px-3", role: "tablist", children: tabs.map((t) => {
+  return /* @__PURE__ */ jsx("div", { className: "flex items-center gap-1 border-b bg-card px-3", role: "tablist", children: tabs.map((t) => {
     const active = props.tab === t.key;
-    return /* @__PURE__ */ jsxs2(
+    return /* @__PURE__ */ jsxs(
       "button",
       {
         type: "button",
@@ -458,7 +248,7 @@ function TabBar(props) {
         className: `flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium transition-colors ${active ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`,
         children: [
           t.label,
-          t.badge && /* @__PURE__ */ jsx2(
+          t.badge && /* @__PURE__ */ jsx(
             "span",
             {
               className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`,
@@ -472,11 +262,11 @@ function TabBar(props) {
   }) });
 }
 function DocumentTab(props) {
-  return /* @__PURE__ */ jsxs2("div", { className: "mx-auto flex w-full max-w-[1400px] flex-row gap-6 p-4 lg:p-6", children: [
-    props.markdown && !props.streaming && /* @__PURE__ */ jsx2(DocumentTOC, { markdown: props.markdown }),
-    /* @__PURE__ */ jsxs2("main", { className: "flex flex-1 flex-col", children: [
-      !props.latestVersion && props.streamStatus === "idle" && /* @__PURE__ */ jsx2(FirstRunCard, { busy: false, onRun: props.onFirstRun }),
-      /* @__PURE__ */ jsx2(
+  return /* @__PURE__ */ jsxs("div", { className: "mx-auto flex w-full max-w-[1400px] flex-row gap-6 p-4 lg:p-6", children: [
+    props.markdown && !props.streaming && /* @__PURE__ */ jsx(DocumentTOC, { markdown: props.markdown }),
+    /* @__PURE__ */ jsxs("main", { className: "flex flex-1 flex-col", children: [
+      !props.latestVersion && props.streamStatus === "idle" && /* @__PURE__ */ jsx(FirstRunCard, { busy: false, onRun: props.onFirstRun }),
+      /* @__PURE__ */ jsx(
         WorkingDocumentPanel,
         {
           markdown: props.markdown,
@@ -488,7 +278,7 @@ function DocumentTab(props) {
           modelHint: props.modelHint
         }
       ),
-      props.streamStatus === "error" && /* @__PURE__ */ jsx2(ErrorBanner, { code: props.streamErrorCode, message: props.streamErrorMessage })
+      props.streamStatus === "error" && /* @__PURE__ */ jsx(ErrorBanner, { code: props.streamErrorCode, message: props.streamErrorMessage })
     ] })
   ] });
 }
@@ -507,9 +297,9 @@ function DocumentTOC({ markdown }) {
     return out;
   }, [markdown]);
   if (headings.length < 2) return null;
-  return /* @__PURE__ */ jsx2("aside", { className: "hidden w-56 shrink-0 lg:block", children: /* @__PURE__ */ jsxs2("div", { className: "sticky top-2", children: [
-    /* @__PURE__ */ jsx2("h4", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: "On this page" }),
-    /* @__PURE__ */ jsx2("ul", { className: "space-y-1 text-sm", children: headings.map((h) => /* @__PURE__ */ jsx2("li", { className: h.level === 2 ? "ml-3 text-xs text-muted-foreground" : "", children: /* @__PURE__ */ jsx2(
+  return /* @__PURE__ */ jsx("aside", { className: "hidden w-56 shrink-0 lg:block", children: /* @__PURE__ */ jsxs("div", { className: "sticky top-2", children: [
+    /* @__PURE__ */ jsx("h4", { className: "mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: "On this page" }),
+    /* @__PURE__ */ jsx("ul", { className: "space-y-1 text-sm", children: headings.map((h) => /* @__PURE__ */ jsx("li", { className: h.level === 2 ? "ml-3 text-xs text-muted-foreground" : "", children: /* @__PURE__ */ jsx(
       "a",
       {
         href: `#${h.id}`,
@@ -527,30 +317,30 @@ function DocumentTOC({ markdown }) {
   ] }) });
 }
 function AssumptionsTab(props) {
-  return /* @__PURE__ */ jsx2("div", { className: "mx-auto w-full max-w-[1600px] p-4 lg:p-6", children: /* @__PURE__ */ jsx2(AssumptionsGrid, { items: props.items, onResolve: props.onResolve, disabled: props.disabled }) });
+  return /* @__PURE__ */ jsx("div", { className: "mx-auto w-full max-w-[1600px] p-4 lg:p-6", children: /* @__PURE__ */ jsx(AssumptionsGrid, { items: props.items, onResolve: props.onResolve, disabled: props.disabled }) });
 }
 function ActivityTab({ versions }) {
-  return /* @__PURE__ */ jsxs2("div", { className: "mx-auto w-full max-w-[1100px] p-4 lg:p-6", children: [
-    /* @__PURE__ */ jsx2("h3", { className: "mb-3 text-sm font-semibold", children: "Iteration history" }),
-    /* @__PURE__ */ jsx2(ActivityTimeline, { versions })
+  return /* @__PURE__ */ jsxs("div", { className: "mx-auto w-full max-w-[1100px] p-4 lg:p-6", children: [
+    /* @__PURE__ */ jsx("h3", { className: "mb-3 text-sm font-semibold", children: "Iteration history" }),
+    /* @__PURE__ */ jsx(ActivityTimeline, { versions })
   ] });
 }
 function Footer(props) {
-  const [msg, setMsg] = useState3("");
-  const [restructure, setRestructure] = useState3(false);
+  const [msg, setMsg] = useState("");
+  const [restructure, setRestructure] = useState(false);
   const status = props.session?.status;
   if (status === "finalized") {
-    return /* @__PURE__ */ jsx2("footer", { className: "border-t bg-card px-4 py-3 text-sm", children: /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-3", children: [
-      /* @__PURE__ */ jsx2("span", { className: "font-semibold", children: "Session finalized." }),
-      props.package?.presigned_zip_url && /* @__PURE__ */ jsx2("a", { href: props.package.presigned_zip_url, className: "text-primary underline", download: true, children: "Download package ZIP" })
+    return /* @__PURE__ */ jsx("footer", { className: "border-t bg-card px-4 py-3 text-sm", children: /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-3", children: [
+      /* @__PURE__ */ jsx("span", { className: "font-semibold", children: "Session finalized." }),
+      props.package?.presigned_zip_url && /* @__PURE__ */ jsx("a", { href: props.package.presigned_zip_url, className: "text-primary underline", download: true, children: "Download package ZIP" })
     ] }) });
   }
   if (status === "abandoned") {
-    return /* @__PURE__ */ jsx2("footer", { className: "border-t bg-card px-4 py-3 text-sm text-muted-foreground", children: "Session abandoned." });
+    return /* @__PURE__ */ jsx("footer", { className: "border-t bg-card px-4 py-3 text-sm text-muted-foreground", children: "Session abandoned." });
   }
   const runDisabled = props.streamRunning || props.openAssumptions > 0 && status !== "draft" && !props.needsReviewIteration;
   const finalizeBlocked = !props.session?.current_iteration_id || props.finalizing || props.streamRunning;
-  const [showFinalizeWarning, setShowFinalizeWarning] = useState3(false);
+  const [showFinalizeWarning, setShowFinalizeWarning] = useState(false);
   const onFinalizeClick = () => {
     if (props.canFinalize) {
       void props.onFinalize();
@@ -563,16 +353,16 @@ function Footer(props) {
     void props.onFinalize();
   };
   const cancelFinalize = () => setShowFinalizeWarning(false);
-  return /* @__PURE__ */ jsxs2("footer", { className: "space-y-2 border-t bg-card px-4 py-3", children: [
-    props.needsReviewIteration && /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200", children: [
-      /* @__PURE__ */ jsx2("p", { className: "font-semibold", children: "All assumptions resolved." }),
-      /* @__PURE__ */ jsxs2("p", { children: [
+  return /* @__PURE__ */ jsxs("footer", { className: "space-y-2 border-t bg-card px-4 py-3", children: [
+    props.needsReviewIteration && /* @__PURE__ */ jsxs("div", { className: "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-200", children: [
+      /* @__PURE__ */ jsx("p", { className: "font-semibold", children: "All assumptions resolved." }),
+      /* @__PURE__ */ jsxs("p", { children: [
         "Add a comment below if you want, then press ",
-        /* @__PURE__ */ jsx2("strong", { children: "Run iteration" }),
+        /* @__PURE__ */ jsx("strong", { children: "Run iteration" }),
         " so the AI rewrites the working document with your answers baked in. Once you review that version, you can finalize."
       ] })
     ] }),
-    /* @__PURE__ */ jsx2(
+    /* @__PURE__ */ jsx(
       Textarea,
       {
         value: msg,
@@ -582,9 +372,9 @@ function Footer(props) {
         disabled: props.streamRunning
       }
     ),
-    /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-center gap-3", children: [
-      /* @__PURE__ */ jsxs2("label", { className: "flex items-center gap-2 text-xs text-muted-foreground", children: [
-        /* @__PURE__ */ jsx2(
+    /* @__PURE__ */ jsxs("div", { className: "flex flex-wrap items-center gap-3", children: [
+      /* @__PURE__ */ jsxs("label", { className: "flex items-center gap-2 text-xs text-muted-foreground", children: [
+        /* @__PURE__ */ jsx(
           "input",
           {
             type: "checkbox",
@@ -595,8 +385,8 @@ function Footer(props) {
         ),
         "Allow restructuring (may remove prior content)"
       ] }),
-      /* @__PURE__ */ jsxs2("div", { className: "ml-auto flex gap-2", children: [
-        /* @__PURE__ */ jsx2(
+      /* @__PURE__ */ jsxs("div", { className: "ml-auto flex gap-2", children: [
+        /* @__PURE__ */ jsx(
           Button,
           {
             disabled: runDisabled,
@@ -610,7 +400,7 @@ function Footer(props) {
             children: props.needsReviewIteration ? "Run iteration (review)" : "Run iteration"
           }
         ),
-        /* @__PURE__ */ jsx2(
+        /* @__PURE__ */ jsx(
           Button,
           {
             variant: "secondary",
@@ -622,12 +412,12 @@ function Footer(props) {
         )
       ] })
     ] }),
-    props.openAssumptions > 0 && status !== "draft" && /* @__PURE__ */ jsxs2("p", { className: "text-xs text-amber-700", children: [
+    props.openAssumptions > 0 && status !== "draft" && /* @__PURE__ */ jsxs("p", { className: "text-xs text-amber-700", children: [
       "Resolve all ",
       props.openAssumptions,
       " open assumption(s) before iterating."
     ] }),
-    showFinalizeWarning && /* @__PURE__ */ jsx2(
+    showFinalizeWarning && /* @__PURE__ */ jsx(
       FinalizeWarningModal,
       {
         openAssumptions: props.openAssumptions,
@@ -640,7 +430,7 @@ function Footer(props) {
   ] });
 }
 function FinalizeWarningModal(props) {
-  const dialogRef = useRef2(null);
+  const dialogRef = useRef(null);
   useEffect(() => {
     const el = dialogRef.current;
     if (!el) return;
@@ -655,14 +445,14 @@ function FinalizeWarningModal(props) {
       if (el.open) el.close();
     };
   }, [props.onCancel]);
-  return /* @__PURE__ */ jsxs2(
+  return /* @__PURE__ */ jsxs(
     "dialog",
     {
       ref: dialogRef,
       className: "z-[80] max-w-md rounded-lg border bg-card p-5 shadow-lg backdrop:bg-black/40",
       "aria-labelledby": "iter-finalize-warning-title",
       children: [
-        /* @__PURE__ */ jsx2(
+        /* @__PURE__ */ jsx(
           "h2",
           {
             id: "iter-finalize-warning-title",
@@ -670,24 +460,24 @@ function FinalizeWarningModal(props) {
             children: "Finalize without completing review?"
           }
         ),
-        /* @__PURE__ */ jsx2("p", { className: "text-sm text-muted-foreground", children: "The dev team interprets the package as the source of truth. If you finalize now, the following items aren't fully clarified:" }),
-        /* @__PURE__ */ jsxs2("ul", { className: "mt-3 list-disc space-y-1 pl-5 text-sm", children: [
-          props.openAssumptions > 0 && /* @__PURE__ */ jsxs2("li", { children: [
-            /* @__PURE__ */ jsx2("strong", { children: props.openAssumptions }),
+        /* @__PURE__ */ jsx("p", { className: "text-sm text-muted-foreground", children: "The dev team interprets the package as the source of truth. If you finalize now, the following items aren't fully clarified:" }),
+        /* @__PURE__ */ jsxs("ul", { className: "mt-3 list-disc space-y-1 pl-5 text-sm", children: [
+          props.openAssumptions > 0 && /* @__PURE__ */ jsxs("li", { children: [
+            /* @__PURE__ */ jsx("strong", { children: props.openAssumptions }),
             " assumption",
             props.openAssumptions === 1 ? " is" : "s are",
             " still open and will be packaged as",
             " ",
-            /* @__PURE__ */ jsx2("em", { children: "unresolved" }),
+            /* @__PURE__ */ jsx("em", { children: "unresolved" }),
             "."
           ] }),
-          props.needsReviewIteration && /* @__PURE__ */ jsx2("li", { children: "You haven't run a review iteration since resolving assumptions, so the working document doesn't reflect your answers yet." }),
-          !props.hasAnyVersion && /* @__PURE__ */ jsx2("li", { children: "The session has no version yet \u2014 there's nothing to package." })
+          props.needsReviewIteration && /* @__PURE__ */ jsx("li", { children: "You haven't run a review iteration since resolving assumptions, so the working document doesn't reflect your answers yet." }),
+          !props.hasAnyVersion && /* @__PURE__ */ jsx("li", { children: "The session has no version yet \u2014 there's nothing to package." })
         ] }),
-        /* @__PURE__ */ jsx2("p", { className: "mt-3 text-xs text-muted-foreground", children: "You can still finalize \u2014 useful when you'd rather hand off a partial spec than block on perfection. The dev team can ask follow-ups." }),
-        /* @__PURE__ */ jsxs2("div", { className: "mt-5 flex justify-end gap-2", children: [
-          /* @__PURE__ */ jsx2(Button, { variant: "outline", size: "sm", onClick: props.onCancel, children: "Cancel \u2014 I'll keep iterating" }),
-          /* @__PURE__ */ jsx2(
+        /* @__PURE__ */ jsx("p", { className: "mt-3 text-xs text-muted-foreground", children: "You can still finalize \u2014 useful when you'd rather hand off a partial spec than block on perfection. The dev team can ask follow-ups." }),
+        /* @__PURE__ */ jsxs("div", { className: "mt-5 flex justify-end gap-2", children: [
+          /* @__PURE__ */ jsx(Button, { variant: "outline", size: "sm", onClick: props.onCancel, children: "Cancel \u2014 I'll keep iterating" }),
+          /* @__PURE__ */ jsx(
             Button,
             {
               variant: "destructive",
@@ -704,16 +494,16 @@ function FinalizeWarningModal(props) {
 }
 function ActivityTimeline({ versions }) {
   if (!versions.length) {
-    return /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "No iterations yet." });
+    return /* @__PURE__ */ jsx("p", { className: "text-xs text-muted-foreground", children: "No iterations yet." });
   }
-  return /* @__PURE__ */ jsx2("ol", { className: "space-y-2", children: versions.map((v) => /* @__PURE__ */ jsxs2("li", { className: "rounded border bg-card p-2 text-xs", children: [
-    /* @__PURE__ */ jsxs2("div", { className: "font-semibold", children: [
+  return /* @__PURE__ */ jsx("ol", { className: "space-y-2", children: versions.map((v) => /* @__PURE__ */ jsxs("li", { className: "rounded border bg-card p-2 text-xs", children: [
+    /* @__PURE__ */ jsxs("div", { className: "font-semibold", children: [
       "v",
       v.version_number
     ] }),
-    /* @__PURE__ */ jsx2("div", { className: "text-muted-foreground", children: new Date(v.created_at).toLocaleString() }),
-    v.user_message && /* @__PURE__ */ jsx2("div", { className: "mt-1 text-foreground/80 line-clamp-2", children: v.user_message }),
-    v.restructure_allowed && /* @__PURE__ */ jsx2("span", { className: "mt-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-900", children: "restructure" })
+    /* @__PURE__ */ jsx("div", { className: "text-muted-foreground", children: new Date(v.created_at).toLocaleString() }),
+    v.user_message && /* @__PURE__ */ jsx("div", { className: "mt-1 text-foreground/80 line-clamp-2", children: v.user_message }),
+    v.restructure_allowed && /* @__PURE__ */ jsx("span", { className: "mt-1 inline-block rounded bg-orange-100 px-1.5 py-0.5 text-[10px] text-orange-900", children: "restructure" })
   ] }, v.id)) });
 }
 var _KIND_BAND = {
@@ -737,7 +527,7 @@ var _KIND_BAND = {
 var _KIND_ORDER = ["ux", "business", "scope"];
 function AssumptionsGrid(props) {
   if (!props.items.length) {
-    return /* @__PURE__ */ jsx2("p", { className: "text-xs text-muted-foreground", children: "No assumptions on the current version yet." });
+    return /* @__PURE__ */ jsx("p", { className: "text-xs text-muted-foreground", children: "No assumptions on the current version yet." });
   }
   const userFacingOpen = props.items.filter((a) => a.status === "open" && a.kind !== "technical");
   const userFacingDone = props.items.filter((a) => a.status !== "open" && a.kind !== "technical");
@@ -749,19 +539,19 @@ function AssumptionsGrid(props) {
     scope: []
   };
   for (const a of userFacingOpen) grouped[a.kind].push(a);
-  return /* @__PURE__ */ jsxs2("div", { className: "space-y-4", children: [
+  return /* @__PURE__ */ jsxs("div", { className: "space-y-4", children: [
     _KIND_ORDER.map((kind) => {
       const items = grouped[kind];
       if (!items.length) return null;
       const meta = _KIND_BAND[kind];
       const dotColor = (meta.band.split(" ")[0] ?? "").replace("border-l-", "bg-");
-      return /* @__PURE__ */ jsxs2("section", { children: [
-        /* @__PURE__ */ jsxs2("div", { className: "mb-1.5 flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx2("span", { className: `inline-block h-2 w-2 rounded-full ${dotColor}` }),
-          /* @__PURE__ */ jsx2("h4", { className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: meta.name }),
-          /* @__PURE__ */ jsx2("span", { className: "rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground", children: items.length })
+      return /* @__PURE__ */ jsxs("section", { children: [
+        /* @__PURE__ */ jsxs("div", { className: "mb-1.5 flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx("span", { className: `inline-block h-2 w-2 rounded-full ${dotColor}` }),
+          /* @__PURE__ */ jsx("h4", { className: "text-[11px] font-semibold uppercase tracking-wide text-muted-foreground", children: meta.name }),
+          /* @__PURE__ */ jsx("span", { className: "rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground", children: items.length })
         ] }),
-        /* @__PURE__ */ jsx2("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: items.map((a) => /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+        /* @__PURE__ */ jsx("div", { className: "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: items.map((a) => /* @__PURE__ */ jsx("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx(
           AssumptionCard,
           {
             assumption: a,
@@ -771,15 +561,15 @@ function AssumptionsGrid(props) {
         ) }, a.id)) })
       ] }, kind);
     }),
-    userFacingDone.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border bg-muted/40 p-3", open: true, children: [
-      /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold", children: [
+    userFacingDone.length > 0 && /* @__PURE__ */ jsxs("details", { className: "rounded border bg-muted/40 p-3", open: true, children: [
+      /* @__PURE__ */ jsxs("summary", { className: "cursor-pointer text-xs font-semibold", children: [
         "Resolved (",
         userFacingDone.length,
         ")"
       ] }),
-      /* @__PURE__ */ jsx2("div", { className: "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: userFacingDone.map((a) => {
+      /* @__PURE__ */ jsx("div", { className: "mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4", children: userFacingDone.map((a) => {
         const meta = _KIND_BAND[a.kind];
-        return /* @__PURE__ */ jsx2("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx2(
+        return /* @__PURE__ */ jsx("div", { className: `rounded-md border-l-4 ${meta.band} [&>div]:border-l-0`, children: /* @__PURE__ */ jsx(
           AssumptionCard,
           {
             assumption: a,
@@ -789,20 +579,20 @@ function AssumptionsGrid(props) {
         ) }, a.id);
       }) })
     ] }),
-    internalNotes.length > 0 && /* @__PURE__ */ jsxs2("details", { className: "rounded border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10", children: [
-      /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold text-blue-900 dark:text-blue-200", children: [
+    internalNotes.length > 0 && /* @__PURE__ */ jsxs("details", { className: "rounded border border-blue-200 bg-blue-50/40 p-3 dark:border-blue-900 dark:bg-blue-900/10", children: [
+      /* @__PURE__ */ jsxs("summary", { className: "cursor-pointer text-xs font-semibold text-blue-900 dark:text-blue-200", children: [
         "AI-internal notes (",
         internalNotes.length,
         ") \u2014 no action required"
       ] }),
-      /* @__PURE__ */ jsx2("p", { className: "mt-2 text-[11px] text-muted-foreground", children: "These are notes the AI is leaving for the downstream developer agent that will read your finalized package. They describe implementation details (architecture, code patterns, framework choices) that you wouldn't typically know \u2014 they ship with the package automatically." }),
-      /* @__PURE__ */ jsx2("ul", { className: "mt-3 space-y-2", children: internalNotes.map((a) => /* @__PURE__ */ jsxs2(
+      /* @__PURE__ */ jsx("p", { className: "mt-2 text-[11px] text-muted-foreground", children: "These are notes the AI is leaving for the downstream developer agent that will read your finalized package. They describe implementation details (architecture, code patterns, framework choices) that you wouldn't typically know \u2014 they ship with the package automatically." }),
+      /* @__PURE__ */ jsx("ul", { className: "mt-3 space-y-2", children: internalNotes.map((a) => /* @__PURE__ */ jsxs(
         "li",
         {
           className: "rounded border border-blue-200 bg-white/60 p-2 text-xs dark:border-blue-900/50 dark:bg-blue-950/20",
           children: [
-            /* @__PURE__ */ jsx2("div", { className: "font-medium text-foreground/90", children: a.statement }),
-            a.rationale && /* @__PURE__ */ jsx2("div", { className: "mt-1 text-muted-foreground", children: a.rationale })
+            /* @__PURE__ */ jsx("div", { className: "font-medium text-foreground/90", children: a.statement }),
+            a.rationale && /* @__PURE__ */ jsx("div", { className: "mt-1 text-muted-foreground", children: a.rationale })
           ]
         },
         a.id
@@ -811,18 +601,18 @@ function AssumptionsGrid(props) {
   ] });
 }
 function FirstRunCard({ busy, onRun }) {
-  return /* @__PURE__ */ jsxs2("div", { className: "mb-3 rounded-md border bg-muted/40 p-4 text-sm", children: [
-    /* @__PURE__ */ jsx2("p", { className: "mb-2", children: "The AI will read your feedback, attachments, and technical metadata, then propose user personas, user stories, a spec, and a list of every assumption it had to make. You will resolve those assumptions before iterating again." }),
-    /* @__PURE__ */ jsx2(Button, { onClick: onRun, disabled: busy, children: "Generate first version" })
+  return /* @__PURE__ */ jsxs("div", { className: "mb-3 rounded-md border bg-muted/40 p-4 text-sm", children: [
+    /* @__PURE__ */ jsx("p", { className: "mb-2", children: "The AI will read your feedback, attachments, and technical metadata, then propose user personas, user stories, a spec, and a list of every assumption it had to make. You will resolve those assumptions before iterating again." }),
+    /* @__PURE__ */ jsx(Button, { onClick: onRun, disabled: busy, children: "Generate first version" })
   ] });
 }
 function ErrorBanner(props) {
-  return /* @__PURE__ */ jsxs2("div", { className: "mt-2 rounded border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive", children: [
-    /* @__PURE__ */ jsxs2("div", { className: "font-semibold", children: [
+  return /* @__PURE__ */ jsxs("div", { className: "mt-2 rounded border border-destructive/60 bg-destructive/10 p-3 text-sm text-destructive", children: [
+    /* @__PURE__ */ jsxs("div", { className: "font-semibold", children: [
       "Error: ",
       props.code
     ] }),
-    /* @__PURE__ */ jsx2("div", { className: "mt-1 text-xs", children: props.message })
+    /* @__PURE__ */ jsx("div", { className: "mt-1 text-xs", children: props.message })
   ] });
 }
 var _SECTION_SKELETONS = [
@@ -850,7 +640,7 @@ var _THINKING_MESSAGES = [
   "One last pass for consistency\u2026"
 ];
 function _useRotatingMessage(active) {
-  const [idx, setIdx] = useState3(0);
+  const [idx, setIdx] = useState(0);
   useEffect(() => {
     if (!active) return;
     setIdx(0);
@@ -862,10 +652,10 @@ function _useRotatingMessage(active) {
   return _THINKING_MESSAGES[idx] ?? _THINKING_MESSAGES[0] ?? "Thinking\u2026";
 }
 function ThinkingDots() {
-  return /* @__PURE__ */ jsxs2("span", { "aria-hidden": "true", className: "inline-flex items-end gap-1", children: [
-    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" }),
-    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" }),
-    /* @__PURE__ */ jsx2("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" })
+  return /* @__PURE__ */ jsxs("span", { "aria-hidden": "true", className: "inline-flex items-end gap-1", children: [
+    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" }),
+    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" }),
+    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" })
   ] });
 }
 function StreamingSkeleton({
@@ -873,15 +663,15 @@ function StreamingSkeleton({
   modelHint
 }) {
   const message = _useRotatingMessage(true);
-  return /* @__PURE__ */ jsxs2("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
-    /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-4", children: [
-      /* @__PURE__ */ jsxs2("p", { className: "flex items-center gap-2 font-medium text-primary", children: [
-        /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin" }),
+  return /* @__PURE__ */ jsxs("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
+    /* @__PURE__ */ jsxs("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-4", children: [
+      /* @__PURE__ */ jsxs("p", { className: "flex items-center gap-2 font-medium text-primary", children: [
+        /* @__PURE__ */ jsx(Loader2, { className: "h-4 w-4 animate-spin" }),
         "AI is drafting your spec",
-        /* @__PURE__ */ jsx2(ThinkingDots, {})
+        /* @__PURE__ */ jsx(ThinkingDots, {})
       ] }),
-      /* @__PURE__ */ jsx2("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
-      /* @__PURE__ */ jsxs2("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: [
+      /* @__PURE__ */ jsx("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
+      /* @__PURE__ */ jsxs("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: [
         modelHint,
         " Sections below turn green as they arrive."
       ] })
@@ -892,17 +682,17 @@ function StreamingSkeleton({
       const cardClass = isActive ? "border-primary bg-primary/5" : isPast ? "border-emerald-200 bg-emerald-50/40" : "border-input bg-muted/30";
       const titleClass = isActive ? "text-primary" : isPast ? "text-emerald-700" : "";
       const barBaseClass = isActive ? "animate-pulse bg-primary/30" : "bg-muted";
-      return /* @__PURE__ */ jsxs2("div", { className: `rounded-md border p-4 transition-colors ${cardClass}`, children: [
-        /* @__PURE__ */ jsxs2("div", { className: "flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx2("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
-          isActive && /* @__PURE__ */ jsx2("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
-          isPast && /* @__PURE__ */ jsx2("span", { className: "text-xs text-emerald-700", children: "done" })
+      return /* @__PURE__ */ jsxs("div", { className: `rounded-md border p-4 transition-colors ${cardClass}`, children: [
+        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
+          isActive && /* @__PURE__ */ jsx("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
+          isPast && /* @__PURE__ */ jsx("span", { className: "text-xs text-emerald-700", children: "done" })
         ] }),
-        /* @__PURE__ */ jsx2("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
-        /* @__PURE__ */ jsxs2("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
-          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
-          /* @__PURE__ */ jsx2("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
+        /* @__PURE__ */ jsx("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
+        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
+          /* @__PURE__ */ jsx("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
+          /* @__PURE__ */ jsx("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
         ] })
       ] }, s.key);
     })
@@ -934,8 +724,8 @@ var _DOC_TYPOGRAPHY = [
   "[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
 ].join(" ");
 function WorkingDocumentPanel(props) {
-  const [editing, setEditing] = useState3(false);
-  const [draft, setDraft] = useState3("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const startEditing = () => {
     setDraft(props.markdown);
     setEditing(true);
@@ -950,29 +740,29 @@ function WorkingDocumentPanel(props) {
     setEditing(false);
   };
   if (props.streaming) {
-    return /* @__PURE__ */ jsx2(StreamingSkeleton, { activeSection: props.activeSection, modelHint: props.modelHint });
+    return /* @__PURE__ */ jsx(StreamingSkeleton, { activeSection: props.activeSection, modelHint: props.modelHint });
   }
   if (!props.markdown) {
-    return /* @__PURE__ */ jsx2("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
+    return /* @__PURE__ */ jsx("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
   }
-  return /* @__PURE__ */ jsxs2("div", { className: "flex flex-1 flex-col", children: [
-    /* @__PURE__ */ jsxs2("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
-      !editing && props.editable && /* @__PURE__ */ jsxs2(Button, { size: "sm", variant: "outline", onClick: startEditing, children: [
-        /* @__PURE__ */ jsx2(Pencil, { className: "h-3 w-3" }),
+  return /* @__PURE__ */ jsxs("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxs("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
+      !editing && props.editable && /* @__PURE__ */ jsxs(Button, { size: "sm", variant: "outline", onClick: startEditing, children: [
+        /* @__PURE__ */ jsx(Pencil, { className: "h-3 w-3" }),
         " Edit"
       ] }),
-      editing && /* @__PURE__ */ jsxs2(Fragment, { children: [
-        /* @__PURE__ */ jsxs2(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
-          /* @__PURE__ */ jsx2(X, { className: "h-3 w-3" }),
+      editing && /* @__PURE__ */ jsxs(Fragment, { children: [
+        /* @__PURE__ */ jsxs(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx(X, { className: "h-3 w-3" }),
           " Cancel"
         ] }),
-        /* @__PURE__ */ jsxs2(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
-          /* @__PURE__ */ jsx2(Save, { className: "h-3 w-3" }),
+        /* @__PURE__ */ jsxs(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx(Save, { className: "h-3 w-3" }),
           props.saving ? "Saving\u2026" : "Save edits"
         ] })
       ] })
     ] }),
-    editing ? /* @__PURE__ */ jsx2(
+    editing ? /* @__PURE__ */ jsx(
       Textarea,
       {
         value: draft,
@@ -980,11 +770,11 @@ function WorkingDocumentPanel(props) {
         rows: 28,
         className: "flex-1 min-h-[28rem] font-mono text-xs"
       }
-    ) : /* @__PURE__ */ jsx2(RenderedMarkdown, { markdown: props.markdown })
+    ) : /* @__PURE__ */ jsx(RenderedMarkdown, { markdown: props.markdown })
   ] });
 }
 function RenderedMarkdown({ markdown }) {
-  const ref = useRef2(null);
+  const ref = useRef(null);
   useEffect(() => {
     let cancelled = false;
     const el = ref.current;
@@ -1011,7 +801,7 @@ function RenderedMarkdown({ markdown }) {
       cancelled = true;
     };
   }, [markdown]);
-  return /* @__PURE__ */ jsx2("article", { ref, className: _DOC_TYPOGRAPHY });
+  return /* @__PURE__ */ jsx("article", { ref, className: _DOC_TYPOGRAPHY });
 }
 function _resolveDisplayModel(session) {
   if (!session) return "(loading)";
@@ -1042,7 +832,7 @@ function _pickLatest(versions) {
   return sorted[0] ?? null;
 }
 function IterWorkspaceNamed(props) {
-  return /* @__PURE__ */ jsx2(IterWorkspace, { ...props });
+  return /* @__PURE__ */ jsx(IterWorkspace, { ...props });
 }
 var IterWorkspaceComponent = IterWorkspaceNamed;
 export {
@@ -1050,4 +840,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-MQKVY2UD.js.map
+//# sourceMappingURL=IterWorkspace-HDVDUBHL.js.map

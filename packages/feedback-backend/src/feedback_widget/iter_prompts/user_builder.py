@@ -118,6 +118,18 @@ def _format_resolved(items: Sequence[_ResolvedAssumption]) -> str:
     return "\n".join(lines)
 
 
+def _format_glossary(glossary: dict[str, str] | None) -> str:
+    """Render the host's domain glossary as a tag block.
+
+    Empty / None ⇒ ``(none)`` so the prompt stays a constant shape.
+    Multiple-word keys are quoted to keep the rendering scannable.
+    """
+    if not glossary:
+        return "(none)"
+    rows = [f'- "{k}": {v}' for k, v in glossary.items() if k and v]
+    return "\n".join(rows) if rows else "(none)"
+
+
 def build_user_prompt(
     *,
     feedback_text: str,
@@ -127,13 +139,20 @@ def build_user_prompt(
     resolved_assumptions: Sequence[_ResolvedAssumption],
     user_iteration_message: str,
     restructure_allowed: bool,
+    glossary: dict[str, str] | None = None,
 ) -> str:
     """Assemble the tagged-block user prompt per spec §5.2.
 
     The order MUST NOT change — the audit hash and the system
-    prompt's instructions both depend on it.
+    prompt's instructions both depend on it. ``glossary`` is the
+    only optional parameter; it appends a ``<glossary>`` block at
+    the top so existing prompt hashes stay stable for empty hosts.
     """
     return (
+        "<glossary>\n"
+        f"{_format_glossary(glossary)}\n"
+        "</glossary>\n"
+        "\n"
         "<original_feedback>\n"
         f"{feedback_text.rstrip()}\n"
         "</original_feedback>\n"

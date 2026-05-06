@@ -115,6 +115,11 @@ class Assumption(BaseModel):
     statement: str
     rationale: str
     confidence: float = Field(ge=0.0, le=1.0)
+    # When the model phrased the assumption as a multiple-choice
+    # question, ``options`` carries 2-4 candidate answers so the UI
+    # renders radio buttons instead of an open Confirm/Correct.
+    # Empty / None ⇒ open-ended assumption (legacy behaviour).
+    options: list[str] | None = Field(default=None, max_length=4)
 
 
 class DiffOpAdd(BaseModel):
@@ -195,6 +200,11 @@ class IterationOutput(BaseModel):
     changes_summary: str = ""
     archived: list[ArchivedItem] = Field(default_factory=list)
 
+    # Convergence signal — model says "the spec is ready to ship as-is".
+    # Optional so legacy responses without these fields parse cleanly.
+    is_complete: bool = False
+    completion_reason: str = ""
+
     markdown_rendered: str = Field(min_length=1)
 
 
@@ -234,6 +244,19 @@ class IterSessionRead(BaseModel):
     # sees Flash Lite immediately instead of the stale value
     # recorded once at session creation.
     current_primary_model_id: str | None = None
+    # Number of successful iterations remaining before the hard cap
+    # (``ITER_MAX_TURNS``) blocks new POST /iterations. Computed by
+    # counting persisted versions; surfaced so the UI can render
+    # "Round N of M" and swap "Run iteration" for "Mark ready" once
+    # the budget is exhausted.
+    remaining_turns: int = 0
+    max_turns: int = 0
+    # Mirrors the latest version's ``is_complete`` /
+    # ``completion_reason`` for cheap polling — the UI doesn't have to
+    # fetch the version detail just to know whether to show the
+    # "Mark ready" CTA.
+    is_complete: bool = False
+    completion_reason: str | None = None
 
 
 class IterVersionRead(BaseModel):
@@ -246,6 +269,8 @@ class IterVersionRead(BaseModel):
     output_markdown: str
     diff_json: list[dict[str, Any]]
     changes_summary: str
+    is_complete: bool = False
+    completion_reason: str | None = None
     created_at: datetime
 
 
@@ -261,6 +286,7 @@ class IterAssumptionRead(BaseModel):
     user_response: str | None
     resolved_at: datetime | None
     resolved_by_user_id: uuid.UUID | None
+    options: list[str] | None = None
     created_at: datetime
 
 
