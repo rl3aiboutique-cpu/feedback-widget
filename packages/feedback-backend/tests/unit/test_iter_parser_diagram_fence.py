@@ -105,3 +105,27 @@ def test_h2_diagram_heading_also_normalised() -> None:
     out = parse_iteration_output(json.dumps(payload), restructure_allowed=False)
     assert "```mermaid" in out.markdown_rendered
     assert "flowchart TD" in out.markdown_rendered
+
+
+# ── Public helper tests ──────────────────────────────────────────
+# Used by the read-side DTO mapper to self-heal legacy versions
+# stored before the parse-time normaliser landed in v0.3.0-rc.11.
+
+from feedback_widget.iter_parser import normalise_markdown_diagrams  # noqa: E402
+
+
+def test_public_helper_wraps_mermaid_string() -> None:
+    md = "# Diagram\n\ngraph TD\n  A --> B\n"
+    out = normalise_markdown_diagrams(md)
+    assert "```mermaid" in out
+    assert "graph TD" in out
+
+
+def test_public_helper_idempotent_on_fenced_input() -> None:
+    md = "# Diagram\n\n```mermaid\ngraph LR\n  A --> B\n```\n"
+    out = normalise_markdown_diagrams(md)
+    assert out == md
+
+
+def test_public_helper_handles_empty_string() -> None:
+    assert normalise_markdown_diagrams("") == ""

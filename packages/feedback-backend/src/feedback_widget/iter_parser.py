@@ -200,26 +200,22 @@ _MERMAID_OPENER_RE = re.compile(
 )
 
 
-def _normalise_unfenced_diagrams(payload: Any) -> None:
-    r"""Open-weight models routinely emit the Diagram section's body
-    as bare text (``# Diagram\ngraph LR\n  A --> B``) instead of
-    wrapping it in a fenced code block. The bare text reads as
-    paragraph text on every Markdown renderer that doesn't have a
-    Mermaid plugin (we don't bundle one) — the user sees garbled
-    arrow soup. Fix it in-place before the version is persisted.
+def normalise_markdown_diagrams(md: str) -> str:
+    r"""Wrap unfenced Mermaid / ASCII diagram bodies that follow a
+    Diagram heading in a code fence.
 
-    Strategy: find a Diagram heading; if the next non-blank line is
-    a Mermaid keyword (``graph``, ``flowchart``, etc.) OR an ASCII
-    art line full of pipes / arrows / brackets that isn't already
-    inside a fence, wrap the body in a triple-backtick mermaid fence
-    (for the Mermaid keyword case) or a triple-backtick text fence
-    (for ASCII) until the next heading or end of doc.
+    Open-weight models routinely emit the Diagram section's body as
+    bare text (``# Diagram\ngraph LR\n  A --> B``) instead of
+    wrapping it in a fenced code block. The bare text reads as
+    paragraph soup on every Markdown renderer that doesn't have a
+    Mermaid plugin (we don't bundle one).
+
+    Pure string→string and idempotent on already-fenced input, so
+    the read-side DTO mapper can apply this to legacy rows that
+    pre-date the parse-time normaliser without a data migration.
     """
-    if not isinstance(payload, dict):
-        return
-    md = payload.get("markdown_rendered")
-    if not isinstance(md, str) or not md:
-        return
+    if not md:
+        return md
     lines = md.split("\n")
     result: list[str] = []
     i = 0
@@ -269,7 +265,17 @@ def _normalise_unfenced_diagrams(payload: Any) -> None:
 
         result.append(line)
         i += 1
-    payload["markdown_rendered"] = "\n".join(result)
+    return "\n".join(result)
+
+
+def _normalise_unfenced_diagrams(payload: Any) -> None:
+    """Dict-mutation adapter for the parse pipeline. Runs the public
+    :func:`normalise_markdown_diagrams` over ``payload["markdown_rendered"]``."""
+    if not isinstance(payload, dict):
+        return
+    md = payload.get("markdown_rendered")
+    if isinstance(md, str) and md:
+        payload["markdown_rendered"] = normalise_markdown_diagrams(md)
 
 
 def parse_iteration_output(
