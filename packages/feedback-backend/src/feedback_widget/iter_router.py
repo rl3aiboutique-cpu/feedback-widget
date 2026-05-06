@@ -49,6 +49,7 @@ from feedback_widget.iter_models import (
     FeedbackIterSession,
     FeedbackIterVersion,
 )
+from feedback_widget.iter_parser import normalise_markdown_diagrams
 from feedback_widget.iter_rate_limit import IterRateLimitExceededError
 from feedback_widget.iter_schemas import (
     IterAssumptionRead,
@@ -120,6 +121,12 @@ def _to_version_read(v: FeedbackIterVersion) -> IterVersionRead:
         cs = output_json.get("changes_summary")
         if isinstance(cs, str):
             summary = cs
+    # Apply the diagram-fence normaliser on read so legacy versions
+    # stored before the parse-time normaliser landed in v0.3.0-rc.11
+    # render correctly without a data migration. The function is
+    # idempotent on already-fenced input, so newer rows pass through
+    # untouched.
+    rendered_md = normalise_markdown_diagrams(v.output_markdown)
     return IterVersionRead(
         id=v.id,
         session_id=v.session_id,
@@ -127,7 +134,7 @@ def _to_version_read(v: FeedbackIterVersion) -> IterVersionRead:
         parent_version_id=v.parent_version_id,
         user_message=v.user_message,
         restructure_allowed=v.restructure_allowed,
-        output_markdown=v.output_markdown,
+        output_markdown=rendered_md,
         diff_json=list(v.diff_json or []),
         changes_summary=summary,
         created_at=v.created_at or datetime.now(UTC),
