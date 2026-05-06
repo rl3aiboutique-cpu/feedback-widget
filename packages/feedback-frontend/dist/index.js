@@ -46,7 +46,7 @@ import {
 } from "./chunk-RUMDEDKD.js";
 
 // src/version.ts
-var VERSION = "0.1.0";
+var VERSION = "0.3.2";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
