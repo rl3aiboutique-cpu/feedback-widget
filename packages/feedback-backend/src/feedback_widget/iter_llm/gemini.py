@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 from collections.abc import AsyncIterator
 
 from google import genai  # type: ignore[import-untyped]
@@ -41,12 +42,21 @@ _GEMINI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
     "gemini-2.5-flash": (0.075, 0.30),
     "gemini-2.5-pro": (1.25, 5.00),
     "gemini-flash-latest": (0.075, 0.30),
+    "gemini-flash-lite-latest": (0.0, 0.0),  # free tier on AI Studio at writing
     # Gemma is free on AI Studio's developer tier.
     "gemma-3-1b-it": (0.0, 0.0),
     "gemma-3-4b-it": (0.0, 0.0),
     "gemma-3-12b-it": (0.0, 0.0),
     "gemma-3-27b-it": (0.0, 0.0),
 }
+
+# Retry budget per model on transient / rate-limited errors before
+# the chain walks to the next model. 2 means 1 initial attempt + 2
+# retries = 3 total tries per model. Backoff is exponential (1s, 2s).
+_RETRIES_PER_MODEL: int = 2
+_BACKOFF_BASE_SECONDS: float = 1.0
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_model(settings: FeedbackSettings) -> str:
@@ -201,29 +211,66 @@ class GeminiProvider:
 
         loop = asyncio.get_running_loop()
         start = loop.time()
-        # Try the model chain — fall through on rate-limit / transient.
+        # Two-level retry strategy:
+        #   1. For each model in the fallback chain, attempt the call
+        #      up to (1 + _RETRIES_PER_MODEL) times with exponential
+        #      backoff on transient / rate-limited errors.
+        #   2. After retries are exhausted on a model, walk to the
+        #      next model in the chain. Reset retry counter so each
+        #      model gets its own full budget.
+        # Fatal errors (auth, schema, etc.) skip retries and skip
+        # fallback — they fail loudly so the user sees real bugs.
+        last_wrapped: LLMProviderError | None = None
         while True:
-            try:
-                response = await asyncio.wait_for(
-                    self._client.aio.models.generate_content(
-                        model=self._model,
-                        contents=[gtypes.Content(role="user", parts=parts)],
-                        config=cfg,
-                    ),
-                    timeout=timeout_seconds,
-                )
-                break
-            except BaseException as exc:
-                wrapped = _wrap_provider_error(exc)
-                if (
-                    isinstance(
+            response = None
+            for attempt in range(_RETRIES_PER_MODEL + 1):
+                try:
+                    response = await asyncio.wait_for(
+                        self._client.aio.models.generate_content(
+                            model=self._model,
+                            contents=[gtypes.Content(role="user", parts=parts)],
+                            config=cfg,
+                        ),
+                        timeout=timeout_seconds,
+                    )
+                    break
+                except BaseException as exc:
+                    wrapped = _wrap_provider_error(exc)
+                    last_wrapped = wrapped
+                    transient = isinstance(
                         wrapped,
                         LLMProviderTransientError | LLMProviderRateLimitedError,
                     )
-                    and self._try_next_model(self._model) is not None
-                ):
-                    continue
-                raise wrapped from exc
+                    if not transient:
+                        raise wrapped from exc
+                    if attempt < _RETRIES_PER_MODEL:
+                        delay = _BACKOFF_BASE_SECONDS * (2**attempt)
+                        logger.warning(
+                            "iter llm transient error on %s (attempt %d/%d), retrying in %.1fs: %s",
+                            self._model,
+                            attempt + 1,
+                            _RETRIES_PER_MODEL + 1,
+                            delay,
+                            wrapped,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    # Retries exhausted on this model — fall out and
+                    # let the outer while try the next chain entry.
+                    logger.warning(
+                        "iter llm exhausted retries on %s; walking fallback chain",
+                        self._model,
+                    )
+                    break
+            if response is not None:
+                break
+            # Walk to next model. None ⇒ chain exhausted; surface the
+            # last transient error so the SSE error event tells the
+            # user every model failed (not a generic timeout).
+            if self._try_next_model(self._model) is None:
+                if last_wrapped is not None:
+                    raise last_wrapped
+                raise LLMProviderTransientError("all models in fallback chain failed")
         latency_ms = int((loop.time() - start) * 1000)
 
         raw_text = response.text or ""
