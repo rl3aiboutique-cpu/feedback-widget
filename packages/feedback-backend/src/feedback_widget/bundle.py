@@ -223,7 +223,7 @@ def _resolve_active_iter_session(
     """
     from sqlalchemy import select
 
-    rows = (
+    rows: list[FeedbackIterSession] = list(
         db.execute(
             select(FeedbackIterSession)
             .where(FeedbackIterSession.feedback_id == feedback_id)
@@ -234,12 +234,12 @@ def _resolve_active_iter_session(
     )
     if not rows:
         return None
-    rows.sort(
-        key=lambda s: (
-            _ITER_STATUS_PRECEDENCE.get(s.status, 99),
-            -(s.created_at.timestamp() if s.created_at else 0),
-        )
-    )
+
+    def _sort_key(s: FeedbackIterSession) -> tuple[int, float]:
+        ts = s.created_at.timestamp() if s.created_at is not None else 0.0
+        return (_ITER_STATUS_PRECEDENCE.get(s.status, 99), -ts)
+
+    rows.sort(key=_sort_key)
     return rows[0]
 
 
@@ -258,7 +258,7 @@ def _render_iter_artifacts(
 
     files: dict[str, str] = {}
 
-    versions = list(
+    versions: list[FeedbackIterVersion] = list(
         db.execute(
             select(FeedbackIterVersion)
             .where(FeedbackIterVersion.session_id == session.id)
@@ -281,7 +281,7 @@ def _render_iter_artifacts(
     final_output = IterationOutput.model_validate(final_version.output_json)
 
     # Assumptions: latest resolution per slot_key across all versions.
-    asm_rows = list(
+    asm_rows: list[FeedbackIterAssumption] = list(
         db.execute(
             select(FeedbackIterAssumption)
             .join(
@@ -520,7 +520,7 @@ def build_feedback_bundle(
                         open_count = 0
                         total_count = 0
                         if latest_version_id is not None:
-                            asm_on_latest = list(
+                            asm_on_latest: list[FeedbackIterAssumption] = list(
                                 db.execute(
                                     select(FeedbackIterAssumption).where(
                                         FeedbackIterAssumption.version_id == latest_version_id
