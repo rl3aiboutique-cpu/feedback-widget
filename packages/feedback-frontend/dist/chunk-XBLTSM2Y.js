@@ -227,6 +227,87 @@ function AssumptionCard({ assumption, onResolve, onSkip, disabled }) {
 
 // src/iter/useIterRunStream.ts
 import { useCallback, useRef, useState as useState2 } from "react";
+
+// src/iter/specSectionState.ts
+var SPEC_SECTION_ORDER = [
+  "personas",
+  "user_stories",
+  "spec",
+  "diagram",
+  "assumptions"
+];
+var SECTION_H2_PREFIX = {
+  personas: "## Personas",
+  user_stories: "## User Stories",
+  spec: "## Spec",
+  diagram: "## Diagram",
+  assumptions: "## Assumptions"
+};
+var SECTION_LABEL = {
+  personas: "Personas",
+  user_stories: "User Stories",
+  spec: "Spec",
+  diagram: "Diagram",
+  assumptions: "Assumptions"
+};
+var SECTION_SKELETON_HEIGHT_EM = {
+  personas: 8,
+  user_stories: 14,
+  spec: 24,
+  diagram: 6,
+  assumptions: 12
+};
+var _INITIAL_SECTION_STATES = {
+  personas: { status: "pending", markdown: "" },
+  user_stories: { status: "pending", markdown: "" },
+  spec: { status: "pending", markdown: "" },
+  diagram: { status: "pending", markdown: "" },
+  assumptions: { status: "pending", markdown: "" }
+};
+function splitMarkdownByH2(markdown) {
+  const out = {
+    personas: { status: "done", markdown: "" },
+    user_stories: { status: "done", markdown: "" },
+    spec: { status: "done", markdown: "" },
+    diagram: { status: "done", markdown: "" },
+    assumptions: { status: "done", markdown: "" }
+  };
+  if (!markdown.trim()) return out;
+  const lines = markdown.split("\n");
+  const sectionStart = {};
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
+    if (!line) continue;
+    for (const key of SPEC_SECTION_ORDER) {
+      if (line.startsWith(SECTION_H2_PREFIX[key]) && sectionStart[key] === void 0) {
+        sectionStart[key] = li;
+      }
+    }
+  }
+  for (let i = 0; i < SPEC_SECTION_ORDER.length; i++) {
+    const key = SPEC_SECTION_ORDER[i];
+    if (key === void 0) continue;
+    const start = sectionStart[key];
+    if (start === void 0) continue;
+    let end = lines.length;
+    for (let j = i + 1; j < SPEC_SECTION_ORDER.length; j++) {
+      const nextKey = SPEC_SECTION_ORDER[j];
+      if (nextKey === void 0) continue;
+      const nextStart = sectionStart[nextKey];
+      if (nextStart !== void 0) {
+        end = nextStart;
+        break;
+      }
+    }
+    out[key] = {
+      status: "done",
+      markdown: lines.slice(start, end).join("\n").trim()
+    };
+  }
+  return out;
+}
+
+// src/iter/useIterRunStream.ts
 var _INIT = {
   status: "idle",
   partialMarkdown: "",
@@ -235,7 +316,8 @@ var _INIT = {
   versionNumber: null,
   errorCode: null,
   errorMessage: null,
-  providerFallback: null
+  providerFallback: null,
+  sectionStates: _INITIAL_SECTION_STATES
 };
 function useIterRunStream(bindings, sessionId) {
   const [state, setState] = useState2(_INIT);
@@ -281,17 +363,54 @@ function useIterRunStream(bindings, sessionId) {
 }
 function _reduce(cur, ev) {
   switch (ev.type) {
-    case "token":
-      return { ...cur, partialMarkdown: cur.partialMarkdown + ev.chunk };
-    case "section":
-      return { ...cur, activeSection: ev.section };
-    case "done":
+    case "token": {
+      const next = {
+        ...cur,
+        partialMarkdown: cur.partialMarkdown + ev.chunk
+      };
+      const active = cur.activeSection;
+      if (active) {
+        const prevEntry = cur.sectionStates[active];
+        next.sectionStates = {
+          ...cur.sectionStates,
+          [active]: {
+            status: "streaming",
+            markdown: prevEntry.markdown + ev.chunk
+          }
+        };
+      }
+      return next;
+    }
+    case "section": {
+      const incoming = ev.section;
+      const nextStates = { ...cur.sectionStates };
+      if (cur.activeSection) {
+        const prev = cur.activeSection;
+        nextStates[prev] = {
+          status: "done",
+          markdown: cur.sectionStates[prev].markdown
+        };
+      }
+      nextStates[incoming] = {
+        status: "streaming",
+        markdown: cur.sectionStates[incoming].markdown
+      };
+      return { ...cur, activeSection: incoming, sectionStates: nextStates };
+    }
+    case "done": {
+      const nextStates = { ...cur.sectionStates };
+      for (const key of SPEC_SECTION_ORDER) {
+        const e = cur.sectionStates[key];
+        nextStates[key] = { status: "done", markdown: e.markdown };
+      }
       return {
         ...cur,
         status: "done",
         versionId: ev.version_id,
-        versionNumber: ev.version_number
+        versionNumber: ev.version_number,
+        sectionStates: nextStates
       };
+    }
     case "error":
       return {
         ...cur,
@@ -480,8 +599,137 @@ function modelLatencyHint(modelId) {
 
 // src/iter/EditableSpecPanel.tsx
 import { Pencil, Save, X } from "lucide-react";
-import { useState as useState4 } from "react";
-import { Fragment, jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+import { useMemo, useState as useState4 } from "react";
+
+// src/iter/SpecSectionCard.tsx
+import { Check, Loader2 as Loader22 } from "lucide-react";
+import { useEffect as useEffect2, useRef as useRef3 } from "react";
+import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+function SpecSectionCard({
+  sectionKey,
+  status,
+  markdown
+}) {
+  const bodyRef = useRef3(null);
+  useEffect2(() => {
+    let cancelled = false;
+    if (status === "pending") return;
+    const el = bodyRef.current;
+    if (!el) return;
+    void import("markdown-it").then(({ default: MarkdownIt }) => {
+      if (cancelled || !bodyRef.current) return;
+      const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
+      const html = md.render(markdown);
+      const range = document.createRange();
+      range.selectNodeContents(bodyRef.current);
+      const fragment = range.createContextualFragment(html);
+      bodyRef.current.replaceChildren(fragment);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, markdown]);
+  const label = SECTION_LABEL[sectionKey];
+  const minHeightEm = SECTION_SKELETON_HEIGHT_EM[sectionKey];
+  const headerStripCls = status === "done" ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-900/10" : status === "streaming" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/30";
+  const cardCls = [
+    "rounded-md border transition-colors",
+    status === "done" ? "border-emerald-200 dark:border-emerald-900/40" : status === "streaming" ? "border-primary/30" : "border-input"
+  ].join(" ");
+  return /* @__PURE__ */ jsxs3(
+    "section",
+    {
+      "aria-label": label,
+      "data-section-key": sectionKey,
+      id: `iter-section-${sectionKey}`,
+      className: cardCls,
+      style: { minHeight: `${minHeightEm}em` },
+      children: [
+        /* @__PURE__ */ jsxs3(
+          "header",
+          {
+            className: `sticky top-0 z-[1] flex items-center gap-2 rounded-t-md border-b px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-opacity-90 ${headerStripCls}`,
+            children: [
+              /* @__PURE__ */ jsx3(
+                "h2",
+                {
+                  className: "font-semibold tracking-tight",
+                  style: { fontSize: "clamp(0.85rem, 0.78rem + 0.3cqi, 1rem)" },
+                  children: label
+                }
+              ),
+              status === "streaming" ? /* @__PURE__ */ jsxs3(
+                "span",
+                {
+                  className: "flex items-center gap-1 text-primary",
+                  style: { fontSize: "0.65rem" },
+                  "aria-live": "polite",
+                  children: [
+                    /* @__PURE__ */ jsx3(Loader22, { className: "h-3 w-3 animate-spin" }),
+                    "escribiendo\u2026"
+                  ]
+                }
+              ) : null,
+              status === "done" ? /* @__PURE__ */ jsxs3(
+                "span",
+                {
+                  className: "flex items-center gap-1 text-emerald-700 dark:text-emerald-300",
+                  style: { fontSize: "0.65rem" },
+                  children: [
+                    /* @__PURE__ */ jsx3(Check, { className: "h-3 w-3" }),
+                    "listo"
+                  ]
+                }
+              ) : null
+            ]
+          }
+        ),
+        status === "pending" ? /* @__PURE__ */ jsxs3(
+          "div",
+          {
+            "aria-hidden": "true",
+            className: "space-y-2 p-3",
+            style: { minHeight: `${Math.max(minHeightEm - 2, 4)}em` },
+            children: [
+              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[85%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[70%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[92%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[60%] rounded bg-muted" })
+            ]
+          }
+        ) : /* @__PURE__ */ jsx3(
+          "article",
+          {
+            ref: bodyRef,
+            className: [
+              "p-3 text-sm leading-relaxed",
+              "[&_h1]:mt-2 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold",
+              "[&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold",
+              "[&_h3]:mt-1.5 [&_h3]:mb-1 [&_h3]:text-[0.85rem] [&_h3]:font-semibold",
+              "[&_p]:my-1.5 [&_p]:text-foreground/90",
+              "[&_ul]:my-1.5 [&_ul]:ml-5 [&_ul]:list-disc [&_ul]:space-y-0.5",
+              "[&_ol]:my-1.5 [&_ol]:ml-5 [&_ol]:list-decimal [&_ol]:space-y-0.5",
+              "[&_li]:text-foreground/90",
+              "[&_strong]:font-semibold [&_strong]:text-foreground",
+              "[&_em]:italic",
+              "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-primary",
+              "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-slate-50 [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-[0.75rem] dark:[&_pre]:bg-slate-900/40",
+              "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground",
+              "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:py-1.5 [&_blockquote]:pl-2.5 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
+              "[&_hr]:my-3 [&_hr]:border-border",
+              "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
+              status === "streaming" ? "animate-pulse-slow" : ""
+            ].join(" "),
+            style: { fontSize: "clamp(0.8rem, 0.75rem + 0.15cqi, 0.95rem)" }
+          }
+        )
+      ]
+    }
+  );
+}
+
+// src/iter/EditableSpecPanel.tsx
+import { Fragment, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
 var _DEFAULT_TEXTAREA_MIN_H = "min-h-[28rem]";
 var _DEFAULT_EMPTY_MSG = 'Press "Generate first version" or run an iteration to populate the working document.';
 function EditableSpecPanel(props) {
@@ -500,8 +748,16 @@ function EditableSpecPanel(props) {
     await props.onSaveEdit(draft);
     setEditing(false);
   };
+  const derivedSectionStates = useMemo(() => {
+    if (props.sectionStates) return props.sectionStates;
+    if (props.markdown) return splitMarkdownByH2(props.markdown);
+    return void 0;
+  }, [props.sectionStates, props.markdown]);
   if (props.streaming) {
-    return /* @__PURE__ */ jsx3(
+    if (props.sectionStates) {
+      return _renderSectionCards(props.sectionStates);
+    }
+    return /* @__PURE__ */ jsx4(
       StreamingSkeleton,
       {
         activeSection: props.activeSection,
@@ -512,27 +768,27 @@ function EditableSpecPanel(props) {
     );
   }
   if (!props.markdown) {
-    return /* @__PURE__ */ jsx3("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: props.emptyStateMessage ?? _DEFAULT_EMPTY_MSG });
+    return /* @__PURE__ */ jsx4("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: props.emptyStateMessage ?? _DEFAULT_EMPTY_MSG });
   }
   const textareaMinH = props.textareaMinHeightClass ?? _DEFAULT_TEXTAREA_MIN_H;
-  return /* @__PURE__ */ jsxs3("div", { className: "flex flex-1 flex-col", children: [
-    /* @__PURE__ */ jsxs3("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
-      !editing && props.editable && /* @__PURE__ */ jsxs3(Button, { size: "sm", variant: "outline", onClick: startEditing, title: "Editar el documento", children: [
-        /* @__PURE__ */ jsx3(Pencil, { className: "h-3 w-3" }),
+  return /* @__PURE__ */ jsxs4("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxs4("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
+      !editing && props.editable && /* @__PURE__ */ jsxs4(Button, { size: "sm", variant: "outline", onClick: startEditing, title: "Editar el documento", children: [
+        /* @__PURE__ */ jsx4(Pencil, { className: "h-3 w-3" }),
         " Editar"
       ] }),
-      editing && /* @__PURE__ */ jsxs3(Fragment, { children: [
-        /* @__PURE__ */ jsxs3(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
-          /* @__PURE__ */ jsx3(X, { className: "h-3 w-3" }),
+      editing && /* @__PURE__ */ jsxs4(Fragment, { children: [
+        /* @__PURE__ */ jsxs4(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx4(X, { className: "h-3 w-3" }),
           " Cancelar"
         ] }),
-        /* @__PURE__ */ jsxs3(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
-          /* @__PURE__ */ jsx3(Save, { className: "h-3 w-3" }),
+        /* @__PURE__ */ jsxs4(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx4(Save, { className: "h-3 w-3" }),
           props.saving ? "Guardando\u2026" : "Guardar"
         ] })
       ] })
     ] }),
-    editing ? /* @__PURE__ */ jsx3(
+    editing ? /* @__PURE__ */ jsx4(
       Textarea,
       {
         value: draft,
@@ -540,8 +796,19 @@ function EditableSpecPanel(props) {
         rows: 28,
         className: `flex-1 ${textareaMinH} font-mono text-xs`
       }
-    ) : /* @__PURE__ */ jsx3(RenderedMarkdown, { markdown: props.markdown })
+    ) : derivedSectionStates ? _renderSectionCards(derivedSectionStates) : /* @__PURE__ */ jsx4(RenderedMarkdown, { markdown: props.markdown })
   ] });
+}
+function _renderSectionCards(states) {
+  return /* @__PURE__ */ jsx4("div", { className: "flex flex-1 flex-col gap-2", children: SPEC_SECTION_ORDER.map((key) => /* @__PURE__ */ jsx4(
+    SpecSectionCard,
+    {
+      sectionKey: key,
+      status: states[key].status,
+      markdown: states[key].markdown
+    },
+    key
+  )) });
 }
 
 export {
@@ -550,4 +817,4 @@ export {
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-XQBICIJA.js.map
+//# sourceMappingURL=chunk-XBLTSM2Y.js.map

@@ -14,11 +14,13 @@
  */
 
 import { Pencil, Save, X } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useMemo, useState } from "react";
 
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { SpecSectionCard } from "./SpecSectionCard";
 import { type IterStreamSection, RenderedMarkdown, StreamingSkeleton } from "./markdownView";
+import { SPEC_SECTION_ORDER, type SpecSectionStates, splitMarkdownByH2 } from "./specSectionState";
 
 export interface EditableSpecPanelProps {
   /** Rendered `output_markdown` for the latest version. Empty during streaming. */
@@ -27,6 +29,12 @@ export interface EditableSpecPanelProps {
   streaming: boolean;
   /** Which section the streaming parser detected; lights up in the skeleton. */
   activeSection: IterStreamSection | null;
+  /** v0.5 (Block B) — per-section state from the live stream. When
+   * provided + `streaming === true`, the panel renders five cards
+   * progressively instead of one global StreamingSkeleton. The
+   * StreamingSkeleton fallback stays for callers that don't pass
+   * sectionStates yet (admin IterWorkspace). */
+  sectionStates?: SpecSectionStates;
   /** When false the [Edit] button is hidden (e.g. terminal session). */
   editable: boolean;
   /** Caller's save handler — wires to `editIterVersionMarkdown` mutation. */
@@ -71,7 +79,27 @@ export function EditableSpecPanel(props: EditableSpecPanelProps): ReactElement {
     setEditing(false);
   };
 
+  // v0.5 (Block B) — derive per-section state for rendering. Three
+  // sources, in order of preference:
+  //   1. live `sectionStates` from the SSE reducer (covers streaming
+  //      AND newly-completed runs that have not invalidated the
+  //      version cache yet);
+  //   2. client-side split of the persisted `markdown` for past
+  //      completed versions (no SSE replay available);
+  //   3. when neither is available (loading), an undefined that
+  //      tells the panel to render the empty-state below.
+  const derivedSectionStates: SpecSectionStates | undefined = useMemo(() => {
+    if (props.sectionStates) return props.sectionStates;
+    if (props.markdown) return splitMarkdownByH2(props.markdown);
+    return undefined;
+  }, [props.sectionStates, props.markdown]);
+
+  // Streaming + sectionStates available → progressive cards.
+  // Streaming + no sectionStates (legacy caller) → fallback skeleton.
   if (props.streaming) {
+    if (props.sectionStates) {
+      return _renderSectionCards(props.sectionStates);
+    }
     return (
       <StreamingSkeleton
         activeSection={props.activeSection}
@@ -119,9 +147,26 @@ export function EditableSpecPanel(props: EditableSpecPanelProps): ReactElement {
           rows={28}
           className={`flex-1 ${textareaMinH} font-mono text-xs`}
         />
+      ) : derivedSectionStates ? (
+        _renderSectionCards(derivedSectionStates)
       ) : (
         <RenderedMarkdown markdown={props.markdown} />
       )}
+    </div>
+  );
+}
+
+function _renderSectionCards(states: SpecSectionStates): ReactElement {
+  return (
+    <div className="flex flex-1 flex-col gap-2">
+      {SPEC_SECTION_ORDER.map((key) => (
+        <SpecSectionCard
+          key={key}
+          sectionKey={key}
+          status={states[key].status}
+          markdown={states[key].markdown}
+        />
+      ))}
     </div>
   );
 }

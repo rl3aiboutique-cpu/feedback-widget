@@ -27,7 +27,7 @@ import {
   EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-XQBICIJA.js";
+} from "./chunk-XBLTSM2Y.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -1487,63 +1487,60 @@ function IterPendingSidebar({
           const selected = a.id === selectedId;
           const tabStop = i === focusIdx;
           const confidencePct = Math.round((a.confidence ?? 0) * 100);
-          return (
-            // biome-ignore lint/a11y/useSemanticElements: <option> is for <select>; this is the WAI-ARIA listbox/option pattern with roving tabindex
-            /* @__PURE__ */ jsxs8(
-              "button",
-              {
-                ref: (el) => {
-                  itemRefs.current[i] = el;
-                },
-                type: "button",
-                id: `iter-pending-${a.id}`,
-                role: "option",
-                "aria-selected": selected,
-                tabIndex: tabStop ? 0 : -1,
-                disabled,
-                onClick: () => onSelect(a.id),
-                onFocus: () => setFocusIdx(i),
-                className: [
-                  "block w-full rounded border px-2 py-1.5 text-left transition-colors",
-                  "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  selected ? "border-primary bg-primary/5" : "border-input bg-background hover:bg-accent"
-                ].join(" "),
-                style: { fontSize: "clamp(0.7rem, 0.6rem + 0.2cqi, 0.8rem)" },
-                children: [
-                  /* @__PURE__ */ jsxs8("div", { className: "flex items-center gap-1.5", children: [
-                    /* @__PURE__ */ jsx9(
-                      "span",
-                      {
-                        "aria-hidden": "true",
-                        className: `inline-block h-1.5 w-1.5 shrink-0 rounded-full ${_STATUS_DOT[a.status]}`
-                      }
-                    ),
-                    /* @__PURE__ */ jsx9(
-                      "span",
-                      {
-                        className: `shrink-0 rounded px-1 py-0.5 font-mono uppercase tracking-wide ${_KIND_CHIP[a.kind]}`,
-                        style: { fontSize: "0.55rem" },
-                        children: a.kind
-                      }
-                    ),
-                    /* @__PURE__ */ jsxs8(
-                      "span",
-                      {
-                        className: "ml-auto shrink-0 font-mono text-muted-foreground",
-                        style: { fontSize: "0.6rem" },
-                        title: `Confianza ${confidencePct}%`,
-                        children: [
-                          confidencePct,
-                          "%"
-                        ]
-                      }
-                    )
-                  ] }),
-                  /* @__PURE__ */ jsx9("p", { className: "mt-1 line-clamp-2 leading-snug", children: a.statement })
-                ]
+          return /* @__PURE__ */ jsxs8(
+            "button",
+            {
+              ref: (el) => {
+                itemRefs.current[i] = el;
               },
-              a.id
-            )
+              type: "button",
+              id: `iter-pending-${a.id}`,
+              role: "option",
+              "aria-selected": selected,
+              tabIndex: tabStop ? 0 : -1,
+              disabled,
+              onClick: () => onSelect(a.id),
+              onFocus: () => setFocusIdx(i),
+              className: [
+                "block w-full rounded border px-2 py-1.5 text-left transition-colors",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                selected ? "border-primary bg-primary/5" : "border-input bg-background hover:bg-accent"
+              ].join(" "),
+              style: { fontSize: "clamp(0.7rem, 0.6rem + 0.2cqi, 0.8rem)" },
+              children: [
+                /* @__PURE__ */ jsxs8("div", { className: "flex items-center gap-1.5", children: [
+                  /* @__PURE__ */ jsx9(
+                    "span",
+                    {
+                      "aria-hidden": "true",
+                      className: `inline-block h-1.5 w-1.5 shrink-0 rounded-full ${_STATUS_DOT[a.status]}`
+                    }
+                  ),
+                  /* @__PURE__ */ jsx9(
+                    "span",
+                    {
+                      className: `shrink-0 rounded px-1 py-0.5 font-mono uppercase tracking-wide ${_KIND_CHIP[a.kind]}`,
+                      style: { fontSize: "0.55rem" },
+                      children: a.kind
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs8(
+                    "span",
+                    {
+                      className: "ml-auto shrink-0 font-mono text-muted-foreground",
+                      style: { fontSize: "0.6rem" },
+                      title: `Confianza ${confidencePct}%`,
+                      children: [
+                        confidencePct,
+                        "%"
+                      ]
+                    }
+                  )
+                ] }),
+                /* @__PURE__ */ jsx9("p", { className: "mt-1 line-clamp-2 leading-snug", children: a.statement })
+              ]
+            },
+            a.id
           );
         })
       }
@@ -1751,6 +1748,32 @@ ${a.rationale}`;
       specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [stream.state.status, stream.state.versionId]);
+  const userScrollOverrideRef = useRef4(false);
+  const lastAutoScrolledSectionRef = useRef4(null);
+  useEffect5(() => {
+    const el = specScrollRef.current;
+    if (!el) return;
+    const onUserScroll = () => {
+      userScrollOverrideRef.current = true;
+    };
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
+  }, []);
+  useEffect5(() => {
+    const active = stream.state.activeSection;
+    if (!active) return;
+    if (active === lastAutoScrolledSectionRef.current) return;
+    userScrollOverrideRef.current = false;
+    lastAutoScrolledSectionRef.current = active;
+    const target = document.getElementById(`iter-section-${active}`);
+    if (target && !userScrollOverrideRef.current) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [stream.state.activeSection]);
   const handleSkip = (a) => resolveMutation.mutateAsync({
     assumptionId: a.id,
     body: { status: "irrelevant", user_response: SKIP_MARKER2 }
@@ -1893,6 +1916,7 @@ ${a.rationale}`;
                   markdown: renderedMarkdown,
                   streaming: isStreaming,
                   activeSection: stream.state.activeSection,
+                  sectionStates: isStreaming ? stream.state.sectionStates : void 0,
                   editable: !isStreaming && status !== "finalized" && status !== "abandoned" && !!latestVersion,
                   onSaveEdit: async (next) => {
                     if (!latestVersion) return;
@@ -2473,4 +2497,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-H7LUQDFG.js.map
+//# sourceMappingURL=FeedbackPanel-Q3PCCLNB.js.map

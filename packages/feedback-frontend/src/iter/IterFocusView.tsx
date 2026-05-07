@@ -285,6 +285,41 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     }
   }, [stream.state.status, stream.state.versionId]);
 
+  // v0.5 (Block B) — auto-scroll the active spec section into view as
+  // the SSE `section` event fires. User scroll cancels until the next
+  // section transition. Why a ref instead of state: we want the
+  // wheel/touch handler to flip the flag synchronously without
+  // re-rendering the whole tree. Reset on the rising edge of
+  // activeSection so each new section gets one auto-scroll attempt.
+  const userScrollOverrideRef = useRef(false);
+  const lastAutoScrolledSectionRef = useRef<string | null>(null);
+  useEffect(() => {
+    const el = specScrollRef.current;
+    if (!el) return;
+    const onUserScroll = () => {
+      userScrollOverrideRef.current = true;
+    };
+    el.addEventListener("wheel", onUserScroll, { passive: true });
+    el.addEventListener("touchmove", onUserScroll, { passive: true });
+    return () => {
+      el.removeEventListener("wheel", onUserScroll);
+      el.removeEventListener("touchmove", onUserScroll);
+    };
+  }, []);
+  useEffect(() => {
+    const active = stream.state.activeSection;
+    if (!active) return;
+    if (active === lastAutoScrolledSectionRef.current) return;
+    // Section just changed — reset user override + scroll the new
+    // card into view.
+    userScrollOverrideRef.current = false;
+    lastAutoScrolledSectionRef.current = active;
+    const target = document.getElementById(`iter-section-${active}`);
+    if (target && !userScrollOverrideRef.current) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [stream.state.activeSection]);
+
   const handleSkip = (a: IterAssumptionRead) =>
     resolveMutation.mutateAsync({
       assumptionId: a.id,
@@ -455,6 +490,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
                 markdown={renderedMarkdown}
                 streaming={isStreaming}
                 activeSection={stream.state.activeSection}
+                sectionStates={isStreaming ? stream.state.sectionStates : undefined}
                 editable={
                   !isStreaming &&
                   status !== "finalized" &&

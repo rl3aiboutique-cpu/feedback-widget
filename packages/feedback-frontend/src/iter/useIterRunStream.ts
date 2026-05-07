@@ -12,6 +12,12 @@ import { useCallback, useRef, useState } from "react";
 import type { FeedbackHostBindings } from "../adapter";
 import { type IterApiError, newIdempotencyKey, runIterationStream } from "../client/iter";
 import type { IterRunRequest, IterStreamEvent } from "../client/types";
+import {
+  SPEC_SECTION_ORDER,
+  type SpecSectionKey,
+  type SpecSectionStates,
+  _INITIAL_SECTION_STATES,
+} from "./specSectionState";
 
 export type IterStreamStatus = "idle" | "running" | "done" | "error";
 
@@ -27,6 +33,11 @@ export interface IterStreamState {
    * the most recent fallback so the UI banner can render context.
    * Cleared on `reset()` / next `start()`. */
   providerFallback: { fromModel: string; toModel: string; reason: string } | null;
+  /** v0.5 (Block B) — per-section state derived from the SSE
+   * `section` + `token` events. Lets the UI render the spec as
+   * five cards transitioning pending → streaming → done without
+   * the parent doing client-side splitting. */
+  sectionStates: SpecSectionStates;
 }
 
 const _INIT: IterStreamState = {
@@ -38,6 +49,7 @@ const _INIT: IterStreamState = {
   errorCode: null,
   errorMessage: null,
   providerFallback: null,
+  sectionStates: _INITIAL_SECTION_STATES,
 };
 
 export function useIterRunStream(
@@ -95,17 +107,67 @@ export function useIterRunStream(
 
 function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
   switch (ev.type) {
-    case "token":
-      return { ...cur, partialMarkdown: cur.partialMarkdown + ev.chunk };
-    case "section":
-      return { ...cur, activeSection: ev.section };
-    case "done":
+    case "token": {
+      // v0.5 (Block B) — append the chunk to both the cumulative
+      // markdown buffer (used by the editor / past renderer) AND to
+      // the active section's bucket so the SpecSectionCard renders
+      // its body progressively. If no section event has fired yet
+      // (rare — the prompt's first line is `## Personas`), the
+      // chunk lands only in `partialMarkdown` and is invisible to
+      // the section cards until the first H2 boundary.
+      const next: IterStreamState = {
+        ...cur,
+        partialMarkdown: cur.partialMarkdown + ev.chunk,
+      };
+      const active = cur.activeSection;
+      if (active) {
+        const prevEntry = cur.sectionStates[active];
+        next.sectionStates = {
+          ...cur.sectionStates,
+          [active]: {
+            status: "streaming",
+            markdown: prevEntry.markdown + ev.chunk,
+          },
+        };
+      }
+      return next;
+    }
+    case "section": {
+      // Flip the previously-active section to `done`, the new one to
+      // `streaming`. Sections that never streamed stay `pending`
+      // until a later `section`/`done` event reaches them.
+      const incoming = ev.section as SpecSectionKey;
+      const nextStates: SpecSectionStates = { ...cur.sectionStates };
+      if (cur.activeSection) {
+        const prev = cur.activeSection;
+        nextStates[prev] = {
+          status: "done",
+          markdown: cur.sectionStates[prev].markdown,
+        };
+      }
+      nextStates[incoming] = {
+        status: "streaming",
+        markdown: cur.sectionStates[incoming].markdown,
+      };
+      return { ...cur, activeSection: incoming, sectionStates: nextStates };
+    }
+    case "done": {
+      // Flip every section to `done`. Any section that never streamed
+      // ends as a `done` empty card (prompt rarely skips one but if
+      // it does we don't want a permanent skeleton hanging there).
+      const nextStates: SpecSectionStates = { ...cur.sectionStates };
+      for (const key of SPEC_SECTION_ORDER) {
+        const e = cur.sectionStates[key];
+        nextStates[key] = { status: "done", markdown: e.markdown };
+      }
       return {
         ...cur,
         status: "done",
         versionId: ev.version_id,
         versionNumber: ev.version_number,
+        sectionStates: nextStates,
       };
+    }
     case "error":
       return {
         ...cur,

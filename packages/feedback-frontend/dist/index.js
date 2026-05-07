@@ -743,7 +743,7 @@ function useMyPendingActionCount() {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-H7LUQDFG.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-Q3PCCLNB.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -831,7 +831,7 @@ var FeedbackButton_default = FeedbackButton;
 import { Suspense as Suspense2, lazy as lazy2 } from "react";
 import { jsx as jsx5 } from "react/jsx-runtime";
 var _Inner = lazy2(async () => {
-  const mod = await import("./IterWorkspace-AENNUGY2.js");
+  const mod = await import("./IterWorkspace-DMQ7M45G.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
