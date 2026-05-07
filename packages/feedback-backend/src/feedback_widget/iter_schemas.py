@@ -463,13 +463,30 @@ class SSEEventProviderFallback(BaseModel):
     reason: str
 
 
+class SSEEventProviderActive(BaseModel):
+    """v0.5 (Block C) — emitted once at stream start (with the
+    provider's primary model) AND once after each fallback walk
+    (with the new active model). Lets the UI badge be a pure render
+    of the latest event — no inference from `provider_fallback` or
+    polling of `current_primary_model_id`. Defensive bootstrap on
+    the client uses session metadata if this event hasn't arrived
+    yet (cold start / browser refresh mid-stream).
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["provider_active"] = "provider_active"
+    model: str
+
+
 SSEEvent = Annotated[
     SSEEventToken
     | SSEEventSection
     | SSEEventDone
     | SSEEventError
     | SSEEventHeartbeat
-    | SSEEventProviderFallback,
+    | SSEEventProviderFallback
+    | SSEEventProviderActive,
     Field(discriminator="type"),
 ]
 

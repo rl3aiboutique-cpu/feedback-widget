@@ -42,11 +42,16 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
 import { EditableSpecPanel } from "./EditableSpecPanel";
+import { ElapsedTimer } from "./ElapsedTimer";
+import { FallbackToast } from "./FallbackToast";
+import { HintLine } from "./HintLine";
 import { IterFocusShell } from "./IterFocusShell";
 import { IterMetadataRail } from "./IterMetadataRail";
 import { IterPendingSidebar } from "./IterPendingSidebar";
+import { ModelBadge } from "./ModelBadge";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { modelLatencyHint } from "./markdownView";
+import { deriveIterRunMeta } from "./useIterRunMeta";
 import { useIterRunStream } from "./useIterRunStream";
 
 // "Skip" — user can't answer this and asks the model to infer it.
@@ -334,6 +339,12 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     sess?.current_primary_model_id ?? sess?.last_call_model_id ?? sess?.model_id ?? "",
   );
 
+  // v0.5 (Block C) — single source of truth for the live model
+  // state. Drives the rail badge, elapsed timer, hint line, and
+  // the fallback toast. Active model never appears as a hard-coded
+  // string in copy; everything reads from `meta.active`.
+  const meta = useMemo(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
+
   return (
     <div className="flex h-full flex-col gap-3" data-feedback-id="iter.focus-view">
       {/* Header — round indicator moved to the rail in v0.5.0; the
@@ -400,31 +411,12 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </div>
       ) : null}
 
-      {/* v0.4.6 — provider fallback banner. Backend emits a
-          `provider_fallback` SSE event when its internal chain swaps
-          models mid-run (e.g. Flash 503 → Gemma). Surfacing it stops
-          the user wondering why output tone or latency suddenly
-          changed — and reassures them their iteration is still
-          progressing instead of failing silently. */}
-      {stream.state.providerFallback ? (
-        <output
-          aria-live="polite"
-          className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100"
-        >
-          <span aria-hidden="true">⚡</span>
-          <div className="flex-1 leading-relaxed">
-            <span className="font-semibold">Cambio de modelo en vuelo.</span> Saturación temporal en{" "}
-            <code className="rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40">
-              {stream.state.providerFallback.fromModel}
-            </code>
-            ; tu iteración la está sirviendo{" "}
-            <code className="rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40">
-              {stream.state.providerFallback.toModel}
-            </code>{" "}
-            como respaldo. Estilo y latencia pueden variar.
-          </div>
-        </output>
-      ) : null}
+      {/* v0.5 (Block C) — fallback now arrives as a transient
+          Radix Toast portaled above the Sheet z-stack. Auto-dismiss
+          6 s with pause-on-hover; the rail badge keeps the active
+          model visible after dismissal. The static banner that
+          lived here in v0.4.6 is gone. */}
+      <FallbackToast fallback={stream.state.providerFallback} />
 
       {isComplete && sess?.completion_reason ? (
         <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900">
@@ -523,6 +515,9 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               maxTurns > 0 ? Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) : null
             }
             roundMax={maxTurns > 0 ? maxTurns : null}
+            modelBadgeSlot={<ModelBadge meta={meta} />}
+            elapsedTimerSlot={<ElapsedTimer meta={meta} />}
+            hintSlot={<HintLine meta={meta} errorMessage={stream.state.errorMessage} />}
           />
         }
       />

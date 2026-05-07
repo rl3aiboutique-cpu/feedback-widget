@@ -86,6 +86,7 @@ from .iter_schemas import (
     SSEEvent,
     SSEEventDone,
     SSEEventError,
+    SSEEventProviderActive,
     SSEEventProviderFallback,
     SSEEventSection,
     SSEEventToken,
@@ -300,6 +301,10 @@ class IterService:
         buffer: list[str] = []
         loop = asyncio.get_running_loop()
         start = loop.time()
+        # v0.5 (Block C) — emit the initial active-model event BEFORE
+        # entering the chunk loop so the UI badge has a value to render
+        # the moment streaming begins.
+        yield SSEEventProviderActive(model=provider.current_model)
         try:
             async for chunk in provider.stream(
                 system_prompt=system_prompt,
@@ -312,11 +317,14 @@ class IterService:
                 # since the last chunk. Walks recorded on the queue
                 # (e.g. Flash 503 → Gemma 4) surface as
                 # ``provider_fallback`` SSE events so the UI can render
-                # the swap banner.
+                # the swap banner. v0.5 — each fallback is followed by
+                # a fresh ``provider_active`` so the badge stays in sync
+                # with the model that actually serves the next chunk.
                 for from_m, to_m, reason in provider.consume_fallback_events():
                     yield SSEEventProviderFallback(
                         from_model=from_m, to_model=to_m, reason=reason
                     )
+                    yield SSEEventProviderActive(model=to_m)
                 buffer.append(chunk)
                 for section in detector.feed(chunk):
                     yield SSEEventSection(section=section)  # type: ignore[arg-type]
@@ -329,6 +337,7 @@ class IterService:
                 yield SSEEventProviderFallback(
                     from_model=from_m, to_model=to_m, reason=reason
                 )
+                yield SSEEventProviderActive(model=to_m)
             # Friendly Spanish error message replacing the raw provider
             # JSON. The structured exception still goes to logs + DB
             # for ops; the user just sees a calm sentence.
@@ -1379,7 +1388,7 @@ def _friendly_provider_error_es(exc: Exception) -> str:
         return (
             "Los modelos de IA están temporalmente saturados (Google AI Studio). "
             "Hemos intentado los modelos de respaldo pero todos fallaron. "
-            "Espera 1–2 min y pulsa Run iteration de nuevo."
+            "Espera 1-2 min y pulsa Run iteration de nuevo."
         )
     if "Fatal" in name:
         return (

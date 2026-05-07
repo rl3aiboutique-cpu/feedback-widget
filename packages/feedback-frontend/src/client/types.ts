@@ -269,4 +269,12 @@ export type IterStreamEvent =
       from_model: string;
       to_model: string;
       reason: string;
+    }
+  | {
+      // v0.5 (Block C) — single source of truth for the live model
+      // serving the run. Emitted ONCE at stream start (with the
+      // primary) AND ONCE after each fallback walk (with the new
+      // active). Badge is a pure render of the latest event.
+      type: "provider_active";
+      model: string;
     };

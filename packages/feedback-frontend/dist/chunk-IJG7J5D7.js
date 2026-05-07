@@ -317,7 +317,10 @@ var _INIT = {
   errorCode: null,
   errorMessage: null,
   providerFallback: null,
-  sectionStates: _INITIAL_SECTION_STATES
+  sectionStates: _INITIAL_SECTION_STATES,
+  activeModel: null,
+  startedAt: null,
+  completedAt: null
 };
 function useIterRunStream(bindings, sessionId) {
   const [state, setState] = useState2(_INIT);
@@ -332,7 +335,7 @@ function useIterRunStream(bindings, sessionId) {
       reset();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      setState({ ..._INIT, status: "running" });
+      setState({ ..._INIT, status: "running", startedAt: Date.now() });
       try {
         await runIterationStream({
           bindings,
@@ -344,14 +347,17 @@ function useIterRunStream(bindings, sessionId) {
             setState((cur) => _reduce(cur, ev));
           }
         });
-        setState((cur) => cur.status === "running" ? { ...cur, status: "done" } : cur);
+        setState(
+          (cur) => cur.status === "running" ? { ...cur, status: "done", completedAt: Date.now() } : cur
+        );
       } catch (err) {
         const apiErr = err;
         setState((cur) => ({
           ...cur,
           status: "error",
           errorCode: String(apiErr?.status ?? "network"),
-          errorMessage: String(apiErr?.detail ?? apiErr?.message ?? err)
+          errorMessage: String(apiErr?.detail ?? apiErr?.message ?? err),
+          completedAt: Date.now()
         }));
       } finally {
         abortRef.current = null;
@@ -408,7 +414,8 @@ function _reduce(cur, ev) {
         status: "done",
         versionId: ev.version_id,
         versionNumber: ev.version_number,
-        sectionStates: nextStates
+        sectionStates: nextStates,
+        completedAt: cur.completedAt ?? Date.now()
       };
     }
     case "error":
@@ -429,6 +436,8 @@ function _reduce(cur, ev) {
           reason: ev.reason
         }
       };
+    case "provider_active":
+      return { ...cur, activeModel: ev.model };
     default:
       return cur;
   }
@@ -817,4 +826,4 @@ export {
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-XBLTSM2Y.js.map
+//# sourceMappingURL=chunk-IJG7J5D7.js.map

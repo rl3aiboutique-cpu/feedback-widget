@@ -38,6 +38,20 @@ export interface IterStreamState {
    * five cards transitioning pending → streaming → done without
    * the parent doing client-side splitting. */
   sectionStates: SpecSectionStates;
+  /** v0.5 (Block C) — single source of truth for the model
+   * currently serving the run. Set by `provider_active` SSE
+   * events; the rail badge renders this directly. Null until the
+   * first event arrives — callers fall back to the session's
+   * `current_primary_model_id` for the cold-start window. */
+  activeModel: string | null;
+  /** v0.5 (Block C) — wall-clock timestamp (ms) when the user
+   * pressed Run / auto-fire kicked in. Drives the elapsed timer
+   * and the "Generated in Xs" stamp on done. */
+  startedAt: number | null;
+  /** v0.5 (Block C) — wall-clock timestamp (ms) when the stream
+   * reached `done` or `error`. Frozen for the rest of the
+   * session lifetime so the timer pill stops counting. */
+  completedAt: number | null;
 }
 
 const _INIT: IterStreamState = {
@@ -50,6 +64,9 @@ const _INIT: IterStreamState = {
   errorMessage: null,
   providerFallback: null,
   sectionStates: _INITIAL_SECTION_STATES,
+  activeModel: null,
+  startedAt: null,
+  completedAt: null,
 };
 
 export function useIterRunStream(
@@ -74,7 +91,7 @@ export function useIterRunStream(
       reset();
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      setState({ ..._INIT, status: "running" });
+      setState({ ..._INIT, status: "running", startedAt: Date.now() });
       try {
         await runIterationStream({
           bindings,
@@ -86,7 +103,9 @@ export function useIterRunStream(
             setState((cur) => _reduce(cur, ev));
           },
         });
-        setState((cur) => (cur.status === "running" ? { ...cur, status: "done" } : cur));
+        setState((cur) =>
+          cur.status === "running" ? { ...cur, status: "done", completedAt: Date.now() } : cur,
+        );
       } catch (err) {
         const apiErr = err as IterApiError;
         setState((cur) => ({
@@ -94,6 +113,7 @@ export function useIterRunStream(
           status: "error",
           errorCode: String(apiErr?.status ?? "network"),
           errorMessage: String(apiErr?.detail ?? apiErr?.message ?? err),
+          completedAt: Date.now(),
         }));
       } finally {
         abortRef.current = null;
@@ -166,6 +186,7 @@ function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
         versionId: ev.version_id,
         versionNumber: ev.version_number,
         sectionStates: nextStates,
+        completedAt: cur.completedAt ?? Date.now(),
       };
     }
     case "error":
@@ -186,6 +207,8 @@ function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
           reason: ev.reason,
         },
       };
+    case "provider_active":
+      return { ...cur, activeModel: ev.model };
     default:
       return cur;
   }
