@@ -2,7 +2,7 @@ import * as react_jsx_runtime from 'react/jsx-runtime';
 import { ReactNode } from 'react';
 
 /** Package version — keep in sync with package.json. */
-declare const VERSION = "0.4.4";
+declare const VERSION = "0.4.5";
 
 declare function useCanTriageFeedback(): boolean;
 

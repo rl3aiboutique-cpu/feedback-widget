@@ -21,13 +21,13 @@ import {
   getErrorsTail,
   getNetworkSuccessTail,
   getNetworkTail
-} from "./chunk-UJHPUIMU.js";
+} from "./chunk-DF65AWEM.js";
 import {
   AssumptionCard,
   EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-ZPHKRKIS.js";
+} from "./chunk-RJFXDCKQ.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -54,7 +54,7 @@ import { useState as useState8 } from "react";
 
 // src/Canvas.tsx
 import { ChevronDown as ChevronDown2, ChevronUp, Sparkles as Sparkles2 } from "lucide-react";
-import { useCallback, useEffect as useEffect5, useRef as useRef3, useState as useState6 } from "react";
+import { useCallback, useEffect as useEffect5, useRef as useRef4, useState as useState6 } from "react";
 
 // src/Compose.tsx
 import { Send, Sparkles } from "lucide-react";
@@ -1169,11 +1169,11 @@ ${a.rationale}`;
 // src/iter/IterFocusView.tsx
 import { useMutation as useMutation2, useQuery as useQuery2, useQueryClient as useQueryClient2 } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 as Loader22 } from "lucide-react";
-import { useEffect as useEffect4, useMemo as useMemo4, useRef as useRef2, useState as useState5 } from "react";
+import { useEffect as useEffect4, useMemo as useMemo4, useRef as useRef3, useState as useState5 } from "react";
 
 // src/iter/IterContextPanel.tsx
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect as useEffect3, useState as useState4 } from "react";
+import { useEffect as useEffect3, useRef as useRef2, useState as useState4 } from "react";
 import { jsx as jsx6, jsxs as jsxs5 } from "react/jsx-runtime";
 var _STORAGE_PREFIX = "rl3-iter-context-open:";
 function _readPersistedOpen(feedbackId) {
@@ -1193,7 +1193,8 @@ function _writePersistedOpen(feedbackId, open) {
 }
 function IterContextPanel({
   feedback,
-  defaultOpen = false
+  defaultOpen = false,
+  streaming = false
 }) {
   const fbId = feedback?.id ?? "";
   const [open, setOpen] = useState4(
@@ -1203,6 +1204,13 @@ function IterContextPanel({
     if (!fbId) return;
     _writePersistedOpen(fbId, open);
   }, [fbId, open]);
+  const wasStreamingRef = useRef2(false);
+  useEffect3(() => {
+    if (streaming && !wasStreamingRef.current) {
+      setOpen(false);
+    }
+    wasStreamingRef.current = streaming;
+  }, [streaming]);
   if (!feedback) {
     return /* @__PURE__ */ jsx6("div", { className: "rounded-md border border-input bg-muted/30 p-2 text-[11px] text-muted-foreground", children: "Loading original feedback\u2026" });
   }
@@ -1362,8 +1370,8 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
       qc.invalidateQueries({ queryKey: ["iter-assumptions", sessionId] });
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
-  const autoFiredRef = useRef2(false);
-  const autoFireUserCancelledRef = useRef2(false);
+  const autoFiredRef = useRef3(false);
+  const autoFireUserCancelledRef = useRef3(false);
   const isVirginSession = !session.isLoading && session.data !== void 0 && !session.data.current_iteration_id && (versions.data?.length ?? 0) === 0;
   useEffect4(() => {
     if (!autoFiredRef.current && !autoFireUserCancelledRef.current && isVirginSession && stream.state.status === "idle") {
@@ -1379,7 +1387,7 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
     onExitRef.current();
   };
   const status = session.data?.status ?? "loading";
-  const onExitRef = useRef2(onExit);
+  const onExitRef = useRef3(onExit);
   useEffect4(() => {
     onExitRef.current = onExit;
   }, [onExit]);
@@ -1426,7 +1434,7 @@ ${a.rationale}`;
   }, [versions.data]);
   const renderedMarkdown = isStreaming ? "" : latestVersion?.output_markdown ?? "";
   const [msg, setMsg] = useState5("");
-  const specScrollRef = useRef2(null);
+  const specScrollRef = useRef3(null);
   useEffect4(() => {
     if (stream.state.status === "done" && stream.state.versionId && specScrollRef.current) {
       specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -1481,7 +1489,14 @@ ${a.rationale}`;
         }
       )
     ] }) : null,
-    /* @__PURE__ */ jsx7(IterContextPanel, { feedback, defaultOpen: !sess?.current_iteration_id }),
+    /* @__PURE__ */ jsx7(
+      IterContextPanel,
+      {
+        feedback,
+        defaultOpen: !sess?.current_iteration_id,
+        streaming: isStreaming
+      }
+    ),
     isComplete && sess?.completion_reason ? /* @__PURE__ */ jsxs6("p", { className: "rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900", children: [
       /* @__PURE__ */ jsx7("strong", { className: "font-semibold", children: "Why ready: " }),
       sess.completion_reason
@@ -1683,7 +1698,7 @@ function Canvas({
   const [iterError, setIterError] = useState6(null);
   const [focusedFeedbackId, setFocusedFeedbackId] = useState6(null);
   const [tab, setTab] = useState6("compose");
-  const cardRefs = useRef3({});
+  const cardRefs = useRef4({});
   const openIter = useCallback(
     async (feedbackId) => {
       setIterStartingId(feedbackId);
@@ -1993,10 +2008,7 @@ function VersionPill() {
   const [expanded, setExpanded] = useState7(false);
   const health = useQuery3({
     queryKey: ["feedback-widget-health"],
-    queryFn: () => fetchBackendHealth(
-      bindings.apiBaseUrl,
-      bindings.apiPathPrefix ?? "/api/v1/feedback"
-    ),
+    queryFn: () => fetchBackendHealth(bindings.apiBaseUrl, bindings.apiPathPrefix ?? "/api/v1/feedback"),
     staleTime: 3e4,
     retry: false
   });
@@ -2124,4 +2136,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-UNEGC5UC.js.map
+//# sourceMappingURL=FeedbackPanel-ABKLWWNW.js.map

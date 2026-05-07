@@ -43,11 +43,15 @@ _GEMINI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
     "gemini-2.5-pro": (1.25, 5.00),
     "gemini-flash-latest": (0.075, 0.30),
     "gemini-flash-lite-latest": (0.0, 0.0),  # free tier on AI Studio at writing
+    "gemini-3-flash-preview": (0.075, 0.30),  # 2026 preview pricing TBD; track as Flash
+    "gemini-3.1-flash-lite-preview": (0.0, 0.0),  # 2026 preview free on AI Studio
     # Gemma is free on AI Studio's developer tier.
     "gemma-3-1b-it": (0.0, 0.0),
     "gemma-3-4b-it": (0.0, 0.0),
     "gemma-3-12b-it": (0.0, 0.0),
     "gemma-3-27b-it": (0.0, 0.0),
+    "gemma-4-26b-a4b-it": (0.0, 0.0),
+    "gemma-4-31b-it": (0.0, 0.0),
 }
 
 # Retry budget per model on transient / rate-limited errors before
@@ -380,15 +384,33 @@ class GeminiProvider:
         parts = _build_parts(combined, attachments)
         cfg = _build_config(self._settings, max_output_tokens)
 
-        # Two-level retry — same semantics as ``generate()``, but only
-        # the SETUP phase of the stream gets retried. Once the SDK
-        # returns the iterator and the first chunk has been yielded
-        # downstream, partial markdown is already on the SSE wire and
-        # we can't replay it cleanly, so any error mid-stream is fatal.
-        # CancelledError re-raised verbatim so SSE disconnects propagate.
+        # Three-tier retry strategy. The SDK can fail in two distinct
+        # phases and v0.4.4 only handled the first:
+        #
+        #   1. SETUP — ``generate_content_stream`` itself raises before
+        #      returning the async iterator. Retry per-model, then walk
+        #      the fallback chain.
+        #   2. EARLY-STREAM — SDK returns the iterator successfully but
+        #      raises 503 on the first chunk read, before we've yielded
+        #      any text downstream. v0.4.4 treated this as fatal because
+        #      "we can't replay partial output." But if nothing has
+        #      reached the SSE consumer yet, there IS no partial output
+        #      to replay — we're free to walk the fallback chain like
+        #      setup. This was the v0.4.4 production bug: Gemini's free
+        #      tier 503 storm hit AFTER the SDK opened the iterator, so
+        #      every iter session crashed visibly even though Gemma was
+        #      sitting idle and would have answered.
+        #   3. MID-STREAM — error after the first chunk has been
+        #      forwarded to the user. We can't roll back already-rendered
+        #      markdown, so this stays fatal. Log loudly so ops can see
+        #      the abort.
+        #
+        # asyncio.CancelledError re-raised verbatim everywhere so SSE
+        # disconnects propagate cleanly through structured concurrency.
         last_wrapped: LLMProviderError | None = None
-        stream_iter = None
+        yielded_any = False
         while True:
+            stream_iter = None
             for attempt in range(_RETRIES_PER_MODEL + 1):
                 try:
                     stream_iter = await self._client.aio.models.generate_content_stream(
@@ -411,7 +433,7 @@ class GeminiProvider:
                     if attempt < _RETRIES_PER_MODEL:
                         delay = _BACKOFF_BASE_SECONDS * (2**attempt)
                         logger.warning(
-                            "iter llm stream transient error on %s "
+                            "iter llm stream setup transient on %s "
                             "(attempt %d/%d), retrying in %.1fs: %s",
                             self._model,
                             attempt + 1,
@@ -422,35 +444,53 @@ class GeminiProvider:
                         await asyncio.sleep(delay)
                         continue
                     logger.warning(
-                        "iter llm stream exhausted retries on %s; walking fallback chain",
+                        "iter llm stream setup exhausted retries on %s; walking fallback chain",
                         self._model,
                     )
                     break
-            if stream_iter is not None:
-                break
-            if self._try_next_model(self._model) is None:
-                if last_wrapped is not None:
-                    raise last_wrapped
-                raise LLMProviderTransientError("all models in fallback chain failed")
+            if stream_iter is None:
+                if self._try_next_model(self._model) is None:
+                    if last_wrapped is not None:
+                        raise last_wrapped
+                    raise LLMProviderTransientError("all models in fallback chain failed")
+                continue
 
-        # Setup succeeded — yield chunks. Mid-stream errors are fatal:
-        # we can't replay already-yielded markdown without confusing
-        # the SSE consumer. Log loudly so ops see the abort even
-        # though the user just sees a truncated stream.
-        try:
-            async for chunk in stream_iter:
-                text = chunk.text
-                if text:
-                    yield text
-        except asyncio.CancelledError:
-            raise
-        except BaseException as exc:
-            logger.warning(
-                "iter llm stream aborted mid-flight on %s after first chunk: %s",
-                self._model,
-                exc,
-            )
-            raise _wrap_provider_error(exc) from exc
+            # Setup succeeded. Try to consume. If the SDK errors before
+            # the first chunk reaches the user, walk the chain too.
+            try:
+                async for chunk in stream_iter:
+                    text = chunk.text
+                    if text:
+                        yield text
+                        yielded_any = True
+                return
+            except asyncio.CancelledError:
+                raise
+            except BaseException as exc:
+                wrapped = _wrap_provider_error(exc)
+                if yielded_any:
+                    logger.warning(
+                        "iter llm stream aborted mid-flight on %s after partial output: %s",
+                        self._model,
+                        exc,
+                    )
+                    raise wrapped from exc
+                last_wrapped = wrapped
+                transient = isinstance(
+                    wrapped,
+                    LLMProviderTransientError | LLMProviderRateLimitedError,
+                )
+                if not transient:
+                    raise wrapped from exc
+                logger.warning(
+                    "iter llm stream early-error on %s before first user-visible chunk; "
+                    "walking fallback chain: %s",
+                    self._model,
+                    wrapped,
+                )
+                if self._try_next_model(self._model) is None:
+                    raise wrapped from exc
+                continue
 
     async def _fake_stream_via_generate(
         self,

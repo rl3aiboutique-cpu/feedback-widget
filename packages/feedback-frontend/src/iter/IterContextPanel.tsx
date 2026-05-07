@@ -10,7 +10,7 @@
  */
 
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import type { FeedbackAttachmentRead, FeedbackRead } from "../client";
 
@@ -40,11 +40,17 @@ export interface IterContextPanelProps {
    * the first time a brand-new feedback gets iterated, opening once
    * automatically makes the source material visible). */
   defaultOpen?: boolean;
+  /** v0.4.5 — when truthy, auto-collapses the panel so the spec stream
+   * gets the full vertical real estate. The user can still click to
+   * re-open; we don't force the closed state, only nudge it on the
+   * idle→running transition. */
+  streaming?: boolean;
 }
 
 export function IterContextPanel({
   feedback,
   defaultOpen = false,
+  streaming = false,
 }: IterContextPanelProps): ReactElement | null {
   const fbId = feedback?.id ?? "";
   const [open, setOpen] = useState<boolean>(() =>
@@ -55,6 +61,14 @@ export function IterContextPanel({
     if (!fbId) return;
     _writePersistedOpen(fbId, open);
   }, [fbId, open]);
+
+  const wasStreamingRef = useRef(false);
+  useEffect(() => {
+    if (streaming && !wasStreamingRef.current) {
+      setOpen(false);
+    }
+    wasStreamingRef.current = streaming;
+  }, [streaming]);
 
   if (!feedback) {
     return (

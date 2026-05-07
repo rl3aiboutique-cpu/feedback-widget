@@ -7,6 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.5] — 2026-05-07
+
+Same-day patch on top of v0.4.4. User feedback after one round of real
+iter use against the new full-screen view: *"sigue sin ser todo lo
+amigable que necesitamos. Tengo que hacer scroll, el contenido original
+debería auto-fold cuando se está generando el spec. Volvió a petar 503
+UNAVAILABLE… si da un error tiene que hacer fallback. Con flash 3.1
+estoy perfecto, prioriza modelos medios o pequeños no grandes."*
+
+### Fixed
+
+- **`gemini.py` stream fallback chain now walks on early-stream errors,
+  not just on setup errors.** v0.4.4 had a logic gap: if the SDK
+  returned the stream iterator successfully but raised 503 on the first
+  chunk read (the actual production failure mode), the code treated it
+  as fatal "mid-flight after partial output" and refused to fall back —
+  even though no text had reached the user yet. v0.4.5 distinguishes
+  early-stream errors (no chunks yielded downstream → safe to walk
+  chain) from true mid-flight errors (text already on the SSE wire →
+  truly unrecoverable). The user's reproducible 503 storm now rolls
+  over to the next model in the chain instead of surfacing.
+- **Default model + fallback chain switched to all-Flash tier.** Primary
+  is now `gemini-3.1-flash-lite-preview` (user picked it explicitly,
+  *"con flash 3.1 estoy perfecto"*). Fallback chain is
+  `gemini-flash-latest,gemini-flash-lite-latest`. Gemma 3/4 dropped
+  from the chain because the user wants medium/small fast models, not
+  the larger checkpoints the v0.4.4 chain favoured.
+
+### Changed
+
+- **`<IterContextPanel>` auto-collapses on idle→running transition.**
+  The original feedback / screenshot block now folds itself when the
+  AI starts streaming so the spec gets the full vertical real estate.
+  Manual control survives — the user can still click to re-open
+  mid-stream — we only nudge the closed state on the rising edge.
+
+### Pricing table
+
+- Added `gemini-3.1-flash-lite-preview` (free on AI Studio at writing)
+  and `gemini-3-flash-preview` (track as Flash) to the
+  `_GEMINI_PRICES_USD_PER_M` table so cost reporting doesn't surface a
+  KeyError when the new primary serves a turn.
+
 ## [0.4.4] — 2026-05-07
 
 User feedback: *"no puedo editar las tarjetas… no puedo editar el texto del md… super anti user friendly mucho scroll… la primera iteración tiene que hacerse automática… tiene que ver más pantalla completa"* + a 503 UNAVAILABLE that retry didn't catch + CI failing on mypy strict in `bundle.py`. v0.4.4 ships all four fixes plus a small version-pill for ops visibility.

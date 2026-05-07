@@ -336,8 +336,14 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
       {/* Original-context disclosure — force-open on the very first
           entry to a session so the user sees their screenshot at
-          least once before it tucks itself away. */}
-      <IterContextPanel feedback={feedback} defaultOpen={!sess?.current_iteration_id} />
+          least once before it tucks itself away. v0.4.5: also auto-
+          collapses on idle→running so the spec stream gets the full
+          vertical real estate the user asked for. */}
+      <IterContextPanel
+        feedback={feedback}
+        defaultOpen={!sess?.current_iteration_id}
+        streaming={isStreaming}
+      />
 
       {isComplete && sess?.completion_reason ? (
         <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900">
