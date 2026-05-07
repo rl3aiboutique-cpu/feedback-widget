@@ -18,7 +18,7 @@ import {
   installConsoleWrap,
   installErrorWrap,
   installNetworkWrap
-} from "./chunk-HZ4J37SP.js";
+} from "./chunk-ULBNUOER.js";
 import {
   Button,
   FeedbackProvider,
@@ -743,7 +743,7 @@ function useMyPendingActionCount() {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-BND6B5BA.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-6ECYY26F.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
