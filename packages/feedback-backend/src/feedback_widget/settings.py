@@ -147,14 +147,40 @@ class FeedbackSettings(BaseSettings):
     ITER_MAX_TURNS: int = 5
 
     # Comma-separated forbidden words the iter scrubber matches against
-    # assumption text. Default = a curated subset of what system_v1.py
-    # already forbids in the prompt; hosts can extend per domain.
+    # assumption text + unresolved questions. Default = a wide list
+    # covering anything a non-technical user wouldn't recognise; hosts
+    # can shrink it via env if they need to allow some terms (rare).
+    # v0.4.1 widened this from the original v0.4.0 list to cover
+    # frontend/UI implementation jargon and infra concepts the prompt
+    # forbids in passing but the scrubber didn't catch.
     ITER_FORBIDDEN_WORDS: str = (
+        # Networking / API
         "endpoint,api,async,asynchronous,synchronous,backend,frontend,"
-        "middleware,cache,debounce,throttle,polling,websocket,jwt,oauth,"
-        "payload,json,schema,database,migration,index,join,foreign key,"
-        "fk,ttl,race condition,mutex,queue,dom,css,html,patch,post,"
-        "get,put,delete request,http"
+        "middleware,webhook,callback,listener,observer,subscriber,"
+        "dispatcher,websocket,polling,streaming,sse,grpc,http,rest,"
+        "patch,post,put,get,delete request,head request,options request,"
+        # Caching / perf
+        "cache,debounce,throttle,ttl,latency,throughput,bandwidth,"
+        "payload,payload size,gzip,encoding,parsing,serialization,"
+        "deserialization,"
+        # Auth / security
+        "jwt,oauth,csrf,xss,sql injection,salt,signature,certificate,"
+        "encryption,decryption,hash,token bucket,rate limit,"
+        # Storage / data
+        "json,yaml,toml,ini,schema,database,migration,index,join,"
+        "foreign key,fk,sql,query,transaction,deadlock,orm,dao,"
+        "repository,store,reducer,mutation,action,"
+        # Concurrency / runtime
+        "race condition,mutex,queue,thread,promise,future,coroutine,"
+        "event loop,kernel,syscall,"
+        # Frontend / UI internals
+        "dom,css,html,query selector,data attribute,lifecycle,mounting,"
+        "unmounting,hydration,ssr,csr,prop,hook,ref,state,context,"
+        "provider,consumer,controller,service,"
+        # Build / deploy
+        "dependency,package,library,module,config file,env var,"
+        "environment variable,build,bundle,deploy,ci,cd,pipeline,"
+        "runner,container,image"
     )
 
     # Diagram rendering. Off by default — Mermaid is not in the widget

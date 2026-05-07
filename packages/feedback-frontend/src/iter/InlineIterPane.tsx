@@ -37,6 +37,7 @@ import type { IterAssumptionRead } from "../client/types";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
+import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { useIterRunStream } from "./useIterRunStream";
 
 // "Skip" — user can't answer this and asks the model to infer it.
@@ -110,10 +111,20 @@ export function InlineIterPane({ sessionId, onClose }: InlineIterPaneProps): Rea
     enabled: session.data?.status === "finalized",
   });
 
-  const userFacing = useMemo(
-    () => (assumptions.data ?? []).filter((a) => a.kind !== "technical"),
-    [assumptions.data],
-  );
+  const userFacing = useMemo(() => {
+    const out: IterAssumptionRead[] = [];
+    for (const a of assumptions.data ?? []) {
+      if (a.kind === "technical") continue;
+      const haystack = `${a.statement}\n${a.rationale}`;
+      if (containsForbidden(haystack, defaultForbiddenWords)) {
+        // eslint-disable-next-line no-console
+        console.warn("[iter] hid jargon-leaking assumption", a.slot_key);
+        continue;
+      }
+      out.push(a);
+    }
+    return out;
+  }, [assumptions.data]);
   const openAssumptions = userFacing.filter((a) => a.status === "open");
   const otherAssumptions = userFacing.filter((a) => a.status !== "open");
   const focused: IterAssumptionRead | null = openAssumptions[0] ?? null;

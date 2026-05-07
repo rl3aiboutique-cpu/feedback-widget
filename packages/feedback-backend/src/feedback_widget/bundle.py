@@ -24,6 +24,25 @@ from io import BytesIO
 from typing import Any
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from feedback_widget.iter_models import (
+    FeedbackIterAssumption,
+    FeedbackIterSession,
+    FeedbackIterSessionStatus,
+    FeedbackIterVersion,
+)
+from feedback_widget.iter_packager import (
+    AssumptionResolution,
+    IterationLogEntry,
+)
+from feedback_widget.iter_render import (
+    render_assumptions,
+    render_diagram,
+    render_iteration_log,
+    render_personas,
+    render_spec,
+    render_user_stories,
+)
+from feedback_widget.iter_schemas import IterationOutput
 from feedback_widget.models import (
     Feedback,
     FeedbackAttachment,
@@ -184,6 +203,180 @@ def _render_triage(fb: Feedback) -> str:
     return "\n".join(lines)
 
 
+_ITER_STATUS_PRECEDENCE: dict[FeedbackIterSessionStatus, int] = {
+    FeedbackIterSessionStatus.FINALIZED: 0,
+    FeedbackIterSessionStatus.ITERATING: 1,
+    FeedbackIterSessionStatus.DRAFT: 2,
+    FeedbackIterSessionStatus.ABANDONED: 3,
+}
+
+
+def _resolve_active_iter_session(
+    db: Any,
+    feedback_id: Any,
+) -> FeedbackIterSession | None:
+    """Pick the most informative iter session for this feedback.
+
+    Preference order: FINALIZED > ITERATING > DRAFT > ABANDONED. Within
+    a tier, pick the most-recently-created. Returns ``None`` if the
+    feedback has no iter session at all.
+    """
+    from sqlalchemy import select
+
+    rows = (
+        db.execute(
+            select(FeedbackIterSession)
+            .where(FeedbackIterSession.feedback_id == feedback_id)
+            .order_by(FeedbackIterSession.created_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+    if not rows:
+        return None
+    rows.sort(
+        key=lambda s: (
+            _ITER_STATUS_PRECEDENCE.get(s.status, 99),
+            -(s.created_at.timestamp() if s.created_at else 0),
+        )
+    )
+    return rows[0]
+
+
+def _render_iter_artifacts(
+    db: Any,
+    session: FeedbackIterSession,
+) -> dict[str, str]:
+    """Render every iter artefact for ``session`` as a relative-path → body map.
+
+    Mirrors the layout :mod:`iter_packager` produces, but rooted under
+    ``iter/`` so the admin bundle can drop them in directly. Adds an
+    ``iter/versions/v0N.md`` per persisted version so the audit trail is
+    inline and not just summarised in ``06_iteration_log.md``.
+    """
+    from sqlalchemy import select
+
+    files: dict[str, str] = {}
+
+    versions = list(
+        db.execute(
+            select(FeedbackIterVersion)
+            .where(FeedbackIterVersion.session_id == session.id)
+            .order_by(FeedbackIterVersion.version_number)
+        )
+        .scalars()
+        .all()
+    )
+
+    if not versions:
+        files["iter/STATUS.md"] = (
+            "# Iter session — no versions yet\n\n"
+            f"Session id: `{session.id}`\n"
+            f"Status: `{session.status.value}`\n"
+            "No iteration has produced a working document yet.\n"
+        )
+        return files
+
+    final_version = versions[-1]
+    final_output = IterationOutput.model_validate(final_version.output_json)
+
+    # Assumptions: latest resolution per slot_key across all versions.
+    asm_rows = list(
+        db.execute(
+            select(FeedbackIterAssumption)
+            .join(
+                FeedbackIterVersion,
+                FeedbackIterVersion.id == FeedbackIterAssumption.version_id,
+            )
+            .where(FeedbackIterVersion.session_id == session.id)
+        )
+        .scalars()
+        .all()
+    )
+    by_slot: dict[str, FeedbackIterAssumption] = {}
+    for r in asm_rows:
+        ex = by_slot.get(r.slot_key)
+        if ex is None or (r.created_at and ex.created_at and r.created_at > ex.created_at):
+            by_slot[r.slot_key] = r
+    assumption_resolutions = [
+        AssumptionResolution(
+            slot_key=r.slot_key,
+            kind=r.kind.value,
+            statement=r.statement,
+            status=r.status,
+            user_response=r.user_response,
+        )
+        for r in by_slot.values()
+    ]
+
+    iteration_log = [
+        IterationLogEntry(
+            version_number=v.version_number,
+            created_at=v.created_at or datetime.now(UTC),
+            user_message=v.user_message,
+            restructure_allowed=v.restructure_allowed,
+            changes_summary=(
+                v.output_json.get("changes_summary", "") if isinstance(v.output_json, dict) else ""
+            ),
+        )
+        for v in versions
+    ]
+
+    files["iter/_AI_INSTRUCTIONS.md"] = (
+        "# AI Consumer Instructions (admin bundle copy)\n\n"
+        "This is the iter half of the admin bundle. The user's original\n"
+        "feedback + attachments + technical metadata live at the top of\n"
+        "the bundle (00_feedback.md, screenshot.png, attachments/, etc).\n"
+        "Read those first as raw input; treat the iter/ artefacts as\n"
+        "the user-validated specification.\n"
+    )
+    files["iter/01_personas.md"] = render_personas(final_output.personas)
+    files["iter/02_user_stories.md"] = render_user_stories(
+        final_output.user_stories, final_output.personas
+    )
+    files["iter/03_spec.md"] = render_spec(final_output.spec)
+    files["iter/04_diagram.md"] = render_diagram(final_output.diagram)
+    files["iter/05_assumptions_resolved.md"] = render_assumptions(assumption_resolutions)
+    files["iter/06_iteration_log.md"] = render_iteration_log(iteration_log)
+
+    # Per-version markdown — audit trail. v01.md, v02.md, …, vN.md
+    # (N is the last persisted iteration). Width-2 zero-pad up to v99,
+    # then natural width — sessions hit the ITER_MAX_TURNS=5 cap long
+    # before that's a problem.
+    for v in versions:
+        files[f"iter/versions/v{v.version_number:02d}.md"] = v.output_markdown or ""
+
+    return files
+
+
+def _render_iter_summary(
+    session: FeedbackIterSession | None,
+    versions_count: int,
+    open_count: int,
+    total_count: int,
+) -> str:
+    """Top-of-README block summarising iter state for the admin."""
+    if session is None:
+        return "## Iteration summary\n\n_No AI iteration was run for this ticket._\n"
+    if versions_count == 0:
+        return (
+            "## Iteration summary\n\n"
+            f"- Status: `{session.status.value}`\n"
+            f"- Rounds: 0\n"
+            "- No working document yet.\n"
+        )
+    resolved = max(0, total_count - open_count)
+    return (
+        "## Iteration summary\n\n"
+        f"- Status: `{session.status.value}`\n"
+        f"- Rounds: {versions_count}\n"
+        f"- Resolved assumptions: {resolved} of {total_count}\n"
+        f"- Open assumptions: {open_count}\n"
+        f"- See `iter/03_spec.md` for the implementation contract; "
+        f"`iter/versions/v{versions_count:02d}.md` for the verbatim last iteration.\n"
+    )
+
+
 def build_feedback_bundle(
     *,
     fb: Feedback,
@@ -191,6 +384,7 @@ def build_feedback_bundle(
     storage: Any,
     repo_url: str = DEFAULT_REPO_URL,
     submitter: dict[str, str | None] | None = None,
+    db: Any = None,
 ) -> bytes:
     """Build the LLM-handoff ZIP for ``fb`` and return its bytes.
 
@@ -256,18 +450,74 @@ def build_feedback_bundle(
                 missing.append(f"attachments/{safe_name}")
                 continue
 
+        # Iter artefacts — added in v0.4.1 so a single download
+        # captures the whole story (feedback + every iteration + final
+        # spec + clarifications). When the caller didn't pass a DB
+        # session, we write a status marker and skip the rest so the
+        # bundle still builds in tests / scripts that don't have one.
+        iter_session = None
+        iter_files: dict[str, str] = {}
+        iter_summary_block: str | None = None
+        if db is not None:
+            iter_session = _resolve_active_iter_session(db, fb.id)
+            if iter_session is None:
+                iter_files["iter/STATUS.md"] = (
+                    "# Iter session\n\nNo AI iteration was run for this ticket.\n"
+                )
+                iter_summary_block = _render_iter_summary(None, 0, 0, 0)
+            else:
+                iter_files = _render_iter_artifacts(db, iter_session)
+                # Counts for the summary block. Pull cheap stats here
+                # instead of re-running queries inside the renderer.
+                from sqlalchemy import select
+
+                versions_count = int(
+                    db.execute(
+                        select(FeedbackIterVersion).where(
+                            FeedbackIterVersion.session_id == iter_session.id
+                        )
+                    )
+                    .scalars()
+                    .all()
+                    .__len__()
+                )
+                latest_version_id = iter_session.current_iteration_id
+                open_count = 0
+                total_count = 0
+                if latest_version_id is not None:
+                    asm_on_latest = list(
+                        db.execute(
+                            select(FeedbackIterAssumption).where(
+                                FeedbackIterAssumption.version_id == latest_version_id
+                            )
+                        )
+                        .scalars()
+                        .all()
+                    )
+                    user_facing = [a for a in asm_on_latest if a.kind.value != "technical"]
+                    total_count = len(user_facing)
+                    open_count = sum(1 for a in user_facing if a.status.value == "open")
+                iter_summary_block = _render_iter_summary(
+                    iter_session, versions_count, open_count, total_count
+                )
+
+        for relpath, body in iter_files.items():
+            archive.writestr(relpath, body)
+
         # README is written AFTER the file fetches so it can list any
         # artefacts that failed to embed — gives the LLM a clear signal
         # rather than guessing why context is missing.
-        archive.writestr(
-            "README.md",
-            _render_readme(
-                fb,
-                submitter=submitter,
-                repo_url=repo_url,
-                missing=missing,
-            ),
+        readme_body = _render_readme(
+            fb,
+            submitter=submitter,
+            repo_url=repo_url,
+            missing=missing,
         )
+        if iter_summary_block:
+            # Inject the iter summary right after the H1 + bold prompt
+            # paragraph so admins see it before they scan the file list.
+            readme_body = readme_body + "\n" + iter_summary_block
+        archive.writestr("README.md", readme_body)
 
         # Raw extracts pulled out of metadata_bundle for direct LLM ingestion.
         # These keys are populated by the widget capture pipeline; ship the

@@ -144,6 +144,94 @@ def _rewrite_with_glossary(text: str, glossary: dict[str, str]) -> str:
     return pattern.sub(repl, text)
 
 
+@dataclass(frozen=True)
+class QuestionScrubResult:
+    """Aggregate output for the unresolved-questions scrub pass.
+
+    ``kept`` mirrors the input minus dropped strings (with low-density
+    glossary rewrites applied). ``log`` carries the per-action audit
+    entries with slot keys prefixed ``q_<index>`` so admins can tell
+    them apart from assumption entries when reading
+    ``feedback_iter_call.scrub_log`` rows.
+    """
+
+    kept: list[str]
+    log: list[ScrubLogEntry]
+
+
+def scrub_questions(
+    questions: list[str],
+    *,
+    forbidden_words: list[str],
+    glossary: dict[str, str] | None = None,
+) -> QuestionScrubResult:
+    """Apply the same forbidden-words / density-drop policy used for
+    assumptions to the model's ``unresolved_questions`` array.
+
+    The questions block is plain ``list[str]`` in
+    :class:`IterationOutput`, so this function takes and returns the
+    same shape — no Pydantic copy gymnastics required.
+    """
+    pattern = _compile_pattern(forbidden_words)
+    glossary_map = glossary or {}
+    kept: list[str] = []
+    log: list[ScrubLogEntry] = []
+
+    for idx, raw in enumerate(questions):
+        text = str(raw or "").strip()
+        slot_key = f"q_{idx}"
+
+        if pattern is None or not text:
+            kept.append(text)
+            continue
+
+        matches, covered = _matches_with_spans(text, pattern)
+        if not matches:
+            kept.append(text)
+            continue
+
+        density = covered / max(1, len(text))
+        if density >= DROP_THRESHOLD:
+            log.append(
+                ScrubLogEntry(
+                    slot_key=slot_key,
+                    original_statement=text,
+                    rewritten_statement=None,
+                    matched_words=tuple(sorted(set(matches))),
+                    action="drop",
+                )
+            )
+            continue
+
+        rewritten = _rewrite_with_glossary(text, glossary_map)
+        if rewritten != text:
+            kept.append(rewritten)
+            log.append(
+                ScrubLogEntry(
+                    slot_key=slot_key,
+                    original_statement=text,
+                    rewritten_statement=rewritten,
+                    matched_words=tuple(sorted(set(matches))),
+                    action="rewrite",
+                )
+            )
+        else:
+            # Low-density jargon, no glossary mapping — keep but log
+            # so ops can extend the glossary if the leak repeats.
+            kept.append(text)
+            log.append(
+                ScrubLogEntry(
+                    slot_key=slot_key,
+                    original_statement=text,
+                    rewritten_statement=None,
+                    matched_words=tuple(sorted(set(matches))),
+                    action="rewrite",
+                )
+            )
+
+    return QuestionScrubResult(kept=kept, log=log)
+
+
 def scrub_assumptions(
     assumptions: list[Any],
     *,

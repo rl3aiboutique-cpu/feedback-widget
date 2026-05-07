@@ -89,7 +89,7 @@ from .iter_schemas import (
     SSEEventSection,
     SSEEventToken,
 )
-from .iter_scrubber import scrub_assumptions
+from .iter_scrubber import scrub_assumptions, scrub_questions
 from .iter_sse import SectionDetector
 from .models import Feedback, FeedbackAttachment, FeedbackAttachmentKind
 from .settings import FeedbackSettings
@@ -376,13 +376,27 @@ class IterService:
         # Server-side jargon scrub. The prompt forbids these words but
         # open-weight models leak them anyway; this is the safety net.
         # Drops + rewrites are recorded on FeedbackIterCall.scrub_log.
+        # v0.4.1 also scrubs ``unresolved_questions`` — same policy,
+        # slot keys prefixed ``q_<idx>`` so admins can tell entries
+        # apart when reading the log column.
         scrub_result = scrub_assumptions(
             list(parsed.assumptions),
             forbidden_words=self._settings.forbidden_words_list,
             glossary=self._glossary,
         )
-        parsed = parsed.model_copy(update={"assumptions": scrub_result.kept})
+        question_result = scrub_questions(
+            list(parsed.unresolved_questions),
+            forbidden_words=self._settings.forbidden_words_list,
+            glossary=self._glossary,
+        )
+        parsed = parsed.model_copy(
+            update={
+                "assumptions": scrub_result.kept,
+                "unresolved_questions": question_result.kept,
+            }
+        )
         scrub_log_dicts = [e.to_dict() for e in scrub_result.log]
+        scrub_log_dicts.extend(e.to_dict() for e in question_result.log)
 
         # Persist version + call + assumptions.
         version_id, version_number = await asyncio.to_thread(

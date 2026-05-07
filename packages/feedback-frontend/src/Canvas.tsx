@@ -17,12 +17,13 @@ import { type ReactElement, useCallback, useEffect, useRef, useState } from "rea
 
 import { Compose } from "./Compose";
 import type { LockedElement } from "./FeedbackButton";
-import { useFeedbackAdapter, useFeedbackBindings } from "./FeedbackProvider";
+import { useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig } from "./FeedbackProvider";
 import { useMyFeedbackQuery } from "./adapter";
 import type { FeedbackAttachmentRead, FeedbackRead } from "./client";
 import { startIterSession } from "./client/iter";
 import { CommentThread } from "./comments/CommentThread";
 import { InlineIterPane } from "./iter/InlineIterPane";
+import { IterFocusView } from "./iter/IterFocusView";
 import type { FeedbackStatusKey } from "./types";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -55,11 +56,20 @@ export interface CanvasProps {
   locked: LockedElement | null;
   onActivatePicker: () => void;
   onClearLocked: () => void;
+  /** Notifies the parent Sheet shell when focus mode toggles, so it
+   * can widen its max-width while the focus pane needs the room. */
+  onFocusChange?: (focused: boolean) => void;
 }
 
-export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps): ReactElement {
+export function Canvas({
+  locked,
+  onActivatePicker,
+  onClearLocked,
+  onFocusChange,
+}: CanvasProps): ReactElement {
   const adapter = useFeedbackAdapter();
   const bindings = useFeedbackBindings();
+  const config = useFeedbackConfig();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
 
@@ -67,6 +77,10 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
   const [iterByFeedback, setIterByFeedback] = useState<Record<string, string>>({});
   const [iterStartingId, setIterStartingId] = useState<string | null>(null);
   const [iterError, setIterError] = useState<string | null>(null);
+  // v0.4.1 focus mode — when set, the canvas hides Compose + the
+  // card feed and renders <IterFocusView> instead. Click "← Volver"
+  // (or session terminal state) clears it back to the feed.
+  const [focusedFeedbackId, setFocusedFeedbackId] = useState<string | null>(null);
 
   const cardRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
@@ -78,6 +92,9 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
         const session = await startIterSession(bindings, { feedback_id: feedbackId });
         setIterByFeedback((prev) => ({ ...prev, [feedbackId]: session.id }));
         setExpandedId(feedbackId);
+        if (config.iterStyle === "focus") {
+          setFocusedFeedbackId(feedbackId);
+        }
       } catch (err) {
         const e = err as { detail?: string; message?: string };
         setIterError(e.detail ?? e.message ?? String(err));
@@ -85,7 +102,7 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
         setIterStartingId(null);
       }
     },
-    [bindings],
+    [bindings, config.iterStyle],
   );
 
   const handleSubmitted = useCallback(
@@ -117,6 +134,30 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
       return next;
     });
   }, [query.data]);
+
+  // Notify the parent Sheet whenever focus state flips so the panel
+  // can widen / narrow to match.
+  useEffect(() => {
+    onFocusChange?.(focusedFeedbackId !== null);
+  }, [focusedFeedbackId, onFocusChange]);
+
+  // ── Focus mode short-circuit ──────────────────────────────────
+  // When the user is iterating with focus style, replace the entire
+  // canvas (compose + feed) with the focus view. Compose stays
+  // unmounted so its sticky styles don't fight the focus layout;
+  // the iter session continues running in the background even if
+  // the user clicks "Volver".
+  if (focusedFeedbackId && iterByFeedback[focusedFeedbackId]) {
+    return (
+      <div className="h-full">
+        <IterFocusView
+          sessionId={iterByFeedback[focusedFeedbackId] ?? ""}
+          feedbackId={focusedFeedbackId}
+          onExit={() => setFocusedFeedbackId(null)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -302,7 +343,7 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
 
                       <CommentThread feedbackId={r.id} />
 
-                      {iterSessionId ? (
+                      {iterSessionId && config.iterStyle === "inline" ? (
                         <InlineIterPane
                           sessionId={iterSessionId}
                           onClose={() => {
@@ -313,6 +354,14 @@ export function Canvas({ locked, onActivatePicker, onClearLocked }: CanvasProps)
                             });
                           }}
                         />
+                      ) : iterSessionId && config.iterStyle === "focus" ? (
+                        <Button
+                          size="sm"
+                          onClick={() => setFocusedFeedbackId(r.id)}
+                          data-feedback-id="feedback.canvas.resume-focus"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" /> Resume iter
+                        </Button>
                       ) : (
                         <Button
                           size="sm"

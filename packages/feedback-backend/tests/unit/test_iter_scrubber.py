@@ -10,7 +10,11 @@ from __future__ import annotations
 
 from feedback_widget.iter_models import FeedbackIterAssumptionKind
 from feedback_widget.iter_schemas import Assumption
-from feedback_widget.iter_scrubber import DROP_THRESHOLD, scrub_assumptions
+from feedback_widget.iter_scrubber import (
+    DROP_THRESHOLD,
+    scrub_assumptions,
+    scrub_questions,
+)
 
 
 def _asm(slot: str, statement: str, rationale: str = "") -> Assumption:
@@ -127,3 +131,66 @@ def test_glossary_replacement_preserves_initial_capitalisation() -> None:
     result = scrub_assumptions(items, forbidden_words=["user"], glossary={"user": "lead"})
     # Sentence-initial capitalised "User" should become "Lead", not "lead".
     assert result.kept[0].statement.startswith("Lead accounts")
+
+
+# ────────────────────────────────────────────────────────────────────
+# scrub_questions — same policy applied to unresolved_questions[]
+# ────────────────────────────────────────────────────────────────────
+
+
+def test_scrub_questions_drops_high_density_jargon() -> None:
+    questions = [
+        "Should the user be informed when the order is shipped?",
+        "API endpoint cache JSON payload schema migration backend index TTL?",
+    ]
+    result = scrub_questions(
+        questions,
+        forbidden_words=[
+            "api",
+            "endpoint",
+            "cache",
+            "json",
+            "payload",
+            "schema",
+            "migration",
+            "backend",
+            "index",
+            "ttl",
+        ],
+        glossary=None,
+    )
+    # First question (clean) survives. Second is jargon-dominated → dropped.
+    assert result.kept == [questions[0]]
+    assert len(result.log) == 1
+    assert result.log[0].action == "drop"
+    assert result.log[0].slot_key == "q_1"
+
+
+def test_scrub_questions_rewrites_via_glossary() -> None:
+    questions = ["Does the user pick the date or does the system pick it?"]
+    result = scrub_questions(
+        questions,
+        forbidden_words=["user"],
+        glossary={"user": "lead"},
+    )
+    assert len(result.kept) == 1
+    assert "lead" in result.kept[0].lower()
+    assert result.log[0].action == "rewrite"
+    assert result.log[0].slot_key == "q_0"
+
+
+def test_scrub_questions_keeps_clean_text_silently() -> None:
+    questions = [
+        "What happens when an order is delivered?",
+        "Who can see the receipt?",
+    ]
+    result = scrub_questions(questions, forbidden_words=["endpoint", "cache"], glossary=None)
+    assert result.kept == questions
+    assert result.log == []
+
+
+def test_drop_threshold_constant_holds_for_question_path() -> None:
+    """Sanity: question-path uses the same threshold as the assumption
+    path. If someone tunes one and forgets the other, this catches it.
+    """
+    assert 0.0 < DROP_THRESHOLD <= 1.0

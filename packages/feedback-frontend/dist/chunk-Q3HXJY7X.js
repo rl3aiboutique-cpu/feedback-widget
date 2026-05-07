@@ -3,10 +3,211 @@ import {
   FeedbackApiError,
   Textarea,
   cn,
+  redactString,
   useFeedbackAdapter,
   useFeedbackCommentsQuery,
   usePostFeedbackCommentMutation
-} from "./chunk-RUMDEDKD.js";
+} from "./chunk-QB73WXKP.js";
+
+// src/capture/consoleWrap.ts
+var DEFAULT_CAPACITY = 50;
+var _buffer = [];
+var _capacity = DEFAULT_CAPACITY;
+var _installed = false;
+function _sanitize(args) {
+  const parts = args.map((arg) => {
+    if (typeof arg === "string") return redactString(arg);
+    if (arg === null) return "null";
+    if (arg === void 0) return "undefined";
+    if (typeof arg === "object") {
+      try {
+        return redactString(JSON.stringify(arg));
+      } catch {
+        return Object.prototype.toString.call(arg);
+      }
+    }
+    return redactString(String(arg));
+  });
+  const joined = parts.join(" ");
+  return joined.length > 4096 ? `${joined.slice(0, 4096)}...[truncated]` : joined;
+}
+function _push(entry) {
+  _buffer.push(entry);
+  while (_buffer.length > _capacity) _buffer.shift();
+}
+function installConsoleWrap(capacity = DEFAULT_CAPACITY) {
+  if (_installed) return;
+  _capacity = capacity;
+  _installed = true;
+  const originals = {
+    log: console.log,
+    info: console.info,
+    warn: console.warn,
+    error: console.error
+  };
+  for (const level of ["log", "info", "warn", "error"]) {
+    const original = originals[level];
+    console[level] = function patched(...args) {
+      try {
+        _push({
+          level,
+          message: _sanitize(args),
+          timestamp: (/* @__PURE__ */ new Date()).toISOString()
+        });
+      } catch {
+      }
+      return original.apply(console, args);
+    };
+  }
+}
+function getConsoleTail() {
+  return [..._buffer];
+}
+
+// src/capture/networkWrap.ts
+var DEFAULT_CAPACITY2 = 20;
+var DEFAULT_SUCCESS_CAPACITY = 30;
+var SLOW_SUCCESS_THRESHOLD_MS = 1e3;
+var _buffer2 = [];
+var _success_buffer = [];
+var _capacity2 = DEFAULT_CAPACITY2;
+var _success_capacity = DEFAULT_SUCCESS_CAPACITY;
+var _installed2 = false;
+function _push2(entry) {
+  _buffer2.push(entry);
+  while (_buffer2.length > _capacity2) _buffer2.shift();
+}
+function _pushSuccess(entry) {
+  _success_buffer.push(entry);
+  while (_success_buffer.length > _success_capacity) _success_buffer.shift();
+}
+function _excerpt(text) {
+  const redacted = redactString(text);
+  return redacted.length > 512 ? `${redacted.slice(0, 512)}...[truncated]` : redacted;
+}
+function installNetworkWrap(capacity = DEFAULT_CAPACITY2) {
+  if (_installed2 || typeof window === "undefined") return;
+  _capacity2 = capacity;
+  _installed2 = true;
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async function patchedFetch(input, init) {
+    const start = performance.now();
+    const method = (init?.method ?? "GET").toUpperCase();
+    const url = typeof input === "string" ? input : input.toString();
+    let response;
+    try {
+      response = await originalFetch(input, init);
+    } catch (err) {
+      const duration2 = performance.now() - start;
+      _push2({
+        method,
+        url,
+        status: 0,
+        duration_ms: Math.round(duration2),
+        response_excerpt: _excerpt(String(err)),
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+      throw err;
+    }
+    const duration = performance.now() - start;
+    if (response.status >= 400) {
+      let excerpt = "";
+      try {
+        excerpt = await response.clone().text();
+      } catch {
+        excerpt = "(no body)";
+      }
+      _push2({
+        method,
+        url,
+        status: response.status,
+        duration_ms: Math.round(duration),
+        response_excerpt: _excerpt(excerpt),
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    } else if (duration >= SLOW_SUCCESS_THRESHOLD_MS) {
+      _pushSuccess({
+        method,
+        url,
+        status: response.status,
+        duration_ms: Math.round(duration),
+        response_excerpt: "",
+        timestamp: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    return response;
+  };
+}
+function getNetworkTail() {
+  return [..._buffer2];
+}
+function getNetworkSuccessTail() {
+  return [..._success_buffer];
+}
+
+// src/capture/errorWrap.ts
+var DEFAULT_CAPACITY3 = 20;
+var MAX_STACK_BYTES = 4096;
+var _buffer3 = [];
+var _capacity3 = DEFAULT_CAPACITY3;
+var _installed3 = false;
+function _truncStack(stack) {
+  if (!stack) return null;
+  const redacted = redactString(stack);
+  if (redacted.length > MAX_STACK_BYTES) {
+    return `${redacted.slice(0, MAX_STACK_BYTES)}...[truncated]`;
+  }
+  return redacted;
+}
+function _push3(entry) {
+  _buffer3.push(entry);
+  while (_buffer3.length > _capacity3) _buffer3.shift();
+}
+function installErrorWrap(capacity = DEFAULT_CAPACITY3) {
+  if (_installed3 || typeof window === "undefined") return;
+  _capacity3 = capacity;
+  _installed3 = true;
+  window.addEventListener("error", (ev) => {
+    _push3({
+      kind: "error",
+      message: redactString(String(ev.message ?? ev.error?.message ?? "(no message)")),
+      source: ev.filename ? redactString(ev.filename) : null,
+      lineno: typeof ev.lineno === "number" ? ev.lineno : null,
+      colno: typeof ev.colno === "number" ? ev.colno : null,
+      stack: _truncStack(ev.error?.stack),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  });
+  window.addEventListener("unhandledrejection", (ev) => {
+    const reason = ev.reason;
+    let message = "(no message)";
+    let stack = null;
+    if (reason instanceof Error) {
+      message = reason.message || reason.name || message;
+      stack = _truncStack(reason.stack);
+    } else if (typeof reason === "string") {
+      message = reason;
+    } else {
+      try {
+        message = JSON.stringify(reason);
+      } catch {
+        message = Object.prototype.toString.call(reason);
+      }
+    }
+    _push3({
+      kind: "unhandledrejection",
+      message: redactString(message),
+      source: null,
+      lineno: null,
+      colno: null,
+      stack,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    });
+  });
+}
+function getErrorsTail() {
+  return [..._buffer3];
+}
 
 // src/ui/sheet.tsx
 import * as SheetPrimitive from "@radix-ui/react-dialog";
@@ -574,6 +775,13 @@ function _xpathOf(el) {
 }
 
 export {
+  installConsoleWrap,
+  getConsoleTail,
+  installNetworkWrap,
+  getNetworkTail,
+  getNetworkSuccessTail,
+  installErrorWrap,
+  getErrorsTail,
   Badge,
   Input,
   Select,
@@ -593,4 +801,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-UAYBADBI.js.map
+//# sourceMappingURL=chunk-Q3HXJY7X.js.map

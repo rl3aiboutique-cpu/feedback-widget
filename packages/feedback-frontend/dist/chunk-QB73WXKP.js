@@ -17,7 +17,8 @@ var DEFAULT_CONFIG = Object.freeze({
   enabled: _ENV_ENABLED,
   position: _ENV_POSITION,
   brandPrimaryHex: _ENV_BRAND,
-  locale: _ENV_LOCALE
+  locale: _ENV_LOCALE,
+  iterStyle: "focus"
 });
 var FeedbackContext = createContext(null);
 function FeedbackProvider({ children, bindings, adapter, config }) {
@@ -847,6 +848,7 @@ function Textarea({ className, ...props }) {
 }
 
 export {
+  redactString,
   redactBundle,
   SubmitFeedbackError,
   FeedbackApiError,
@@ -879,4 +881,4 @@ export {
   Button,
   Textarea
 };
-//# sourceMappingURL=chunk-RUMDEDKD.js.map
+//# sourceMappingURL=chunk-QB73WXKP.js.map

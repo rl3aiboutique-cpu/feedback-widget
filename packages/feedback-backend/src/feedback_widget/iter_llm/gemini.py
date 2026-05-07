@@ -152,15 +152,63 @@ def _build_config(
 
 
 def _wrap_provider_error(exc: BaseException) -> LLMProviderError:
+    """Classify a raw provider exception into one of our typed errors.
+
+    Detection layers, applied in order:
+
+    1. Built-in ``asyncio.TimeoutError`` → :class:`LLMProviderTimeoutError`.
+    2. HTTP status code on the exception (``exc.code`` — google-genai's
+       APIError surfaces this) — 429 → rate-limited, 5xx → transient.
+    3. Class-name match — for SDK errors that don't expose ``.code``.
+    4. Message-substring fallback — for cases where the SDK collapses
+       the structured error into a plain string (e.g. when retried via
+       a wrapper that drops the typed exception). Catches the literal
+       "503 UNAVAILABLE" message the user reported on 2026-05-07.
+
+    Anything that doesn't match a known transient pattern is treated as
+    fatal so genuine bugs (auth, schema) surface immediately instead of
+    burning the retry budget.
+    """
     msg = str(exc) or exc.__class__.__name__
     if isinstance(exc, asyncio.TimeoutError):
         return LLMProviderTimeoutError(msg)
-    # The SDK raises google.genai.errors.* — we don't import them
-    # at top level to keep the optional-extra surface tight, so we
-    # match by class name rather than isinstance.
+
+    # 2. HTTP status code on the exception (google-genai's APIError).
+    code = getattr(exc, "code", None)
+    if isinstance(code, int):
+        if code == 429:
+            return LLMProviderRateLimitedError(msg)
+        if code in {500, 502, 503, 504}:
+            return LLMProviderTransientError(msg)
+
+    # 3. Class-name match — kept for SDK errors that don't expose code.
     cls_name = type(exc).__name__
-    if cls_name in {"ServerError", "ServiceUnavailableError", "InternalServerError"}:
+    if cls_name in {
+        "ServerError",
+        "ServiceUnavailableError",
+        "InternalServerError",
+        "DeadlineExceededError",
+    }:
         return LLMProviderTransientError(msg)
+    if cls_name in {"RateLimitError", "TooManyRequestsError", "ResourceExhaustedError"}:
+        return LLMProviderRateLimitedError(msg)
+
+    # 4. Message-substring fallback. Lowercased to match either casing.
+    lowered = msg.lower()
+    if (
+        "unavailable" in lowered
+        or "overloaded" in lowered
+        or " 503" in lowered
+        or "503 " in lowered
+        or "internal error" in lowered
+        or " 500" in lowered
+        or "bad gateway" in lowered
+        or "gateway timeout" in lowered
+    ):
+        return LLMProviderTransientError(msg)
+    if "rate limit" in lowered or "quota" in lowered or " 429" in lowered:
+        return LLMProviderRateLimitedError(msg)
+
     return LLMProviderFatalError(msg)
 
 
@@ -327,13 +375,59 @@ class GeminiProvider:
         parts = _build_parts(combined, attachments)
         cfg = _build_config(self._settings, max_output_tokens)
 
+        # Two-level retry — same semantics as ``generate()``, but only
+        # the SETUP phase of the stream gets retried. Once the SDK
+        # returns the iterator and the first chunk has been yielded
+        # downstream, partial markdown is already on the SSE wire and
+        # we can't replay it cleanly, so any error mid-stream is fatal.
+        last_wrapped: LLMProviderError | None = None
+        stream_iter = None
+        while True:
+            for attempt in range(_RETRIES_PER_MODEL + 1):
+                try:
+                    stream_iter = await self._client.aio.models.generate_content_stream(
+                        model=self._model,
+                        contents=[gtypes.Content(role="user", parts=parts)],
+                        config=cfg,
+                    )
+                    break
+                except BaseException as exc:
+                    wrapped = _wrap_provider_error(exc)
+                    last_wrapped = wrapped
+                    transient = isinstance(
+                        wrapped,
+                        LLMProviderTransientError | LLMProviderRateLimitedError,
+                    )
+                    if not transient:
+                        raise wrapped from exc
+                    if attempt < _RETRIES_PER_MODEL:
+                        delay = _BACKOFF_BASE_SECONDS * (2**attempt)
+                        logger.warning(
+                            "iter llm stream transient error on %s "
+                            "(attempt %d/%d), retrying in %.1fs: %s",
+                            self._model,
+                            attempt + 1,
+                            _RETRIES_PER_MODEL + 1,
+                            delay,
+                            wrapped,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.warning(
+                        "iter llm stream exhausted retries on %s; walking fallback chain",
+                        self._model,
+                    )
+                    break
+            if stream_iter is not None:
+                break
+            if self._try_next_model(self._model) is None:
+                if last_wrapped is not None:
+                    raise last_wrapped
+                raise LLMProviderTransientError("all models in fallback chain failed")
+
+        # Setup succeeded — yield chunks. Mid-stream errors are fatal.
         try:
-            stream = await self._client.aio.models.generate_content_stream(
-                model=self._model,
-                contents=[gtypes.Content(role="user", parts=parts)],
-                config=cfg,
-            )
-            async for chunk in stream:
+            async for chunk in stream_iter:
                 text = chunk.text
                 if text:
                     yield text

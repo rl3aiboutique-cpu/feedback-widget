@@ -1,7 +1,10 @@
 import {
   AssumptionCard,
+  RenderedMarkdown,
+  StreamingSkeleton,
+  modelLatencyHint,
   useIterRunStream
-} from "./chunk-ETJUIC5W.js";
+} from "./chunk-BUIWLOT4.js";
 import {
   Button,
   Textarea,
@@ -14,7 +17,7 @@ import {
   listIterVersions,
   resolveIterAssumption,
   useFeedbackBindings
-} from "./chunk-RUMDEDKD.js";
+} from "./chunk-QB73WXKP.js";
 
 // src/iter/IterWorkspace.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -160,7 +163,7 @@ function IterWorkspace({ sessionId, onClose }) {
             });
           },
           saving: editMarkdownMutation.isPending,
-          modelHint: _modelLatencyHint(_resolveDisplayModel(session.data))
+          modelHint: modelLatencyHint(_resolveDisplayModel(session.data))
         }
       ),
       tab === "assumptions" && /* @__PURE__ */ jsx(
@@ -615,114 +618,6 @@ function ErrorBanner(props) {
     /* @__PURE__ */ jsx("div", { className: "mt-1 text-xs", children: props.message })
   ] });
 }
-var _SECTION_SKELETONS = [
-  { key: "personas", heading: "Personas", hint: "Who uses this?" },
-  { key: "user_stories", heading: "User Stories", hint: "What do they do?" },
-  { key: "spec", heading: "Spec", hint: "How does it work?" },
-  { key: "diagram", heading: "Diagram", hint: "Flow diagram" }
-];
-var _THINKING_MESSAGES = [
-  "Reading your feedback\u2026",
-  "Reading the attached files\u2026",
-  "Looking at the technical metadata\u2026",
-  "Imagining who'd use this\u2026",
-  "Drafting personas\u2026",
-  "Thinking through edge cases\u2026",
-  "Naming things (the hard part)\u2026",
-  "Writing user stories\u2026",
-  "Sketching Gherkin scenarios\u2026",
-  "Outlining the spec\u2026",
-  "Sketching the diagram\u2026",
-  "Re-reading my own draft\u2026",
-  "Counting hidden assumptions\u2026",
-  "Looking for the bits I'd otherwise hand-wave past\u2026",
-  "Asking myself: what would surprise this user?",
-  "One last pass for consistency\u2026"
-];
-function _useRotatingMessage(active) {
-  const [idx, setIdx] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    setIdx(0);
-    const id = window.setInterval(() => {
-      setIdx((cur) => (cur + 1) % _THINKING_MESSAGES.length);
-    }, 3200);
-    return () => window.clearInterval(id);
-  }, [active]);
-  return _THINKING_MESSAGES[idx] ?? _THINKING_MESSAGES[0] ?? "Thinking\u2026";
-}
-function ThinkingDots() {
-  return /* @__PURE__ */ jsxs("span", { "aria-hidden": "true", className: "inline-flex items-end gap-1", children: [
-    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:0ms]" }),
-    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:150ms]" }),
-    /* @__PURE__ */ jsx("span", { className: "inline-block h-1.5 w-1.5 animate-bounce rounded-full bg-primary [animation-delay:300ms]" })
-  ] });
-}
-function StreamingSkeleton({
-  activeSection,
-  modelHint
-}) {
-  const message = _useRotatingMessage(true);
-  return /* @__PURE__ */ jsxs("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
-    /* @__PURE__ */ jsxs("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-4", children: [
-      /* @__PURE__ */ jsxs("p", { className: "flex items-center gap-2 font-medium text-primary", children: [
-        /* @__PURE__ */ jsx(Loader2, { className: "h-4 w-4 animate-spin" }),
-        "AI is drafting your spec",
-        /* @__PURE__ */ jsx(ThinkingDots, {})
-      ] }),
-      /* @__PURE__ */ jsx("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
-      /* @__PURE__ */ jsxs("p", { className: "mt-2 text-[11px] text-muted-foreground/80", children: [
-        modelHint,
-        " Sections below turn green as they arrive."
-      ] })
-    ] }),
-    _SECTION_SKELETONS.map((s, idx) => {
-      const isActive = activeSection === s.key;
-      const isPast = activeSection && _SECTION_SKELETONS.findIndex((x) => x.key === activeSection) > idx;
-      const cardClass = isActive ? "border-primary bg-primary/5" : isPast ? "border-emerald-200 bg-emerald-50/40" : "border-input bg-muted/30";
-      const titleClass = isActive ? "text-primary" : isPast ? "text-emerald-700" : "";
-      const barBaseClass = isActive ? "animate-pulse bg-primary/30" : "bg-muted";
-      return /* @__PURE__ */ jsxs("div", { className: `rounded-md border p-4 transition-colors ${cardClass}`, children: [
-        /* @__PURE__ */ jsxs("div", { className: "flex items-center gap-2", children: [
-          /* @__PURE__ */ jsx("h4", { className: `text-base font-semibold ${titleClass}`, children: s.heading }),
-          isActive && /* @__PURE__ */ jsx("span", { className: "text-xs text-primary", children: "writing now\u2026" }),
-          isPast && /* @__PURE__ */ jsx("span", { className: "text-xs text-emerald-700", children: "done" })
-        ] }),
-        /* @__PURE__ */ jsx("p", { className: "mb-3 text-xs text-muted-foreground", children: s.hint }),
-        /* @__PURE__ */ jsxs("div", { className: "space-y-2", children: [
-          /* @__PURE__ */ jsx("div", { className: `h-3 w-[85%] rounded ${barBaseClass}` }),
-          /* @__PURE__ */ jsx("div", { className: `h-3 w-[70%] rounded ${barBaseClass}` }),
-          /* @__PURE__ */ jsx("div", { className: `h-3 w-[92%] rounded ${barBaseClass}` })
-        ] })
-      ] }, s.key);
-    })
-  ] });
-}
-var _DOC_TYPOGRAPHY = [
-  "flex-1 overflow-auto rounded-lg border bg-card p-6 text-sm leading-relaxed shadow-sm",
-  // H1 — gradient bar to give each top-level section visual weight.
-  "[&_h1]:relative [&_h1]:scroll-mt-4 [&_h1]:mt-8 [&_h1]:mb-4 [&_h1]:pb-2 [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:first:mt-0",
-  "[&_h1]:border-b [&_h1]:border-primary/20",
-  "[&_h1]:bg-gradient-to-r [&_h1]:from-primary/5 [&_h1]:to-transparent [&_h1]:px-3 [&_h1]:py-2 [&_h1]:rounded",
-  "[&_h2]:scroll-mt-4 [&_h2]:mt-6 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground",
-  "[&_h2]:border-l-4 [&_h2]:border-primary/40 [&_h2]:pl-3",
-  "[&_h3]:scroll-mt-4 [&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground/90",
-  "[&_p]:my-2 [&_p]:text-foreground/90",
-  "[&_ul]:my-2 [&_ul]:ml-6 [&_ul]:list-disc [&_ul]:space-y-1",
-  "[&_ol]:my-2 [&_ol]:ml-6 [&_ol]:list-decimal [&_ol]:space-y-1",
-  "[&_li]:text-foreground/90",
-  "[&_strong]:font-semibold [&_strong]:text-foreground",
-  "[&_em]:italic",
-  "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_code]:text-primary",
-  "[&_pre]:my-3 [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-slate-50 [&_pre]:p-3 [&_pre]:font-mono [&_pre]:text-xs [&_pre]:leading-relaxed [&_pre]:shadow-inner dark:[&_pre]:bg-slate-900/40",
-  "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground",
-  "[&_blockquote]:my-3 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:py-2 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
-  "[&_hr]:my-6 [&_hr]:border-border",
-  "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
-  "[&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs",
-  "[&_th]:border [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left",
-  "[&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1"
-].join(" ");
 function WorkingDocumentPanel(props) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
@@ -773,36 +668,6 @@ function WorkingDocumentPanel(props) {
     ) : /* @__PURE__ */ jsx(RenderedMarkdown, { markdown: props.markdown })
   ] });
 }
-function RenderedMarkdown({ markdown }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    let cancelled = false;
-    const el = ref.current;
-    if (!el) return;
-    void import("markdown-it").then(({ default: MarkdownIt }) => {
-      if (cancelled || !ref.current) return;
-      const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
-      const defaultHeadingOpen = md.renderer.rules.heading_open ?? null;
-      md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
-        const inline = tokens[idx + 1];
-        const text = inline?.children ? inline.children.map((c) => c.content).join("") : "";
-        const id = `iter-toc-${text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
-        const token = tokens[idx];
-        if (token) token.attrSet("id", id);
-        return defaultHeadingOpen ? defaultHeadingOpen(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
-      };
-      const html = md.render(markdown);
-      const range = document.createRange();
-      range.selectNodeContents(ref.current);
-      const fragment = range.createContextualFragment(html);
-      ref.current.replaceChildren(fragment);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [markdown]);
-  return /* @__PURE__ */ jsx("article", { ref, className: _DOC_TYPOGRAPHY });
-}
 function _resolveDisplayModel(session) {
   if (!session) return "(loading)";
   const isActive = session.status === "draft" || session.status === "iterating";
@@ -810,21 +675,6 @@ function _resolveDisplayModel(session) {
     return session.current_primary_model_id;
   }
   return session.last_call_model_id ?? session.model_id ?? "(none)";
-}
-function _modelLatencyHint(modelId) {
-  const m = modelId.toLowerCase();
-  if (m.includes("flash-lite")) return "10\u201330s typical with Flash Lite.";
-  if (m.includes("flash")) return "20\u201360s typical on Flash models.";
-  if (m.startsWith("gemma-3")) return "60\u2013180s typical on Gemma 3.";
-  if (m.startsWith("gemma-4")) return "90\u2013240s typical on Gemma 4.";
-  if (m.startsWith("gemma")) return "60\u2013240s typical on Gemma models.";
-  if (m.startsWith("claude-haiku")) return "5\u201315s typical with Haiku.";
-  if (m.startsWith("claude-sonnet")) return "15\u201345s typical with Sonnet.";
-  if (m.startsWith("claude-opus")) return "30\u201390s typical with Opus.";
-  if (m.startsWith("gpt") || m.startsWith("o1")) {
-    return "10\u201330s typical on OpenAI models.";
-  }
-  return "May take a few minutes on the free tier.";
 }
 function _pickLatest(versions) {
   if (!versions.length) return null;
@@ -840,4 +690,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-HDVDUBHL.js.map
+//# sourceMappingURL=IterWorkspace-YHV5QB4R.js.map

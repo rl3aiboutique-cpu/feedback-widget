@@ -13,8 +13,11 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  describeElement
-} from "./chunk-UAYBADBI.js";
+  describeElement,
+  installConsoleWrap,
+  installErrorWrap,
+  installNetworkWrap
+} from "./chunk-Q3HXJY7X.js";
 import {
   Button,
   FeedbackProvider,
@@ -42,10 +45,10 @@ import {
   useFeedbackListQuery,
   useMyFeedbackQuery,
   useUpdateFeedbackStatusMutation
-} from "./chunk-RUMDEDKD.js";
+} from "./chunk-QB73WXKP.js";
 
 // src/version.ts
-var VERSION = "0.4.0";
+var VERSION = "0.4.1";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
@@ -742,7 +745,7 @@ function useMyPendingActionCount() {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-WBHVTDKN.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-37CWKK3H.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -830,7 +833,7 @@ var FeedbackButton_default = FeedbackButton;
 import { Suspense as Suspense2, lazy as lazy2 } from "react";
 import { jsx as jsx5 } from "react/jsx-runtime";
 var _Inner = lazy2(async () => {
-  const mod = await import("./IterWorkspace-HDVDUBHL.js");
+  const mod = await import("./IterWorkspace-YHV5QB4R.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
@@ -857,6 +860,9 @@ export {
   finalizeIterSession,
   getIterPackage,
   getIterSession,
+  installConsoleWrap,
+  installErrorWrap,
+  installNetworkWrap,
   listIterAssumptions,
   listIterSessionsForFeedback,
   listIterVersions,

@@ -19,6 +19,12 @@
 export { VERSION } from "./version";
 export { useCanTriageFeedback } from "./hooks/useCanTriageFeedback";
 
+// Telemetry installers — hosts call these once at app boot so the
+// widget's metadata bundle includes errors / network / console.
+export { installConsoleWrap } from "./capture/consoleWrap";
+export { installNetworkWrap } from "./capture/networkWrap";
+export { installErrorWrap } from "./capture/errorWrap";
+
 export { FeedbackTriagePage } from "./admin/FeedbackTriagePage";
 export {
   default as FeedbackButtonDefault,

@@ -360,6 +360,83 @@ def build_router(
             ) from exc
 
     # ────────────────────────────────────────────────────────────────
+    # GET /mine/{id}/download — same LLM-handoff ZIP as the admin
+    # endpoint, scoped to the submitter's own tickets only. Mirrors
+    # the v0.4.1 user request: "the download-as-zip function from
+    # the feedback admin must be the same as from the feedback
+    # client". Same bytes, same iter/ section, same comprehensive
+    # metadata — just gated on user_id ownership instead of admin.
+    # ────────────────────────────────────────────────────────────────
+
+    @router.get("/mine/{feedback_id}/download")
+    def download_my_feedback_bundle(
+        feedback_id: uuid.UUID,
+        session: Session = SessionDep,
+        s3: StorageBackend = StorageDep,
+        current_user: CurrentUserSnapshot = UserDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> Response:
+        """Return the full feedback bundle ZIP — submitter's own ticket only."""
+        try:
+            service = FeedbackService(
+                session=session,
+                storage=s3,
+                tenant_id=current_user.tenant_id,
+                settings=cfg,
+            )
+            try:
+                feedback = service.get(feedback_id)
+            except FeedbackNotFoundError as fnf:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(fnf)) from fnf
+
+            # Ownership check — return 404 (not 403) so we don't leak
+            # the existence of someone else's ticket id.
+            if feedback.user_id != current_user.user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="feedback not found",
+                )
+
+            attachments = service.list_attachments(feedback.id)
+
+            zip_bytes = build_feedback_bundle(
+                fb=feedback,
+                attachments=attachments,
+                storage=s3,
+                submitter={
+                    "email": current_user.email,
+                    "role": current_user.role,
+                },
+                repo_url=cfg.REPO_URL,
+                db=session,
+            )
+            filename = _bundle_filename(feedback.ticket_code, feedback.created_at)
+
+            logger.info(
+                "feedback bundle downloaded by submitter: feedback_id=%s ticket_code=%s by_user=%s",
+                feedback.id,
+                feedback.ticket_code,
+                current_user.user_id,
+            )
+
+            return Response(
+                content=zip_bytes,
+                media_type="application/zip",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "download_my_feedback_bundle failed unexpectedly (id=%s)",
+                feedback_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
     # GET /{id} — detail (MASTER_ADMIN)
     # ────────────────────────────────────────────────────────────────
 
@@ -425,6 +502,7 @@ def build_router(
                 storage=s3,
                 submitter={"email": None, "role": None},
                 repo_url=cfg.REPO_URL,
+                db=session,
             )
             filename = _bundle_filename(feedback.ticket_code, feedback.created_at)
 

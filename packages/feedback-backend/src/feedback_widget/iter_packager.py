@@ -32,12 +32,17 @@ from typing import Any
 from .iter_models import (
     FeedbackIterAssumptionStatus,
 )
+from .iter_render import (
+    render_assumptions,
+    render_diagram,
+    render_iteration_log,
+    render_personas,
+    render_spec,
+    render_user_stories,
+)
 from .iter_schemas import (
     Assumption,
     IterationOutput,
-    Persona,
-    SpecDocument,
-    UserStory,
 )
 from .settings import FeedbackSettings
 from .storage.s3 import StorageBackend
@@ -215,98 +220,10 @@ def render_context(
     )
 
 
-def render_personas(personas: Sequence[Persona]) -> str:
-    if not personas:
-        return "# Personas\n\n(none generated)\n"
-    out = ["# Personas\n"]
-    for p in personas:
-        out.append(f"## {p.name} — {p.role}\n")
-        out.append(f"_Persona id: `{p.id}`_\n")
-        if p.goals:
-            out.append("\n**Goals**\n")
-            out.extend(f"- {g}" for g in p.goals)
-        if p.pain_points:
-            out.append("\n**Pain points**\n")
-            out.extend(f"- {pp}" for pp in p.pain_points)
-        out.append(f"\n**Context**\n\n{p.context}\n")
-    return "\n".join(out) + "\n"
-
-
-def render_user_stories(
-    stories: Sequence[UserStory],
-    personas: Sequence[Persona],
-) -> str:
-    if not stories:
-        return "# User Stories\n\n(none generated)\n"
-    persona_by_id = {p.id: p for p in personas}
-    by_persona: dict[str, list[UserStory]] = {}
-    for s in stories:
-        by_persona.setdefault(s.persona_id, []).append(s)
-
-    out = ["# User Stories\n"]
-    for pid, group in by_persona.items():
-        persona_name = persona_by_id.get(pid)
-        heading = persona_name.name if persona_name else pid
-        out.append(f"## {heading}\n")
-        for story in group:
-            out.append(f"### {story.title}\n")
-            out.append(f"_Story id: `{story.id}`_\n")
-            out.append(
-                f"\n**As a** {story.story.as_a}, "
-                f"**I want** {story.story.i_want}, "
-                f"**so that** {story.story.so_that}.\n"
-            )
-            for sc in story.acceptance_criteria:
-                out.append(f"\n**Scenario:** {sc.scenario}\n")
-                for g in sc.given:
-                    out.append(f"- **Given** {g}")
-                for w in sc.when:
-                    out.append(f"- **When** {w}")
-                for t in sc.then:
-                    out.append(f"- **Then** {t}")
-                out.append("")
-    return "\n".join(out) + "\n"
-
-
-def render_spec(spec: SpecDocument) -> str:
-    out = [f"# {spec.title}\n", spec.summary, ""]
-    for section in spec.sections:
-        out.append(f"## {section.heading}")
-        out.append(f"_Section id: `{section.id}`_\n")
-        out.append(section.body_markdown)
-        out.append("")
-    return "\n".join(out) + "\n"
-
-
-def render_diagram(diagram: Any) -> str:
-    fence_lang = "mermaid" if diagram.format == "mermaid" else "text"
-    caption = diagram.caption.strip() or "Diagram"
-    return f"# {caption}\n\n```{fence_lang}\n{diagram.source}\n```\n"
-
-
-def render_assumptions(items: Sequence[AssumptionResolution]) -> str:
-    if not items:
-        return "# Assumptions Resolved\n\n(none)\n"
-    out = [
-        "# Assumptions Resolved\n",
-        "| slot_key | kind | status | statement | user response |",
-        "| --- | --- | --- | --- | --- |",
-    ]
-    irrelevant: list[AssumptionResolution] = []
-    for a in items:
-        if a.status == FeedbackIterAssumptionStatus.IRRELEVANT:
-            irrelevant.append(a)
-            continue
-        response_cell = (a.user_response or "").replace("|", "\\|").replace("\n", " ")
-        statement_cell = a.statement.replace("|", "\\|").replace("\n", " ")
-        out.append(
-            f"| `{a.slot_key}` | {a.kind} | {a.status.value} | {statement_cell} | {response_cell} |"
-        )
-    if irrelevant:
-        out.append("\n## Marked irrelevant\n")
-        for a in irrelevant:
-            out.append(f"- `{a.slot_key}` — {a.statement}")
-    return "\n".join(out) + "\n"
+# NOTE: render_personas / render_user_stories / render_spec /
+# render_diagram / render_assumptions live in :mod:`iter_render` since
+# v0.4.1 so the admin :mod:`bundle` can reuse them. They are imported
+# at the top of this module.
 
 
 def render_readme(
@@ -385,24 +302,7 @@ def render_readme(
     )
 
 
-def render_iteration_log(entries: Sequence[IterationLogEntry]) -> str:
-    if not entries:
-        return "# Iteration Log\n\n(none)\n"
-    out = [
-        "# Iteration Log\n",
-        "| version | timestamp (UTC) | restructure | user message | changes summary |",
-        "| --- | --- | --- | --- | --- |",
-    ]
-    for e in entries:
-        msg = e.user_message.replace("|", "\\|").replace("\n", " ")[:120]
-        summary = e.changes_summary.replace("|", "\\|").replace("\n", " ")[:200]
-        out.append(
-            f"| {e.version_number} | "
-            f"{e.created_at.isoformat()} | "
-            f"{'yes' if e.restructure_allowed else 'no'} | "
-            f"{msg} | {summary} |"
-        )
-    return "\n".join(out) + "\n"
+# NOTE: render_iteration_log lives in :mod:`iter_render` since v0.4.1.
 
 
 # ────────────────────────────────────────────────────────────────────

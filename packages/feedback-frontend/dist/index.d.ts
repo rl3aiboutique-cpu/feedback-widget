@@ -2,9 +2,15 @@ import * as react_jsx_runtime from 'react/jsx-runtime';
 import { ReactNode } from 'react';
 
 /** Package version — keep in sync with package.json. */
-declare const VERSION = "0.4.0";
+declare const VERSION = "0.4.1";
 
 declare function useCanTriageFeedback(): boolean;
+
+declare function installConsoleWrap(capacity?: number): void;
+
+declare function installNetworkWrap(capacity?: number): void;
+
+declare function installErrorWrap(capacity?: number): void;
 
 /**
  * Admin triage page — lives INSIDE the widget folder so the host's
@@ -405,6 +411,15 @@ interface FeedbackAdapter {
 declare function createAdapter(bindings: FeedbackHostBindings): FeedbackAdapter;
 
 type FeedbackPosition = "bottom_right" | "bottom_left" | "top_right" | "top_left";
+/** Style for how the iter pane is presented after the user clicks Iterate.
+ *
+ * - `"focus"` (default): the iter pane takes over the canvas, hides
+ *   compose + the rest of the card feed, expands the Sheet to ~800px
+ *   on lg+ to give the spec markdown room. Best for deep work.
+ * - `"inline"`: legacy v0.4.0 behaviour — iter renders inside the
+ *   expanded ticket card alongside the rest of the feed.
+ */
+type IterStyle = "focus" | "inline";
 interface FeedbackConfig {
     /** Master kill-switch — when false the widget renders nothing. */
     enabled?: boolean;
@@ -414,6 +429,8 @@ interface FeedbackConfig {
     brandPrimaryHex?: string;
     /** UI locale. Currently English-only; kept here for future locales. */
     locale?: "en";
+    /** How to render the iter pane after the user clicks Iterate. */
+    iterStyle?: IterStyle;
 }
 interface FeedbackProviderProps {
     children: ReactNode;
@@ -480,4 +497,4 @@ declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptio
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

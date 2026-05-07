@@ -7,6 +7,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-05-07
+
+Patch — focus mode for iter, real retry on streaming, comprehensive
+telemetry, single-ZIP admin bundle that includes the iter half, and
+a hardened "no technical questions" guarantee.
+
+### Added
+
+- **Iter focus mode** — when the user clicks Iterate, the canvas
+  hides Compose + the rest of the card feed and renders a new
+  `<IterFocusView>` full-height. Sheet expands from ~520px to
+  ~800px on lg+ for spec markdown breathing room. Includes a
+  collapsible `<IterContextPanel>` with screenshot + original texts
+  (collapsed by default, persists across the tab session). Two-
+  column body on lg+: focused assumption + spec markdown growing
+  live on the left, resolved-assumptions rail on the right.
+- **`FeedbackConfig.iterStyle`** = `"focus" | "inline"`. Default
+  `"focus"`; hosts that prefer the v0.4.0 inline-in-card flow can
+  opt into `"inline"` for back-compat.
+- **`stream()` retry-then-fallback** in `gemini.py` — same per-model
+  budget the v0.4.0 commit added to `generate()`. 2 retries with
+  exponential backoff (1s, 2s) on transient/rate-limited errors,
+  then walks the fallback chain. Mid-stream errors stay fatal.
+- **`_wrap_provider_error` widened** — detects 5xx/429 by HTTP
+  status code first (`exc.code`), then class name, then message
+  substring fallback (catches the literal `"503 UNAVAILABLE"`
+  message the user reported).
+- **`installErrorWrap()`** — public installer for
+  `window.error` + `unhandledrejection` ring buffer. Captures
+  uncaught exceptions with redacted stacks (4KB cap each).
+- **`network_successes` ring buffer** — `networkWrap.ts` now
+  records 2xx/3xx responses that took longer than 1s alongside
+  the existing failure buffer. Independent ring (30 entries) so
+  slow successes can't push out genuine failures.
+- **Extended `metadata_bundle`** — adds `errors_tail`,
+  `network_successes`, `timing` (TTFB, DOMContentLoaded,
+  loadEventEnd, domInteractive), `connection`
+  (effectiveType, downlink, rtt, saveData), `page` (title,
+  referrer, age_ms), `memory` (Chromium-only), and
+  `viewport.scroll_y` / `viewport.document_height` /
+  `viewport.visibility_state`.
+- **Single admin ZIP** — `bundle.py` now embeds the iter session
+  alongside the original feedback when present:
+  - `iter/_AI_INSTRUCTIONS.md`, `01_personas.md` … `06_iteration_log.md`
+  - `iter/versions/v01.md`, `v02.md`, …, `vN.md` — every persisted
+    iteration's `markdown_rendered` verbatim (the user's "última
+    iter" requirement)
+  - Top-level `README.md` gets an "Iteration summary" block with
+    status, rounds, resolved-vs-open assumption counts, completion
+    reason, and a pointer to `iter/03_spec.md`.
+  - When no iter session exists: writes a single-line
+    `iter/STATUS.md` so the bundle still builds cleanly.
+- **`GET /mine/{feedback_id}/download`** — submitter-facing endpoint
+  returning the same comprehensive ZIP as the admin
+  `GET /{feedback_id}/download`. Scoped to the caller's own
+  tickets only.
+- **`iter_render.py`** — extracted markdown renderers (personas,
+  user stories, spec, diagram, assumptions, iteration log) so both
+  the iter packager and the admin bundle import from one place.
+- **`scrub_questions(items, ...)`** — same forbidden-words/density
+  policy as `scrub_assumptions` applied to
+  `IterationOutput.unresolved_questions`. Drops/rewrites are
+  persisted in `feedback_iter_call.scrub_log` with `q_<idx>` slot
+  keys.
+- **Frontend forbidden-words filter** — `iter/forbiddenWords.ts`
+  + filter inside `IterFocusView` and `InlineIterPane`. Hides any
+  assumption whose statement+rationale matches a forbidden token
+  the server scrubber missed; emits one
+  `console.warn("[iter] hid jargon-leaking assumption", slot_key)`.
+  Soft fail; never blocks the round.
+
+### Changed
+
+- **`FEEDBACK_ITER_FORBIDDEN_WORDS` default widened** — now
+  covers ~80 terms across networking/API, caching/perf, auth/
+  security, storage/data, concurrency, frontend internals, and
+  build/deploy. Hosts can shrink via env if a term is genuinely
+  needed.
+- **`FeedbackPanel.tsx`** width follows focus state via a smooth
+  Tailwind `transition-[max-width]` swap (520px ↔ 800px on lg+).
+  Branding strip + footer hidden during focus to maximise vertical
+  space for the iter pane.
+- **`IterWorkspace.tsx`** (admin) imports `RenderedMarkdown`,
+  `StreamingSkeleton`, and `modelLatencyHint` from the new
+  `iter/markdownView` module instead of duplicating them inline.
+- **`build_feedback_bundle(...)`** signature gains a `db` kwarg
+  (default `None`). Callers that pass it get the iter section;
+  callers that don't (e.g. unit tests, scripts) write the
+  no-iter-session marker and skip silently.
+
+### Fixed
+
+- **Streaming iter no longer surfaces 5xx/503 to the user** when
+  the same iteration would have succeeded on retry. The v0.4.0
+  retry budget existed but only fired on `generate()`; the SSE
+  iter path used `stream()`, which had no retry. v0.4.1 closes
+  that gap.
+
 ## [0.4.0] — 2026-05-07
 
 Single-canvas UX rebuild + iter that converges. The Submit/Mine tab
