@@ -10,7 +10,7 @@ import {
 } from "./chunk-QB73WXKP.js";
 
 // src/version.ts
-var VERSION = "0.6.0";
+var VERSION = "0.7.0";
 
 // src/capture/consoleWrap.ts
 var DEFAULT_CAPACITY = 50;
@@ -805,4 +805,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-ULBNUOER.js.map
+//# sourceMappingURL=chunk-26SMHHVL.js.map

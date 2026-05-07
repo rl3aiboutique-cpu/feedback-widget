@@ -1,26 +1,26 @@
 /**
- * Iter focus view — full-canvas iter pane that replaces the rest of
- * the widget while the user is iterating.
+ * Iter focus view — v0.7 Copilot Chat redesign.
  *
- * v0.6.0 — Spec-protagonist redesign. Three zones:
+ * Two zones:
  *
- *   - SPEC HERO (left-center, ~67%) — always visible, always
- *     dominant; streams progressively, editable in place.
- *   - QUESTION STACK (right, ~28%) — all assumptions visible
- *     (open above, resolved below dimmed and re-editable).
- *   - CHAT STRIP (full-width bottom) — free-text textarea +
- *     Run iteration / Mark ready / Abandon.
+ *   - SPEC (left, ~65%)   — Radix Tabs over Personas / User
+ *                          Stories / Spec / Diagrama. Auto-follow
+ *                          during stream + highlight-glow on new
+ *                          version. Per-tab edit.
+ *   - COPILOT (right, ~35%) — chronological chat timeline of session
+ *                            events (versions, AI questions inline,
+ *                            user messages). Free-text input
+ *                            auto-fires the next iter.
  *
- * Why three zones, no left sidebar: the iter session's downstream
- * purpose is producing a chronological context ledger that an
- * implementation agent (Claude Code) consumes. Resolved
- * assumptions stay visible because every artifact is part of the
- * ledger; nothing is "archived". The spec is the protagonist; the
- * user reads it always; questions and chat orbit it.
+ * Header: ← Volver, ticket code, title, [Mark ready] [Abandon],
+ * round + active model chips, ⚙ Contexto button.
  *
- * Reuses the same data hooks as `IterWorkspace` and `InlineIterPane`
- * so the wire shape stays identical — the difference is purely
- * presentational. See `docs/specs/2026-05-08-spec-protagonist-redesign.md`.
+ * The downstream objective is unchanged from v0.6: every artifact
+ * persists in chronological order so Claude Code consumes the full
+ * ledger when implementing the ticket. The chat timeline IS the
+ * ledger, surfaced as a UI.
+ *
+ * See `docs/specs/2026-05-08-copilot-chat-redesign.md`.
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -43,14 +43,14 @@ import {
 import type { IterAssumptionRead } from "../client/types";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { ChatStrip } from "./ChatStrip";
 import { ContextDialog } from "./ContextDialog";
-import { EditableSpecPanel } from "./EditableSpecPanel";
+import { CopilotChatPanel } from "./CopilotChatPanel";
 import { FallbackToast } from "./FallbackToast";
 import { IterFocusShell } from "./IterFocusShell";
-import { QuestionStackPanel } from "./QuestionStackPanel";
+import { SpecTabsPanel } from "./SpecTabsPanel";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
-import { modelLatencyHint } from "./markdownView";
+import { SPEC_SECTION_ORDER, type SpecSectionKey } from "./specSectionState";
+import { useChatTimeline } from "./useChatTimeline";
 import { deriveIterRunMeta } from "./useIterRunMeta";
 import { useIterRunStream } from "./useIterRunStream";
 
@@ -87,9 +87,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     enabled: !!session.data?.current_iteration_id,
   });
 
-  // Pull the original feedback from the my-feedback cache. Always
-  // available because the canvas renders the focus mode FROM that
-  // list — the row is in the query cache by the time we mount.
   const myFeedback = useMyFeedbackQuery(25);
   const feedback: FeedbackRead | undefined = useMemo(
     () => (myFeedback.data ?? []).find((f) => f.id === feedbackId),
@@ -129,9 +126,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     },
   });
 
-  // v0.4.4 — submitter can now edit the spec markdown in place.
-  // Same endpoint the admin IterWorkspace uses; same query
-  // invalidation key so the rendered markdown updates after save.
   const editMarkdownMutation = useMutation({
     mutationFn: ({ versionId, markdown }: { versionId: string; markdown: string }) =>
       editIterVersionMarkdown(bindings, sessionId, versionId, {
@@ -148,8 +142,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     enabled: session.data?.status === "finalized",
   });
 
-  // Refresh the persisted lists as soon as a stream completes so the
-  // spec markdown re-renders on the new version.
+  // Refresh the persisted lists as soon as a stream completes.
   useEffect(() => {
     if (stream.state.status === "done" && stream.state.versionId) {
       qc.invalidateQueries({ queryKey: ["iter-session", sessionId] });
@@ -158,12 +151,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
 
-  // v0.4.4 — auto-fire the FIRST iteration when the user enters the
-  // focus mode of a virgin session. Subsequent iterations stay
-  // opt-in. Guard with a ref so a re-mount (host tab switch and
-  // back) doesn't double-fire. The user can [Cancelar] the banner
-  // to bail before the turn lands; cancel kills the session via
-  // abandonMutation so ITER_MAX_TURNS isn't burned.
+  // Auto-fire the FIRST iteration (round 1, virgin session).
   const autoFiredRef = useRef(false);
   const autoFireUserCancelledRef = useRef(false);
   const isVirginSession =
@@ -182,8 +170,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
       stream.start({ user_message: "", restructure_allowed: false });
     }
   }, [isVirginSession, stream]);
-  // Banner stays visible while the FIRST stream is in flight (no
-  // versions yet) and auto-fire was the trigger.
   const showAutoFireBanner =
     autoFiredRef.current && stream.state.status === "running" && (versions.data?.length ?? 0) === 0;
   const cancelAutoFire = () => {
@@ -193,7 +179,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     onExitRef.current();
   };
 
-  // Auto-exit focus when the session reaches a terminal state.
   const status = session.data?.status ?? "loading";
   const onExitRef = useRef(onExit);
   useEffect(() => {
@@ -207,9 +192,8 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     return undefined;
   }, [status]);
 
-  // Defense-in-depth: hide any assumption whose text matches a
-  // forbidden word the scrubber might have missed. Soft-fail with
-  // a single console.warn so the dev sees the leak.
+  // Defense-in-depth: hide assumptions whose text matches a forbidden
+  // word the scrubber missed.
   const userFacing = useMemo(
     () => (assumptions.data ?? []).filter((a) => a.kind !== "technical"),
     [assumptions.data],
@@ -247,47 +231,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     if (list.length === 0) return null;
     return [...list].sort((a, b) => b.version_number - a.version_number)[0] ?? null;
   }, [versions.data]);
-  const renderedMarkdown = isStreaming ? "" : (latestVersion?.output_markdown ?? "");
-
-  // Spec area smooth-scrolls to top when a fresh stream lands so the
-  // user sees the new content rather than wherever the previous
-  // version ended up.
-  const specScrollRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    if (stream.state.status === "done" && stream.state.versionId && specScrollRef.current) {
-      specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [stream.state.status, stream.state.versionId]);
-
-  // v0.5 (Block B) — auto-scroll the active spec section into view as
-  // the SSE `section` event fires. User scroll cancels until the next
-  // section transition.
-  const userScrollOverrideRef = useRef(false);
-  const lastAutoScrolledSectionRef = useRef<string | null>(null);
-  useEffect(() => {
-    const el = specScrollRef.current;
-    if (!el) return;
-    const onUserScroll = () => {
-      userScrollOverrideRef.current = true;
-    };
-    el.addEventListener("wheel", onUserScroll, { passive: true });
-    el.addEventListener("touchmove", onUserScroll, { passive: true });
-    return () => {
-      el.removeEventListener("wheel", onUserScroll);
-      el.removeEventListener("touchmove", onUserScroll);
-    };
-  }, []);
-  useEffect(() => {
-    const active = stream.state.activeSection;
-    if (!active) return;
-    if (active === lastAutoScrolledSectionRef.current) return;
-    userScrollOverrideRef.current = false;
-    lastAutoScrolledSectionRef.current = active;
-    const target = document.getElementById(`iter-section-${active}`);
-    if (target && !userScrollOverrideRef.current) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [stream.state.activeSection]);
+  const latestMarkdown = latestVersion?.output_markdown ?? "";
 
   const handleSkip = (a: IterAssumptionRead) =>
     resolveMutation.mutateAsync({
@@ -297,17 +241,9 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
   const onMarkReady = () => finalizeMutation.mutateAsync();
 
-  const modelHint = modelLatencyHint(
-    sess?.current_primary_model_id ?? sess?.last_call_model_id ?? sess?.model_id ?? "",
-  );
-
-  // v0.5 (Block C) — single source of truth for the live model
-  // state. Drives the header chips line and the fallback toast.
-  // Active model name is never hardcoded in copy.
   const meta = useMemo(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
 
-  // v0.5 — auto-iter countdown when the user just resolved the LAST
-  // open assumption. 5s warning, Cancel + Esc, wall-clock timer.
+  // Auto-iter countdown when 0 open + has version (post-iter).
   const [autoIterCountdown, setAutoIterCountdown] = useState<number | null>(null);
   const autoIterCancelledRef = useRef(false);
   const autoIterFiredRef = useRef<string | null>(null);
@@ -359,14 +295,35 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     return () => window.removeEventListener("keydown", onKey);
   }, [autoIterCountdown]);
 
+  // Chat timeline derivation — a single chronological list of
+  // bubbles for the Copilot panel.
+  const timelineEvents = useChatTimeline(versions.data, visibleAssumptions);
+
+  // Active stream section, narrowed to SpecSectionKey for the tabs
+  // panel. Old sessions might still report "assumptions" — guard
+  // against it.
+  const activeStreamSection = useMemo<SpecSectionKey | null>(() => {
+    const s = stream.state.activeSection;
+    if (!s) return null;
+    return (SPEC_SECTION_ORDER as readonly string[]).includes(s) ? (s as SpecSectionKey) : null;
+  }, [stream.state.activeSection]);
+
+  const sessionDisabled = status === "finalized" || status === "abandoned";
+  const showReadyPrompt =
+    !isComplete &&
+    !sessionDisabled &&
+    openAssumptions.length === 0 &&
+    (versions.data?.length ?? 0) > 0 &&
+    !isStreaming &&
+    autoIterCountdown === null;
+
   // ────────────────────────────────────────────────────────────────
   // Render
   // ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full flex-col gap-3" data-feedback-id="iter.focus-view">
-      {/* Header — slim. Round + tiny model chip on the right; ⚙
-          Contexto button opens the Dialog with the original feedback. */}
+    <div className="flex h-full flex-col gap-2" data-feedback-id="iter.focus-view">
+      {/* Header — slim. Mark ready / Abandon always reachable. */}
       <header className="flex items-center gap-2 border-b border-input pb-2">
         <Button size="sm" variant="ghost" onClick={onExit} className="-ml-2 h-7 px-2">
           <ArrowLeft className="h-3.5 w-3.5" /> Volver
@@ -379,7 +336,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </code>
         <span
           className="truncate font-semibold"
-          style={{ fontSize: "clamp(0.875rem, 0.8rem + 0.3cqi, 1.125rem)" }}
+          style={{ fontSize: "clamp(0.85rem, 0.78rem + 0.3cqi, 1.05rem)" }}
         >
           {feedback?.title ?? "Iter session"}
         </span>
@@ -389,14 +346,14 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         >
           {maxTurns > 0 ? (
             <span className="rounded bg-muted px-1.5 py-0.5 font-mono uppercase tracking-wide">
-              Round {Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns)}/{maxTurns}
+              R {Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns)}/{maxTurns}
             </span>
           ) : null}
           {meta.active ? (
             <span
               className="hidden truncate font-mono @[60ch]/focus:inline"
               title={`Modelo activo: ${meta.active}`}
-              style={{ maxWidth: "12ch" }}
+              style={{ maxWidth: "10ch" }}
             >
               <span aria-hidden="true">⚡</span> {meta.active}
             </span>
@@ -405,10 +362,44 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         {isComplete ? (
           <Badge
             className="shrink-0 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 uppercase tracking-wide"
-            style={{ fontSize: "0.625rem" }}
+            style={{ fontSize: "0.6rem" }}
           >
             Spec ready
           </Badge>
+        ) : null}
+        {!sessionDisabled ? (
+          <>
+            <Button
+              size="sm"
+              onClick={() => onMarkReady()}
+              disabled={
+                !sess?.current_iteration_id ||
+                finalizeMutation.isPending ||
+                isStreaming ||
+                openAssumptions.length > 0
+              }
+              className="h-7 px-2"
+              style={{ fontSize: "0.7rem" }}
+              title={
+                openAssumptions.length > 0
+                  ? "Resuelve las preguntas pendientes antes de marcar como listo."
+                  : "Finalizar el spec y producir el paquete dev-ready."
+              }
+            >
+              Mark ready
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => abandonMutation.mutateAsync()}
+              disabled={abandonMutation.isPending || isStreaming}
+              className="h-7 px-2 text-muted-foreground"
+              style={{ fontSize: "0.7rem" }}
+              title="Descartar esta sesión iter permanentemente."
+            >
+              Abandon
+            </Button>
+          </>
         ) : null}
         <ContextDialog
           feedback={feedback}
@@ -426,8 +417,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         />
       </header>
 
-      {/* Surface session/version/assumption fetch failures so the
-          user doesn't sit on a blank loading state forever. */}
       {session.error ? (
         <div
           className="rounded border border-destructive/60 bg-destructive/10 p-2 text-destructive"
@@ -438,7 +427,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </div>
       ) : null}
 
-      {/* v0.4.4 auto-fire banner — round 1 only. */}
       {showAutoFireBanner ? (
         <div className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs">
           <Loader2 className="h-4 w-4 animate-spin shrink-0 text-primary" />
@@ -462,148 +450,71 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
       <FallbackToast fallback={stream.state.providerFallback} />
 
-      {isComplete && sess?.completion_reason ? (
-        <p
-          className="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
+      {streamBudgetExhausted || (stream.state.errorMessage && stream.state.status === "error") ? (
+        <div
+          className="rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100"
           style={{ fontSize: "0.7rem" }}
         >
-          <strong className="font-semibold">Why ready: </strong>
-          {sess.completion_reason}
-        </p>
+          {streamBudgetExhausted
+            ? "Has usado todas las rondas para este spec. Marca como listo o abandona la sesión."
+            : stream.state.errorMessage}
+        </div>
       ) : null}
 
-      {/* v0.6.0 — three-zone shell: spec hero / question stack / chat. */}
+      {status === "finalized" && pkgQuery.data?.presigned_zip_url ? (
+        <div
+          className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
+          style={{ fontSize: "0.75rem" }}
+        >
+          <p className="mb-2 font-semibold">Spec finalized — your package is ready.</p>
+          <a
+            href={pkgQuery.data.presigned_zip_url}
+            download
+            className="inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700"
+            style={{ fontSize: "0.7rem" }}
+          >
+            ⬇ Download package ZIP
+          </a>
+        </div>
+      ) : null}
+
       <IterFocusShell
         spec={
-          <div className="flex h-full min-h-0 flex-col gap-2">
-            {/* Auto-iter countdown OR all-resolved strip — sits ABOVE
-                the spec hero in the user's reading area, not in the
-                chat strip below. */}
-            {(versions.data?.length ?? 0) > 0 &&
-            !isStreaming &&
-            status !== "finalized" &&
-            status !== "abandoned" ? (
-              autoIterCountdown !== null ? (
-                <div
-                  className="flex items-center gap-3 rounded-md border-2 border-primary/60 bg-primary/10 px-3 py-2 text-primary dark:border-primary/70 dark:bg-primary/15"
-                  style={{ fontSize: "0.85rem" }}
-                >
-                  <Loader2 aria-hidden="true" className="h-5 w-5 shrink-0 animate-spin" />
-                  <div className="flex-1 leading-snug">
-                    <strong className="font-semibold">Auto-iter en {autoIterCountdown}s.</strong>{" "}
-                    Has resuelto todas las preguntas; voy a lanzar la siguiente ronda
-                    automáticamente. Pulsa Cancelar (o Esc) si prefieres revisar primero.
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={cancelAutoIter}
-                    className="shrink-0"
-                    title="Cancelar el auto-iter (Esc)"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              ) : openAssumptions.length === 0 ? (
-                <div
-                  className="rounded-md border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
-                  style={{ fontSize: "0.75rem" }}
-                >
-                  <span aria-hidden="true" className="mr-1.5">
-                    ✅
-                  </span>
-                  <strong className="font-semibold">Todo respondido</strong> — listo para iterar de
-                  nuevo o marcar como listo.
-                </div>
-              ) : null
-            ) : null}
-
-            {/* The spec — protagonist. 75ch max-width centered. */}
-            <div
-              ref={specScrollRef}
-              className="flex-1 min-h-0 overflow-auto"
-              style={{ maxWidth: "75ch", marginInline: "auto", width: "100%" }}
-            >
-              <EditableSpecPanel
-                markdown={renderedMarkdown}
-                streaming={isStreaming}
-                activeSection={stream.state.activeSection}
-                sectionStates={isStreaming ? stream.state.sectionStates : undefined}
-                editable={
-                  !isStreaming &&
-                  status !== "finalized" &&
-                  status !== "abandoned" &&
-                  !!latestVersion
-                }
-                onSaveEdit={async (next) => {
-                  if (!latestVersion) return;
-                  await editMarkdownMutation.mutateAsync({
-                    versionId: latestVersion.id,
-                    markdown: next,
-                  });
-                }}
-                saving={editMarkdownMutation.isPending}
-                modelHint={modelHint}
-                textareaMinHeightClass="min-h-[60vh]"
-                emptyStateMessage="El spec aparecerá aquí cuando termine la primera ronda. Mientras tanto, puedes cancelar."
-                roundNumber={Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || undefined}
-                maxRounds={maxTurns || undefined}
-              />
-            </div>
-          </div>
-        }
-        questions={
-          <QuestionStackPanel
-            assumptions={visibleAssumptions}
-            onResolve={(assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body })}
-            onSkip={(a) => handleSkip(a)}
-            disabled={status === "finalized" || status === "abandoned"}
-            emptyMessage={
-              (versions.data?.length ?? 0) === 0
-                ? "Las preguntas aparecerán cuando el AI termine de leer tu feedback."
-                : "El AI no devolvió preguntas en esta ronda. Edita el spec o usa el chat para pedir cambios."
-            }
+          <SpecTabsPanel
+            latestMarkdown={latestMarkdown}
+            latestVersionId={latestVersion?.id ?? null}
+            streaming={isStreaming}
+            sectionStates={isStreaming ? stream.state.sectionStates : undefined}
+            activeStreamSection={activeStreamSection}
+            editable={!isStreaming && !sessionDisabled && !!latestVersion}
+            saving={editMarkdownMutation.isPending}
+            onSaveEdit={async (next) => {
+              if (!latestVersion) return;
+              await editMarkdownMutation.mutateAsync({
+                versionId: latestVersion.id,
+                markdown: next,
+              });
+            }}
           />
         }
         chat={
-          status === "finalized" && pkgQuery.data?.presigned_zip_url ? (
-            <div
-              className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 space-y-2 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
-              style={{ fontSize: "0.75rem" }}
-            >
-              <p className="font-semibold">Spec finalized — your package is ready.</p>
-              <a
-                href={pkgQuery.data.presigned_zip_url}
-                download
-                className="inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700"
-                style={{ fontSize: "0.7rem" }}
-              >
-                ⬇ Download package ZIP
-              </a>
-              <p className="text-emerald-800/80" style={{ fontSize: "0.625rem" }}>
-                You can also re-download anytime from the ticket card after returning to the feed.
-              </p>
-            </div>
-          ) : status === "abandoned" ? null : (
-            <ChatStrip
-              streaming={isStreaming}
-              turnBudgetSpent={turnBudgetSpent}
-              isComplete={isComplete}
-              openCount={openAssumptions.length}
-              banner={
-                streamBudgetExhausted
-                  ? "Has usado todas las rondas para este spec. Marca como listo o abandona la sesión."
-                  : stream.state.errorMessage && stream.state.status === "error"
-                    ? stream.state.errorMessage
-                    : null
-              }
-              onRunIteration={(message) =>
-                stream.start({ user_message: message, restructure_allowed: false })
-              }
-              onMarkReady={onMarkReady}
-              onAbandon={() => abandonMutation.mutateAsync()}
-            />
-          )
+          <CopilotChatPanel
+            events={timelineEvents}
+            streamStatus={stream.state.status}
+            disabled={sessionDisabled}
+            showReadyPrompt={showReadyPrompt}
+            autoIterCountdown={autoIterCountdown}
+            isComplete={isComplete}
+            onResolveAssumption={(assumptionId, body) =>
+              resolveMutation.mutateAsync({ assumptionId, body })
+            }
+            onSkipAssumption={(a) => handleSkip(a)}
+            onSend={(message) =>
+              stream.start({ user_message: message, restructure_allowed: false })
+            }
+            onCancelAutoIter={cancelAutoIter}
+            onMarkReady={onMarkReady}
+          />
         }
       />
     </div>

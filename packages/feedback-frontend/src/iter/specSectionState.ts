@@ -139,3 +139,50 @@ export function splitMarkdownByH2(markdown: string): SpecSectionStates {
   }
   return out;
 }
+
+/** Reverse of `splitMarkdownByH2`: replace one section's slice in
+ * the full output_markdown with new content. Used by SpecTabsPanel
+ * when the user edits a single tab and saves — we need to send the
+ * reconstructed whole doc to `editIterVersionMarkdown` (the
+ * endpoint takes the full markdown, not a slice).
+ *
+ * If the section doesn't exist in the original (rare; the model
+ * skipped it), we append the new slice at the end.
+ *
+ * v0.7.0 — Copilot Chat redesign. */
+export function spliceSectionInMarkdown(
+  fullMd: string,
+  sectionKey: SpecSectionKey,
+  newSliceMd: string,
+): string {
+  const lines = fullMd.split("\n");
+  let startIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    if (SECTION_PATTERN[sectionKey].test(lines[i] ?? "")) {
+      startIdx = i;
+      break;
+    }
+  }
+  if (startIdx === -1) {
+    return `${fullMd.trim()}\n\n${newSliceMd.trim()}\n`;
+  }
+  let endIdx = lines.length;
+  for (let i = startIdx + 1; i < lines.length; i++) {
+    const line = lines[i] ?? "";
+    let hit = false;
+    for (const k of SPEC_SECTION_ORDER) {
+      if (k === sectionKey) continue;
+      if (SECTION_PATTERN[k].test(line)) {
+        endIdx = i;
+        hit = true;
+        break;
+      }
+    }
+    if (hit) break;
+  }
+  const before = lines.slice(0, startIdx).join("\n");
+  const after = lines.slice(endIdx).join("\n");
+  const beforeBlock = before.trim() ? `${before.trim()}\n\n` : "";
+  const afterBlock = after.trim() ? `\n\n${after.trim()}` : "";
+  return `${beforeBlock}${newSliceMd.trim()}${afterBlock}\n`;
+}

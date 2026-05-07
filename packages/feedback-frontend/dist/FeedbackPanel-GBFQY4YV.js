@@ -21,13 +21,16 @@ import {
   getErrorsTail,
   getNetworkSuccessTail,
   getNetworkTail
-} from "./chunk-ULBNUOER.js";
+} from "./chunk-26SMHHVL.js";
 import {
   AssumptionCard,
-  EditableSpecPanel,
-  modelLatencyHint,
+  DiagramPanel,
+  SECTION_LABEL,
+  SPEC_SECTION_ORDER,
+  spliceSectionInMarkdown,
+  splitMarkdownByH2,
   useIterRunStream
-} from "./chunk-D7XNYUQY.js";
+} from "./chunk-22B4P52G.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -50,11 +53,11 @@ import {
 } from "./chunk-QB73WXKP.js";
 
 // src/FeedbackPanel.tsx
-import { useState as useState10 } from "react";
+import { useState as useState11 } from "react";
 
 // src/Canvas.tsx
 import { ChevronDown as ChevronDown2, ChevronUp, Sparkles as Sparkles2 } from "lucide-react";
-import { useCallback, useEffect as useEffect6, useRef as useRef5, useState as useState8 } from "react";
+import { useCallback as useCallback2, useEffect as useEffect8, useRef as useRef7, useState as useState9 } from "react";
 
 // src/Compose.tsx
 import { Send, Sparkles } from "lucide-react";
@@ -1169,103 +1172,7 @@ ${a.rationale}`;
 // src/iter/IterFocusView.tsx
 import { useMutation as useMutation2, useQuery as useQuery2, useQueryClient as useQueryClient2 } from "@tanstack/react-query";
 import { ArrowLeft, Loader2 as Loader23, Settings } from "lucide-react";
-import { useEffect as useEffect5, useMemo as useMemo5, useRef as useRef4, useState as useState7 } from "react";
-
-// src/iter/ChatStrip.tsx
-import { Loader2 as Loader22 } from "lucide-react";
-import { useState as useState4 } from "react";
-import { Fragment as Fragment2, jsx as jsx6, jsxs as jsxs5 } from "react/jsx-runtime";
-function ChatStrip({
-  streaming,
-  turnBudgetSpent,
-  isComplete,
-  openCount,
-  banner,
-  onRunIteration,
-  onMarkReady,
-  onAbandon
-}) {
-  const [msg, setMsg] = useState4("");
-  const [busy, setBusy] = useState4(false);
-  const showRun = !turnBudgetSpent && !isComplete;
-  const markReadyDisabled = openCount > 0 || streaming || busy;
-  const submit = async () => {
-    setBusy(true);
-    try {
-      await onRunIteration(msg);
-      setMsg("");
-    } finally {
-      setBusy(false);
-    }
-  };
-  return /* @__PURE__ */ jsxs5(
-    "footer",
-    {
-      className: "flex flex-col gap-2 border-t border-input bg-background/95 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80",
-      "aria-label": "Chat e iteraci\xF3n",
-      children: [
-        banner ? /* @__PURE__ */ jsx6(
-          "p",
-          {
-            className: "rounded border border-amber-300 bg-amber-50 px-2 py-1.5 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100",
-            style: { fontSize: "0.7rem" },
-            children: banner
-          }
-        ) : null,
-        /* @__PURE__ */ jsx6(
-          Textarea,
-          {
-            value: msg,
-            onChange: (e) => setMsg(e.target.value),
-            placeholder: showRun ? "Escribe tu desacuerdo, una idea nueva o lo que el AI deba reconsiderar\u2026" : "El chat queda registrado en el ledger. (No iterable: ronda completada.)",
-            rows: 2,
-            disabled: streaming || busy || !showRun && isComplete,
-            className: "min-h-[3rem] resize-y",
-            style: { fontSize: "0.85rem" }
-          }
-        ),
-        /* @__PURE__ */ jsxs5("div", { className: "flex flex-wrap items-center gap-2", children: [
-          showRun ? /* @__PURE__ */ jsx6(
-            Button,
-            {
-              size: "sm",
-              onClick: submit,
-              disabled: streaming || busy,
-              title: openCount > 0 ? "Iterar incorporando el chat (las preguntas abiertas siguen disponibles)." : "Ejecutar la siguiente ronda.",
-              children: streaming || busy ? /* @__PURE__ */ jsxs5(Fragment2, { children: [
-                /* @__PURE__ */ jsx6(Loader22, { className: "h-3.5 w-3.5 animate-spin" }),
-                " Running\u2026"
-              ] }) : "Run iteration"
-            }
-          ) : null,
-          /* @__PURE__ */ jsx6(
-            Button,
-            {
-              size: "sm",
-              variant: turnBudgetSpent || isComplete ? "default" : "secondary",
-              onClick: () => onMarkReady(),
-              disabled: markReadyDisabled,
-              title: openCount > 0 ? "Resuelve las preguntas pendientes antes de marcar como listo." : "Finalizar el spec y producir el paquete dev-ready.",
-              children: "Mark ready"
-            }
-          ),
-          /* @__PURE__ */ jsx6(
-            Button,
-            {
-              size: "sm",
-              variant: "ghost",
-              onClick: () => onAbandon(),
-              disabled: streaming || busy,
-              className: "ml-auto text-muted-foreground",
-              title: "Descartar esta sesi\xF3n iter permanentemente.",
-              children: "Abandon"
-            }
-          )
-        ] })
-      ]
-    }
-  );
-}
+import { useEffect as useEffect7, useMemo as useMemo7, useRef as useRef6, useState as useState8 } from "react";
 
 // src/iter/ContextDialog.tsx
 import * as Dialog from "@radix-ui/react-dialog";
@@ -1273,8 +1180,8 @@ import { X as X3 } from "lucide-react";
 
 // src/iter/IterContextPanel.tsx
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect as useEffect3, useRef as useRef2, useState as useState5 } from "react";
-import { jsx as jsx7, jsxs as jsxs6 } from "react/jsx-runtime";
+import { useEffect as useEffect3, useRef as useRef2, useState as useState4 } from "react";
+import { jsx as jsx6, jsxs as jsxs5 } from "react/jsx-runtime";
 var _STORAGE_PREFIX = "rl3-iter-context-open:";
 function _readPersistedOpen(feedbackId) {
   if (typeof window === "undefined") return false;
@@ -1297,7 +1204,7 @@ function IterContextPanel({
   streaming = false
 }) {
   const fbId = feedback?.id ?? "";
-  const [open, setOpen] = useState5(
+  const [open, setOpen] = useState4(
     () => fbId ? _readPersistedOpen(fbId) || defaultOpen : defaultOpen
   );
   useEffect3(() => {
@@ -1312,7 +1219,7 @@ function IterContextPanel({
     wasStreamingRef.current = streaming;
   }, [streaming]);
   if (!feedback) {
-    return /* @__PURE__ */ jsx7("div", { className: "rounded-md border border-input bg-muted/30 p-2 text-[11px] text-muted-foreground", children: "Loading original feedback\u2026" });
+    return /* @__PURE__ */ jsx6("div", { className: "rounded-md border border-input bg-muted/30 p-2 text-[11px] text-muted-foreground", children: "Loading original feedback\u2026" });
   }
   const screenshot = feedback.attachments?.find(
     (a) => a.kind === "screenshot"
@@ -1320,20 +1227,20 @@ function IterContextPanel({
   const userAttachments = (feedback.attachments ?? []).filter(
     (a) => a.kind !== "screenshot"
   );
-  return /* @__PURE__ */ jsxs6(
+  return /* @__PURE__ */ jsxs5(
     "details",
     {
       className: "rounded-md border border-input bg-card text-xs",
       open,
       onToggle: (e) => setOpen(e.target.open),
       children: [
-        /* @__PURE__ */ jsxs6("summary", { className: "flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-accent rounded-md select-none", children: [
-          open ? /* @__PURE__ */ jsx7(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx7(ChevronRight, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }),
-          /* @__PURE__ */ jsx7("span", { className: "font-medium", children: "Contexto original" }),
-          /* @__PURE__ */ jsx7("code", { className: "ml-auto rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground", children: feedback.ticket_code || "\u2014" })
+        /* @__PURE__ */ jsxs5("summary", { className: "flex cursor-pointer items-center gap-2 px-3 py-2 hover:bg-accent rounded-md select-none", children: [
+          open ? /* @__PURE__ */ jsx6(ChevronDown, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx6(ChevronRight, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }),
+          /* @__PURE__ */ jsx6("span", { className: "font-medium", children: "Contexto original" }),
+          /* @__PURE__ */ jsx6("code", { className: "ml-auto rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground", children: feedback.ticket_code || "\u2014" })
         ] }),
-        /* @__PURE__ */ jsxs6("div", { className: "border-t border-input px-3 py-3 space-y-3", children: [
-          screenshot?.presigned_url ? /* @__PURE__ */ jsx7(
+        /* @__PURE__ */ jsxs5("div", { className: "border-t border-input px-3 py-3 space-y-3", children: [
+          screenshot?.presigned_url ? /* @__PURE__ */ jsx6(
             "a",
             {
               href: screenshot.presigned_url,
@@ -1341,7 +1248,7 @@ function IterContextPanel({
               rel: "noreferrer",
               className: "block",
               title: "Open full-size screenshot",
-              children: /* @__PURE__ */ jsx7(
+              children: /* @__PURE__ */ jsx6(
                 "img",
                 {
                   src: screenshot.presigned_url,
@@ -1352,35 +1259,35 @@ function IterContextPanel({
               )
             }
           ) : null,
-          /* @__PURE__ */ jsxs6("section", { children: [
-            /* @__PURE__ */ jsx7("h4", { className: "mb-1 font-semibold text-foreground", children: "T\xEDtulo" }),
-            /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: feedback.title })
+          /* @__PURE__ */ jsxs5("section", { children: [
+            /* @__PURE__ */ jsx6("h4", { className: "mb-1 font-semibold text-foreground", children: "T\xEDtulo" }),
+            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: feedback.title })
           ] }),
-          /* @__PURE__ */ jsxs6("section", { children: [
-            /* @__PURE__ */ jsx7("h4", { className: "mb-1 font-semibold text-foreground", children: "Description" }),
-            /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: feedback.description || /* @__PURE__ */ jsx7("span", { className: "italic text-muted-foreground", children: "(no description)" }) })
+          /* @__PURE__ */ jsxs5("section", { children: [
+            /* @__PURE__ */ jsx6("h4", { className: "mb-1 font-semibold text-foreground", children: "Description" }),
+            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: feedback.description || /* @__PURE__ */ jsx6("span", { className: "italic text-muted-foreground", children: "(no description)" }) })
           ] }),
-          feedback.expected_outcome ? /* @__PURE__ */ jsxs6("section", { children: [
-            /* @__PURE__ */ jsx7("h4", { className: "mb-1 font-semibold text-foreground", children: "Expected outcome" }),
-            /* @__PURE__ */ jsx7("p", { className: "whitespace-pre-wrap", children: feedback.expected_outcome })
+          feedback.expected_outcome ? /* @__PURE__ */ jsxs5("section", { children: [
+            /* @__PURE__ */ jsx6("h4", { className: "mb-1 font-semibold text-foreground", children: "Expected outcome" }),
+            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: feedback.expected_outcome })
           ] }) : null,
-          userAttachments.length > 0 ? /* @__PURE__ */ jsxs6("section", { children: [
-            /* @__PURE__ */ jsxs6("h4", { className: "mb-1 font-semibold text-foreground", children: [
+          userAttachments.length > 0 ? /* @__PURE__ */ jsxs5("section", { children: [
+            /* @__PURE__ */ jsxs5("h4", { className: "mb-1 font-semibold text-foreground", children: [
               "Attachments (",
               userAttachments.length,
               ")"
             ] }),
-            /* @__PURE__ */ jsx7("ul", { className: "space-y-1", children: userAttachments.map((a) => /* @__PURE__ */ jsxs6(
+            /* @__PURE__ */ jsx6("ul", { className: "space-y-1", children: userAttachments.map((a) => /* @__PURE__ */ jsxs5(
               "li",
               {
                 className: "flex items-center gap-2 rounded border border-input bg-background p-1.5",
                 children: [
-                  /* @__PURE__ */ jsx7("span", { className: "flex-1 truncate font-mono text-[11px]", children: a.filename ?? a.kind }),
-                  /* @__PURE__ */ jsxs6("span", { className: "text-muted-foreground shrink-0 text-[10px]", children: [
+                  /* @__PURE__ */ jsx6("span", { className: "flex-1 truncate font-mono text-[11px]", children: a.filename ?? a.kind }),
+                  /* @__PURE__ */ jsxs5("span", { className: "text-muted-foreground shrink-0 text-[10px]", children: [
                     (a.byte_size / 1024).toFixed(1),
                     " KB"
                   ] }),
-                  a.presigned_url ? /* @__PURE__ */ jsx7(
+                  a.presigned_url ? /* @__PURE__ */ jsx6(
                     "a",
                     {
                       href: a.presigned_url,
@@ -1402,20 +1309,20 @@ function IterContextPanel({
 }
 
 // src/iter/ContextDialog.tsx
-import { jsx as jsx8, jsxs as jsxs7 } from "react/jsx-runtime";
+import { jsx as jsx7, jsxs as jsxs6 } from "react/jsx-runtime";
 function ContextDialog({ feedback, trigger }) {
-  return /* @__PURE__ */ jsxs7(Dialog.Root, { children: [
-    /* @__PURE__ */ jsx8(Dialog.Trigger, { asChild: true, children: trigger }),
-    /* @__PURE__ */ jsxs7(Dialog.Portal, { children: [
-      /* @__PURE__ */ jsx8(Dialog.Overlay, { className: "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" }),
-      /* @__PURE__ */ jsxs7(
+  return /* @__PURE__ */ jsxs6(Dialog.Root, { children: [
+    /* @__PURE__ */ jsx7(Dialog.Trigger, { asChild: true, children: trigger }),
+    /* @__PURE__ */ jsxs6(Dialog.Portal, { children: [
+      /* @__PURE__ */ jsx7(Dialog.Overlay, { className: "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out" }),
+      /* @__PURE__ */ jsxs6(
         Dialog.Content,
         {
           className: "fixed left-1/2 top-1/2 z-50 w-[min(90vw,40rem)] max-h-[85vh] -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-md border border-input bg-background p-4 shadow-lg",
           "aria-label": "Contexto original del feedback",
           children: [
-            /* @__PURE__ */ jsxs7("div", { className: "mb-3 flex items-center justify-between gap-2", children: [
-              /* @__PURE__ */ jsx8(
+            /* @__PURE__ */ jsxs6("div", { className: "mb-3 flex items-center justify-between gap-2", children: [
+              /* @__PURE__ */ jsx7(
                 Dialog.Title,
                 {
                   className: "font-semibold tracking-tight",
@@ -1423,7 +1330,7 @@ function ContextDialog({ feedback, trigger }) {
                   children: "Contexto original"
                 }
               ),
-              /* @__PURE__ */ jsx8(Dialog.Close, { asChild: true, children: /* @__PURE__ */ jsx8(
+              /* @__PURE__ */ jsx7(Dialog.Close, { asChild: true, children: /* @__PURE__ */ jsx7(
                 Button,
                 {
                   size: "sm",
@@ -1431,12 +1338,12 @@ function ContextDialog({ feedback, trigger }) {
                   className: "h-7 w-7 p-0",
                   title: "Cerrar (Esc)",
                   "aria-label": "Cerrar",
-                  children: /* @__PURE__ */ jsx8(X3, { className: "h-4 w-4" })
+                  children: /* @__PURE__ */ jsx7(X3, { className: "h-4 w-4" })
                 }
               ) })
             ] }),
-            /* @__PURE__ */ jsx8(Dialog.Description, { className: "mb-3 text-muted-foreground", style: { fontSize: "0.7rem" }, children: "Esto es exactamente lo que enviaste al abrir el ticket. Sirve de referencia mientras refinas el spec." }),
-            /* @__PURE__ */ jsx8(IterContextPanel, { feedback, defaultOpen: true, streaming: false })
+            /* @__PURE__ */ jsx7(Dialog.Description, { className: "mb-3 text-muted-foreground", style: { fontSize: "0.7rem" }, children: "Esto es exactamente lo que enviaste al abrir el ticket. Sirve de referencia mientras refinas el spec." }),
+            /* @__PURE__ */ jsx7(IterContextPanel, { feedback, defaultOpen: true, streaming: false })
           ]
         }
       )
@@ -1444,23 +1351,325 @@ function ContextDialog({ feedback, trigger }) {
   ] });
 }
 
+// src/iter/CopilotChatPanel.tsx
+import { Loader2 as Loader22, Send as Send2 } from "lucide-react";
+import {
+  useCallback,
+  useEffect as useEffect4,
+  useRef as useRef3,
+  useState as useState5
+} from "react";
+
+// src/iter/ChatBubble.tsx
+import { useMemo as useMemo4 } from "react";
+import { jsx as jsx8, jsxs as jsxs7 } from "react/jsx-runtime";
+var _AVATAR = {
+  bot: "\u{1F916}",
+  user: "\u{1F464}",
+  system: "\u23F3"
+};
+function ChatBubble({
+  variant,
+  ts,
+  children,
+  compact = false
+}) {
+  const stamp = useMemo4(() => _formatStamp(ts), [ts]);
+  if (variant === "system") {
+    return /* @__PURE__ */ jsxs7(
+      "div",
+      {
+        className: "my-1 flex items-center gap-2 px-2 italic text-muted-foreground",
+        style: { fontSize: "0.65rem" },
+        children: [
+          /* @__PURE__ */ jsx8("span", { className: "h-px flex-1 bg-border", "aria-hidden": "true" }),
+          /* @__PURE__ */ jsx8("span", { "aria-hidden": "true", children: _AVATAR.system }),
+          /* @__PURE__ */ jsx8("span", { children }),
+          /* @__PURE__ */ jsx8("span", { className: "h-px flex-1 bg-border", "aria-hidden": "true" })
+        ]
+      }
+    );
+  }
+  const isBot = variant === "bot";
+  return /* @__PURE__ */ jsxs7("div", { className: `flex gap-2 ${isBot ? "" : "flex-row-reverse"}`, children: [
+    /* @__PURE__ */ jsx8(
+      "div",
+      {
+        className: [
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+          isBot ? "bg-primary/10 text-primary" : "bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200"
+        ].join(" "),
+        "aria-hidden": "true",
+        style: { fontSize: "0.75rem" },
+        children: _AVATAR[variant]
+      }
+    ),
+    /* @__PURE__ */ jsxs7(
+      "div",
+      {
+        className: ["flex min-w-0 flex-col gap-1", isBot ? "items-start" : "items-end"].join(" "),
+        children: [
+          stamp ? /* @__PURE__ */ jsx8(
+            "span",
+            {
+              className: "text-muted-foreground",
+              style: { fontSize: "0.55rem", lineHeight: "1.2" },
+              children: stamp
+            }
+          ) : null,
+          /* @__PURE__ */ jsx8(
+            "div",
+            {
+              className: [
+                "max-w-[90%] rounded-md border leading-snug",
+                compact ? "px-2 py-1" : "px-2.5 py-2",
+                isBot ? "border-input bg-card text-foreground" : "border-emerald-200 bg-emerald-50/80 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
+              ].join(" "),
+              style: { fontSize: compact ? "0.7rem" : "0.75rem" },
+              children
+            }
+          )
+        ]
+      }
+    )
+  ] });
+}
+function _formatStamp(ts) {
+  if (ts === void 0) return null;
+  const d = typeof ts === "number" ? new Date(ts) : new Date(ts);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleTimeString(void 0, {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+// src/iter/CopilotChatPanel.tsx
+import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
+function CopilotChatPanel(props) {
+  const {
+    events,
+    streamStatus,
+    disabled,
+    showReadyPrompt,
+    autoIterCountdown,
+    isComplete,
+    onResolveAssumption,
+    onSkipAssumption,
+    onSend,
+    onCancelAutoIter,
+    onMarkReady
+  } = props;
+  const [draft, setDraft] = useState5("");
+  const [busy, setBusy] = useState5(false);
+  const scrollRef = useRef3(null);
+  const userScrolledUpRef = useRef3(false);
+  const onScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const fromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    userScrolledUpRef.current = fromBottom > el.clientHeight * 0.05;
+  }, []);
+  useEffect4(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (!userScrolledUpRef.current) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [events.length, streamStatus, autoIterCountdown, showReadyPrompt]);
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void submit();
+    }
+  };
+  const submit = async () => {
+    const msg = draft.trim();
+    if (!msg) return;
+    setBusy(true);
+    try {
+      await onSend(msg);
+      setDraft("");
+      userScrolledUpRef.current = false;
+    } finally {
+      setBusy(false);
+    }
+  };
+  return /* @__PURE__ */ jsxs8(
+    "section",
+    {
+      className: "flex h-full min-h-0 flex-col overflow-hidden border-l border-input",
+      "aria-label": "BA Copilot",
+      children: [
+        /* @__PURE__ */ jsxs8("header", { className: "flex items-center gap-2 border-b border-input px-3 py-2", children: [
+          /* @__PURE__ */ jsx9("span", { "aria-hidden": "true", children: "\u{1F916}" }),
+          /* @__PURE__ */ jsx9(
+            "span",
+            {
+              className: "font-semibold tracking-tight",
+              style: { fontSize: "clamp(0.8rem, 0.7rem + 0.3cqi, 0.95rem)" },
+              children: "BA Copilot"
+            }
+          ),
+          isComplete ? /* @__PURE__ */ jsx9(
+            "span",
+            {
+              className: "ml-auto rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200",
+              style: { fontSize: "0.6rem" },
+              children: "\u2713 ready"
+            }
+          ) : null
+        ] }),
+        /* @__PURE__ */ jsxs8(
+          "div",
+          {
+            ref: scrollRef,
+            onScroll,
+            className: "flex-1 min-h-0 overflow-auto p-2.5 space-y-2",
+            children: [
+              events.length === 0 ? /* @__PURE__ */ jsx9(ChatBubble, { variant: "system", children: "La conversaci\xF3n arrancar\xE1 cuando el AI termine de leer tu feedback." }) : null,
+              events.map((ev) => {
+                if (ev.kind === "version_done") {
+                  const v = ev.version;
+                  return /* @__PURE__ */ jsx9(ChatBubble, { variant: "bot", ts: ev.ts, children: /* @__PURE__ */ jsxs8("div", { className: "space-y-1", children: [
+                    /* @__PURE__ */ jsxs8("p", { children: [
+                      /* @__PURE__ */ jsxs8("strong", { className: "font-semibold", children: [
+                        "Spec v",
+                        v.version_number
+                      ] }),
+                      " listo.",
+                      " ",
+                      v.changes_summary || "Lo tienes a la izquierda."
+                    ] }),
+                    v.is_complete && v.completion_reason ? /* @__PURE__ */ jsx9("p", { className: "text-emerald-700 dark:text-emerald-300", children: v.completion_reason }) : null
+                  ] }) }, `v-${v.id}`);
+                }
+                if (ev.kind === "user_message") {
+                  return /* @__PURE__ */ jsx9(ChatBubble, { variant: "user", ts: ev.ts, children: ev.message }, `u-${ev.versionId}`);
+                }
+                const a = ev.assumption;
+                return /* @__PURE__ */ jsx9(ChatBubble, { variant: "bot", ts: ev.ts, children: /* @__PURE__ */ jsx9("div", { className: "-m-1", children: /* @__PURE__ */ jsx9(
+                  AssumptionCard,
+                  {
+                    assumption: a,
+                    disabled,
+                    onResolve: (body) => onResolveAssumption(a.id, body),
+                    onSkip: () => onSkipAssumption(a)
+                  }
+                ) }) }, `a-${a.id}`);
+              }),
+              streamStatus === "running" ? /* @__PURE__ */ jsx9(ChatBubble, { variant: "bot", children: /* @__PURE__ */ jsxs8("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsx9(Loader22, { className: "h-3 w-3 animate-spin text-primary", "aria-hidden": "true" }),
+                "Incorporando feedback\u2026"
+              ] }) }) : null,
+              autoIterCountdown !== null ? /* @__PURE__ */ jsx9(ChatBubble, { variant: "bot", children: /* @__PURE__ */ jsxs8("div", { className: "flex items-center gap-2", children: [
+                /* @__PURE__ */ jsx9(Loader22, { className: "h-3 w-3 animate-spin text-primary", "aria-hidden": "true" }),
+                /* @__PURE__ */ jsxs8("span", { children: [
+                  "Auto-iter en ",
+                  /* @__PURE__ */ jsxs8("strong", { children: [
+                    autoIterCountdown,
+                    "s"
+                  ] }),
+                  "."
+                ] }),
+                /* @__PURE__ */ jsx9(
+                  Button,
+                  {
+                    size: "sm",
+                    variant: "outline",
+                    onClick: onCancelAutoIter,
+                    className: "ml-auto h-6 px-2",
+                    style: { fontSize: "0.65rem" },
+                    title: "Cancelar (Esc)",
+                    children: "Cancelar"
+                  }
+                )
+              ] }) }) : showReadyPrompt && !isComplete ? /* @__PURE__ */ jsx9(ChatBubble, { variant: "bot", children: /* @__PURE__ */ jsxs8("div", { className: "space-y-1.5", children: [
+                /* @__PURE__ */ jsxs8("p", { children: [
+                  "Has resuelto todas las preguntas. \xBF",
+                  /* @__PURE__ */ jsx9("strong", { children: "Marcamos como listo" }),
+                  " o seguimos refinando?"
+                ] }),
+                /* @__PURE__ */ jsxs8("div", { className: "flex gap-2", children: [
+                  /* @__PURE__ */ jsx9(
+                    Button,
+                    {
+                      size: "sm",
+                      onClick: () => onMarkReady(),
+                      className: "h-7 px-2",
+                      style: { fontSize: "0.7rem" },
+                      children: "Mark ready"
+                    }
+                  ),
+                  /* @__PURE__ */ jsx9(
+                    Button,
+                    {
+                      size: "sm",
+                      variant: "outline",
+                      className: "h-7 px-2",
+                      style: { fontSize: "0.7rem" },
+                      onClick: () => {
+                        scrollRef.current?.scrollTo({
+                          top: scrollRef.current.scrollHeight,
+                          behavior: "smooth"
+                        });
+                      },
+                      children: "Seguir refinando"
+                    }
+                  )
+                ] })
+              ] }) }) : null
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxs8("div", { className: "flex items-end gap-2 border-t border-input p-2", children: [
+          /* @__PURE__ */ jsx9(
+            Textarea,
+            {
+              value: draft,
+              onChange: (e) => setDraft(e.target.value),
+              onKeyDown,
+              rows: 2,
+              disabled: disabled || busy || streamStatus === "running",
+              placeholder: disabled ? "Sesi\xF3n cerrada." : "Escribe tu desacuerdo, idea nueva o cambio (Enter env\xEDa, Shift+Enter salto)\u2026",
+              className: "flex-1 resize-none",
+              style: { fontSize: "0.8rem" }
+            }
+          ),
+          /* @__PURE__ */ jsx9(
+            Button,
+            {
+              size: "sm",
+              onClick: submit,
+              disabled: disabled || busy || streamStatus === "running" || !draft.trim(),
+              title: "Enviar (Enter)",
+              className: "shrink-0",
+              children: busy || streamStatus === "running" ? /* @__PURE__ */ jsx9(Loader22, { className: "h-3.5 w-3.5 animate-spin" }) : /* @__PURE__ */ jsx9(Send2, { className: "h-3.5 w-3.5" })
+            }
+          )
+        ] })
+      ]
+    }
+  );
+}
+
 // src/iter/FallbackToast.tsx
 import * as Toast from "@radix-ui/react-toast";
 import { X as X4 } from "lucide-react";
-import { useEffect as useEffect4, useRef as useRef3, useState as useState6 } from "react";
-import { Fragment as Fragment3, jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
+import { useEffect as useEffect5, useRef as useRef4, useState as useState6 } from "react";
+import { Fragment as Fragment2, jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
 function FallbackToast({ fallback }) {
   const [open, setOpen] = useState6(false);
-  const lastIdRef = useRef3(null);
-  useEffect4(() => {
+  const lastIdRef = useRef4(null);
+  useEffect5(() => {
     if (!fallback) return;
     const id = `${fallback.fromModel}>${fallback.toModel}:${fallback.reason}`;
     if (id === lastIdRef.current) return;
     lastIdRef.current = id;
     setOpen(true);
   }, [fallback]);
-  return /* @__PURE__ */ jsxs8(Toast.Provider, { duration: 6e3, swipeDirection: "right", children: [
-    /* @__PURE__ */ jsx9(
+  return /* @__PURE__ */ jsxs9(Toast.Provider, { duration: 6e3, swipeDirection: "right", children: [
+    /* @__PURE__ */ jsx10(
       Toast.Root,
       {
         open,
@@ -1480,12 +1689,12 @@ function FallbackToast({ fallback }) {
           "data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]"
         ].join(" "),
         style: { fontSize: "0.8rem" },
-        children: /* @__PURE__ */ jsxs8("div", { className: "flex items-start gap-2", children: [
-          /* @__PURE__ */ jsx9("span", { "aria-hidden": "true", children: "\u26A1" }),
-          /* @__PURE__ */ jsxs8("div", { className: "flex-1 space-y-1", children: [
-            /* @__PURE__ */ jsx9(Toast.Title, { className: "font-semibold", children: "Cambio de modelo" }),
-            /* @__PURE__ */ jsx9(Toast.Description, { className: "leading-relaxed", children: fallback ? /* @__PURE__ */ jsxs8(Fragment3, { children: [
-              /* @__PURE__ */ jsx9(
+        children: /* @__PURE__ */ jsxs9("div", { className: "flex items-start gap-2", children: [
+          /* @__PURE__ */ jsx10("span", { "aria-hidden": "true", children: "\u26A1" }),
+          /* @__PURE__ */ jsxs9("div", { className: "flex-1 space-y-1", children: [
+            /* @__PURE__ */ jsx10(Toast.Title, { className: "font-semibold", children: "Cambio de modelo" }),
+            /* @__PURE__ */ jsx10(Toast.Description, { className: "leading-relaxed", children: fallback ? /* @__PURE__ */ jsxs9(Fragment2, { children: [
+              /* @__PURE__ */ jsx10(
                 "code",
                 {
                   className: "rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50",
@@ -1496,7 +1705,7 @@ function FallbackToast({ fallback }) {
               " ",
               "\u2192",
               " ",
-              /* @__PURE__ */ jsx9(
+              /* @__PURE__ */ jsx10(
                 "code",
                 {
                   className: "rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50",
@@ -1504,10 +1713,10 @@ function FallbackToast({ fallback }) {
                   children: fallback.toModel
                 }
               ),
-              /* @__PURE__ */ jsx9("span", { className: "mt-1 block text-amber-900 dark:text-amber-100", children: fallback.reason })
+              /* @__PURE__ */ jsx10("span", { className: "mt-1 block text-amber-900 dark:text-amber-100", children: fallback.reason })
             ] }) : null })
           ] }),
-          /* @__PURE__ */ jsx9(Toast.Close, { asChild: true, children: /* @__PURE__ */ jsx9(
+          /* @__PURE__ */ jsx10(Toast.Close, { asChild: true, children: /* @__PURE__ */ jsx10(
             Button,
             {
               size: "sm",
@@ -1515,152 +1724,333 @@ function FallbackToast({ fallback }) {
               className: "-mr-1 h-6 w-6 p-0 text-amber-900 hover:bg-amber-200/50 dark:text-amber-100",
               title: "Cerrar (Esc)",
               "aria-label": "Cerrar",
-              children: /* @__PURE__ */ jsx9(X4, { className: "h-3 w-3" })
+              children: /* @__PURE__ */ jsx10(X4, { className: "h-3 w-3" })
             }
           ) })
         ] })
       }
     ),
-    /* @__PURE__ */ jsx9(Toast.Viewport, { className: "fixed right-4 bottom-4 z-50 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-2" })
+    /* @__PURE__ */ jsx10(Toast.Viewport, { className: "fixed right-4 bottom-4 z-50 flex w-[min(20rem,calc(100vw-2rem))] flex-col gap-2" })
   ] });
 }
 
 // src/iter/IterFocusShell.tsx
-import { jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
-function IterFocusShell({ spec, questions, chat }) {
-  return /* @__PURE__ */ jsx10("div", { className: "@container/focus min-h-0 flex-1", children: /* @__PURE__ */ jsxs9(
+import { jsx as jsx11, jsxs as jsxs10 } from "react/jsx-runtime";
+function IterFocusShell({ spec, chat }) {
+  return /* @__PURE__ */ jsx11("div", { className: "@container/focus min-h-0 flex-1", children: /* @__PURE__ */ jsxs10(
     "div",
     {
       className: [
-        "h-full grid gap-3",
-        // Narrow: stack spec → questions → chat.
-        "grid-cols-1",
-        "[grid-template-areas:'spec'_'questions'_'chat']",
-        "grid-rows-[minmax(0,1.6fr)_minmax(0,1fr)_auto]",
-        // Mid + Wide: two columns top, chat full-width bottom.
-        // Spec dominant (~67%), questions narrow (~28%), gap covered
-        // by gap-3.
-        "@[60ch]/focus:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)]",
-        "@[60ch]/focus:[grid-template-areas:'spec_questions'_'chat_chat']",
-        "@[60ch]/focus:grid-rows-[minmax(0,1fr)_auto]"
+        "h-full grid gap-0",
+        // Narrow: stack spec above chat. The chat panel keeps its
+        // internal scroll + sticky input.
+        "grid-cols-1 grid-rows-[minmax(0,1fr)_minmax(0,1fr)]",
+        // Mid + Wide: side-by-side. ~65% / ~35% via 13fr / 7fr.
+        "@[60ch]/focus:grid-cols-[minmax(0,13fr)_minmax(0,7fr)]",
+        "@[60ch]/focus:grid-rows-1"
       ].join(" "),
       children: [
-        /* @__PURE__ */ jsx10("div", { className: "[grid-area:spec] min-w-0 min-h-0 flex flex-col overflow-hidden", children: spec }),
-        /* @__PURE__ */ jsx10("div", { className: "[grid-area:questions] min-w-0 min-h-0 flex flex-col overflow-hidden", children: questions }),
-        /* @__PURE__ */ jsx10("div", { className: "[grid-area:chat] min-w-0", children: chat })
+        /* @__PURE__ */ jsx11("div", { className: "min-w-0 min-h-0 flex flex-col overflow-hidden", children: spec }),
+        /* @__PURE__ */ jsx11("div", { className: "min-w-0 min-h-0 flex flex-col overflow-hidden", children: chat })
       ]
     }
   ) });
 }
 
-// src/iter/QuestionStackPanel.tsx
-import { useMemo as useMemo4 } from "react";
-import { Fragment as Fragment4, jsx as jsx11, jsxs as jsxs10 } from "react/jsx-runtime";
-function QuestionStackPanel({
-  assumptions,
-  onResolve,
-  onSkip,
-  disabled,
-  emptyMessage
-}) {
-  const { open, resolved } = useMemo4(() => {
-    const o = [];
-    const r = [];
-    for (const a of assumptions) {
-      if (a.status === "open") o.push(a);
-      else r.push(a);
+// src/iter/SpecTabsPanel.tsx
+import * as Tabs from "@radix-ui/react-tabs";
+import { Pencil, Save, X as X5 } from "lucide-react";
+import { useEffect as useEffect6, useMemo as useMemo5, useRef as useRef5, useState as useState7 } from "react";
+import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
+var _ALL_KEYS = SPEC_SECTION_ORDER;
+function SpecTabsPanel(props) {
+  const {
+    latestMarkdown,
+    latestVersionId,
+    streaming,
+    sectionStates,
+    activeStreamSection,
+    editable,
+    onSaveEdit,
+    saving
+  } = props;
+  const derivedStates = useMemo5(() => {
+    if (streaming && sectionStates) return sectionStates;
+    if (latestMarkdown) return splitMarkdownByH2(latestMarkdown);
+    return {
+      personas: { status: "pending", markdown: "" },
+      user_stories: { status: "pending", markdown: "" },
+      spec: { status: "pending", markdown: "" },
+      diagram: { status: "pending", markdown: "" }
+    };
+  }, [streaming, sectionStates, latestMarkdown]);
+  const [activeTab, setActiveTab] = useState7("personas");
+  const userOverrodeRef = useRef5(false);
+  useEffect6(() => {
+    if (!streaming) {
+      userOverrodeRef.current = false;
+      return;
     }
-    return { open: o, resolved: r };
-  }, [assumptions]);
-  const empty = open.length === 0 && resolved.length === 0;
-  return /* @__PURE__ */ jsxs10(
-    "aside",
+    if (userOverrodeRef.current) return;
+    if (!activeStreamSection) return;
+    setActiveTab(activeStreamSection);
+  }, [streaming, activeStreamSection]);
+  const onTabChange = (next) => {
+    if (streaming) userOverrodeRef.current = true;
+    setActiveTab(next);
+  };
+  const [glow, setGlow] = useState7(false);
+  const lastSeenVersionRef = useRef5(null);
+  useEffect6(() => {
+    if (!latestVersionId) return;
+    if (lastSeenVersionRef.current === null) {
+      lastSeenVersionRef.current = latestVersionId;
+      return;
+    }
+    if (lastSeenVersionRef.current === latestVersionId) return;
+    lastSeenVersionRef.current = latestVersionId;
+    setGlow(true);
+    const id = window.setTimeout(() => setGlow(false), 2e3);
+    return () => window.clearTimeout(id);
+  }, [latestVersionId]);
+  const [editing, setEditing] = useState7(null);
+  const [draft, setDraft] = useState7("");
+  const startEditing = () => {
+    setDraft(derivedStates[activeTab].markdown);
+    setEditing(activeTab);
+  };
+  const cancelEditing = () => {
+    setEditing(null);
+    setDraft("");
+  };
+  const saveEdit = async () => {
+    if (!editing) return;
+    if (!draft.trim()) return;
+    const next = spliceSectionInMarkdown(latestMarkdown, editing, draft);
+    await onSaveEdit(next);
+    setEditing(null);
+    setDraft("");
+  };
+  return /* @__PURE__ */ jsxs11(
+    Tabs.Root,
     {
-      className: "flex h-full min-h-0 flex-col gap-2 overflow-auto",
-      "aria-label": "Preguntas del AI",
+      value: activeTab,
+      onValueChange: onTabChange,
+      className: "flex h-full min-h-0 flex-col",
       children: [
-        /* @__PURE__ */ jsxs10(
-          "header",
-          {
-            className: "sticky top-0 z-10 flex items-center gap-2 bg-background/95 px-1 py-2 font-semibold text-primary backdrop-blur supports-[backdrop-filter]:bg-background/80",
-            style: { fontSize: "0.7rem" },
-            children: [
-              /* @__PURE__ */ jsx11("span", { "aria-hidden": "true", children: "\u2753" }),
-              /* @__PURE__ */ jsx11("span", { className: "uppercase tracking-wide", children: "Preguntas" }),
-              open.length > 0 ? /* @__PURE__ */ jsxs10(
-                "span",
-                {
-                  className: "rounded-full bg-yellow-100 px-1.5 py-0.5 font-mono text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-100",
-                  style: { fontSize: "0.6rem" },
-                  children: [
-                    open.length,
-                    " abrt"
-                  ]
-                }
-              ) : null,
-              resolved.length > 0 ? /* @__PURE__ */ jsxs10(
-                "span",
-                {
-                  className: "rounded-full bg-emerald-100 px-1.5 py-0.5 font-mono text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-100",
-                  style: { fontSize: "0.6rem" },
-                  children: [
-                    resolved.length,
-                    " resueltas"
-                  ]
-                }
-              ) : null
-            ]
-          }
-        ),
-        empty ? /* @__PURE__ */ jsx11(
-          "p",
-          {
-            className: "rounded border border-input bg-muted/30 p-3 italic text-muted-foreground",
-            style: { fontSize: "0.7rem" },
-            children: emptyMessage ?? "Las preguntas aparecer\xE1n cuando el AI termine de leer tu feedback."
-          }
-        ) : null,
-        open.length > 0 ? /* @__PURE__ */ jsx11("div", { className: "space-y-2", children: open.map((a) => /* @__PURE__ */ jsx11(
-          AssumptionCard,
-          {
-            assumption: a,
-            disabled,
-            onResolve: (body) => onResolve(a.id, body),
-            onSkip: () => onSkip(a)
-          },
-          a.id
-        )) }) : null,
-        resolved.length > 0 ? /* @__PURE__ */ jsxs10(Fragment4, { children: [
-          /* @__PURE__ */ jsxs10(
-            "div",
+        /* @__PURE__ */ jsxs11("div", { className: "flex items-center gap-2 border-b border-input px-2 pt-1", children: [
+          /* @__PURE__ */ jsx12(Tabs.List, { className: "flex flex-1 gap-0.5", children: _ALL_KEYS.map((k) => /* @__PURE__ */ jsxs11(
+            Tabs.Trigger,
             {
-              className: "mt-2 flex items-center gap-2 px-1 text-muted-foreground",
-              style: { fontSize: "0.6rem" },
+              value: k,
+              className: [
+                "rounded-t border-b-2 border-transparent px-2.5 py-1.5",
+                "data-[state=active]:border-primary data-[state=active]:font-semibold data-[state=active]:text-primary",
+                "text-muted-foreground hover:text-foreground",
+                derivedStates[k].status === "streaming" ? "after:ml-1 after:inline-block after:h-1.5 after:w-1.5 after:animate-pulse after:rounded-full after:bg-primary" : ""
+              ].join(" "),
+              style: { fontSize: "0.75rem" },
               children: [
-                /* @__PURE__ */ jsx11("span", { className: "h-px flex-1 bg-border", "aria-hidden": "true" }),
-                /* @__PURE__ */ jsxs10("span", { className: "uppercase tracking-wide", children: [
-                  "Resueltas (",
-                  resolved.length,
-                  ")"
-                ] }),
-                /* @__PURE__ */ jsx11("span", { className: "h-px flex-1 bg-border", "aria-hidden": "true" })
+                SECTION_LABEL[k],
+                derivedStates[k].status === "done" ? /* @__PURE__ */ jsxs11("span", { className: "ml-1 text-emerald-600 dark:text-emerald-400", "aria-hidden": "true", children: [
+                  " ",
+                  "\u2713"
+                ] }) : null
+              ]
+            },
+            k
+          )) }),
+          editable && !editing ? /* @__PURE__ */ jsxs11(
+            Button,
+            {
+              size: "sm",
+              variant: "ghost",
+              onClick: startEditing,
+              className: "h-7 px-2",
+              disabled: !latestMarkdown,
+              title: `Editar ${SECTION_LABEL[activeTab]}`,
+              children: [
+                /* @__PURE__ */ jsx12(Pencil, { className: "h-3 w-3" }),
+                " ",
+                /* @__PURE__ */ jsx12("span", { style: { fontSize: "0.7rem" }, children: "Editar" })
               ]
             }
-          ),
-          /* @__PURE__ */ jsx11("div", { className: "space-y-2 opacity-75", children: resolved.map((a) => /* @__PURE__ */ jsx11(
-            AssumptionCard,
-            {
-              assumption: a,
-              disabled,
-              onResolve: (body) => onResolve(a.id, body),
-              onSkip: () => onSkip(a)
-            },
-            a.id
-          )) })
-        ] }) : null
+          ) : null,
+          editing ? /* @__PURE__ */ jsxs11("div", { className: "flex gap-1", children: [
+            /* @__PURE__ */ jsx12(
+              Button,
+              {
+                size: "sm",
+                variant: "ghost",
+                onClick: cancelEditing,
+                className: "h-7 px-2",
+                disabled: saving,
+                title: "Cancelar edici\xF3n",
+                children: /* @__PURE__ */ jsx12(X5, { className: "h-3 w-3" })
+              }
+            ),
+            /* @__PURE__ */ jsxs11(
+              Button,
+              {
+                size: "sm",
+                onClick: saveEdit,
+                className: "h-7 px-2",
+                disabled: saving || !draft.trim(),
+                title: "Guardar",
+                children: [
+                  /* @__PURE__ */ jsx12(Save, { className: "h-3 w-3" }),
+                  " ",
+                  /* @__PURE__ */ jsx12("span", { style: { fontSize: "0.7rem" }, children: saving ? "Guardando\u2026" : "Guardar" })
+                ]
+              }
+            )
+          ] }) : null
+        ] }),
+        _ALL_KEYS.map((k) => /* @__PURE__ */ jsx12(
+          Tabs.Content,
+          {
+            value: k,
+            className: [
+              "flex-1 min-h-0 overflow-auto",
+              glow ? "bg-yellow-500/10 transition-colors duration-1000" : "transition-colors duration-1000"
+            ].join(" "),
+            children: editing === k ? /* @__PURE__ */ jsx12(
+              Textarea,
+              {
+                value: draft,
+                onChange: (e) => setDraft(e.target.value),
+                rows: 28,
+                className: "m-3 min-h-[60vh] resize-y font-mono",
+                style: { fontSize: "0.75rem" },
+                placeholder: `Escribe el contenido de ${SECTION_LABEL[k]} en Markdown\u2026`
+              }
+            ) : k === "diagram" ? /* @__PURE__ */ jsx12("div", { className: "p-3", children: /* @__PURE__ */ jsx12(DiagramPanel, { markdown: derivedStates[k].markdown, status: derivedStates[k].status }) }) : /* @__PURE__ */ jsx12(
+              _TabBody,
+              {
+                status: derivedStates[k].status,
+                markdown: derivedStates[k].markdown,
+                sectionKey: k
+              }
+            )
+          },
+          k
+        ))
       ]
     }
   );
+}
+function _TabBody({
+  status,
+  markdown,
+  sectionKey
+}) {
+  const bodyRef = useRef5(null);
+  const bodyMarkdown = useMemo5(() => {
+    if (!markdown) return markdown;
+    const newlineIdx = markdown.indexOf("\n");
+    const firstLine = newlineIdx === -1 ? markdown : markdown.slice(0, newlineIdx);
+    const labelLower = SECTION_LABEL[sectionKey].toLowerCase();
+    const headingRegex = /^#{1,6}\s+(.+?)$/.exec(firstLine);
+    if (headingRegex && headingRegex[1]?.trim().toLowerCase() === labelLower) {
+      return markdown.slice(newlineIdx + 1).trimStart();
+    }
+    return markdown;
+  }, [markdown, sectionKey]);
+  useEffect6(() => {
+    let cancelled = false;
+    if (status === "pending") return;
+    const el = bodyRef.current;
+    if (!el) return;
+    void import("markdown-it").then(({ default: MarkdownIt }) => {
+      if (cancelled || !bodyRef.current) return;
+      const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
+      const html = md.render(bodyMarkdown);
+      const range = document.createRange();
+      range.selectNodeContents(bodyRef.current);
+      const fragment = range.createContextualFragment(html);
+      bodyRef.current.replaceChildren(fragment);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [status, bodyMarkdown]);
+  if (status === "pending") {
+    return /* @__PURE__ */ jsx12(
+      "div",
+      {
+        className: "flex h-full items-center justify-center text-muted-foreground",
+        style: { fontSize: "0.75rem" },
+        children: "Esperando que el AI escriba esta secci\xF3n\u2026"
+      }
+    );
+  }
+  if (status === "done" && !markdown.trim()) {
+    return /* @__PURE__ */ jsx12(
+      "div",
+      {
+        className: "flex h-full items-center justify-center italic text-muted-foreground",
+        style: { fontSize: "0.75rem" },
+        children: "Esta versi\xF3n del spec no incluye contenido para esta secci\xF3n."
+      }
+    );
+  }
+  return /* @__PURE__ */ jsx12(
+    "article",
+    {
+      ref: bodyRef,
+      className: [
+        "px-4 py-3 leading-snug",
+        "[&_h1]:mt-3 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold",
+        "[&_h2]:mt-2.5 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold",
+        "[&_h3]:mt-2 [&_h3]:mb-0.5 [&_h3]:text-[0.85rem] [&_h3]:font-semibold",
+        "[&_p]:my-1 [&_p]:text-foreground/90",
+        "[&_ul]:my-1 [&_ul]:ml-5 [&_ul]:list-disc [&_ul]:space-y-0.5",
+        "[&_ol]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_ol]:space-y-0.5",
+        "[&_li]:text-foreground/90",
+        "[&_strong]:font-semibold [&_strong]:text-foreground",
+        "[&_em]:italic",
+        "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.8em] [&_code]:text-primary",
+        "[&_pre]:my-2 [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:border [&_pre]:border-border/60 [&_pre]:bg-slate-50 [&_pre]:p-2 [&_pre]:font-mono [&_pre]:text-[0.7rem] dark:[&_pre]:bg-slate-900/40",
+        "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-foreground",
+        "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/30 [&_blockquote]:bg-primary/5 [&_blockquote]:py-1 [&_blockquote]:pl-2 [&_blockquote]:italic [&_blockquote]:text-muted-foreground",
+        "[&_hr]:my-2.5 [&_hr]:border-border",
+        "[&_a]:text-primary [&_a]:underline-offset-2 hover:[&_a]:underline",
+        "[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-[0.7rem]",
+        "[&_th]:border [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-1.5 [&_th]:py-1 [&_th]:text-left",
+        "[&_td]:border [&_td]:border-border [&_td]:px-1.5 [&_td]:py-1"
+      ].join(" "),
+      style: { fontSize: "0.8rem" }
+    }
+  );
+}
+
+// src/iter/useChatTimeline.ts
+import { useMemo as useMemo6 } from "react";
+function useChatTimeline(versions, assumptions) {
+  return useMemo6(() => {
+    const out = [];
+    for (const v of versions ?? []) {
+      const vts = new Date(v.created_at).getTime();
+      if (v.user_message && v.user_message.trim().length > 0) {
+        out.push({
+          kind: "user_message",
+          ts: vts - 1,
+          message: v.user_message,
+          versionId: v.id
+        });
+      }
+      out.push({ kind: "version_done", ts: vts, version: v });
+    }
+    for (const a of assumptions ?? []) {
+      out.push({
+        kind: "assumption",
+        ts: new Date(a.created_at).getTime(),
+        assumption: a
+      });
+    }
+    out.sort((x, y) => x.ts - y.ts);
+    return out;
+  }, [versions, assumptions]);
 }
 
 // src/iter/useIterRunMeta.ts
@@ -1678,7 +2068,7 @@ function deriveIterRunMeta(stream, session) {
 }
 
 // src/iter/IterFocusView.tsx
-import { jsx as jsx12, jsxs as jsxs11 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx13, jsxs as jsxs12 } from "react/jsx-runtime";
 var SKIP_MARKER2 = "__skip_inferred__";
 function IterFocusView({ sessionId, feedbackId, onExit }) {
   const bindings = useFeedbackBindings();
@@ -1699,7 +2089,7 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
     enabled: !!session.data?.current_iteration_id
   });
   const myFeedback = useMyFeedbackQuery(25);
-  const feedback = useMemo5(
+  const feedback = useMemo7(
     () => (myFeedback.data ?? []).find((f) => f.id === feedbackId),
     [myFeedback.data, feedbackId]
   );
@@ -1739,17 +2129,17 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
     queryFn: () => getIterPackage(bindings, sessionId),
     enabled: session.data?.status === "finalized"
   });
-  useEffect5(() => {
+  useEffect7(() => {
     if (stream.state.status === "done" && stream.state.versionId) {
       qc.invalidateQueries({ queryKey: ["iter-session", sessionId] });
       qc.invalidateQueries({ queryKey: ["iter-versions", sessionId] });
       qc.invalidateQueries({ queryKey: ["iter-assumptions", sessionId] });
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
-  const autoFiredRef = useRef4(false);
-  const autoFireUserCancelledRef = useRef4(false);
+  const autoFiredRef = useRef6(false);
+  const autoFireUserCancelledRef = useRef6(false);
   const isVirginSession = !session.isLoading && session.data !== void 0 && !session.data.current_iteration_id && (versions.data?.length ?? 0) === 0;
-  useEffect5(() => {
+  useEffect7(() => {
     if (!autoFiredRef.current && !autoFireUserCancelledRef.current && isVirginSession && stream.state.status === "idle") {
       autoFiredRef.current = true;
       stream.start({ user_message: "", restructure_allowed: false });
@@ -1763,22 +2153,22 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
     onExitRef.current();
   };
   const status = session.data?.status ?? "loading";
-  const onExitRef = useRef4(onExit);
-  useEffect5(() => {
+  const onExitRef = useRef6(onExit);
+  useEffect7(() => {
     onExitRef.current = onExit;
   }, [onExit]);
-  useEffect5(() => {
+  useEffect7(() => {
     if (status === "abandoned") {
       const id = window.setTimeout(() => onExitRef.current(), 1200);
       return () => window.clearTimeout(id);
     }
     return void 0;
   }, [status]);
-  const userFacing = useMemo5(
+  const userFacing = useMemo7(
     () => (assumptions.data ?? []).filter((a) => a.kind !== "technical"),
     [assumptions.data]
   );
-  const visibleAssumptions = useMemo5(() => {
+  const visibleAssumptions = useMemo7(() => {
     const out = [];
     for (const a of userFacing) {
       const haystack = `${a.statement}
@@ -1791,7 +2181,7 @@ ${a.rationale}`;
     }
     return out;
   }, [userFacing]);
-  const openAssumptions = useMemo5(
+  const openAssumptions = useMemo7(
     () => visibleAssumptions.filter((a) => a.status === "open"),
     [visibleAssumptions]
   );
@@ -1803,57 +2193,22 @@ ${a.rationale}`;
   const usedTurns = Math.max(0, maxTurns - remainingTurns);
   const turnBudgetSpent = maxTurns > 0 && remainingTurns <= 0;
   const streamBudgetExhausted = stream.state.status === "error" && stream.state.errorCode === "turn_budget_exhausted";
-  const latestVersion = useMemo5(() => {
+  const latestVersion = useMemo7(() => {
     const list = versions.data ?? [];
     if (list.length === 0) return null;
     return [...list].sort((a, b) => b.version_number - a.version_number)[0] ?? null;
   }, [versions.data]);
-  const renderedMarkdown = isStreaming ? "" : latestVersion?.output_markdown ?? "";
-  const specScrollRef = useRef4(null);
-  useEffect5(() => {
-    if (stream.state.status === "done" && stream.state.versionId && specScrollRef.current) {
-      specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [stream.state.status, stream.state.versionId]);
-  const userScrollOverrideRef = useRef4(false);
-  const lastAutoScrolledSectionRef = useRef4(null);
-  useEffect5(() => {
-    const el = specScrollRef.current;
-    if (!el) return;
-    const onUserScroll = () => {
-      userScrollOverrideRef.current = true;
-    };
-    el.addEventListener("wheel", onUserScroll, { passive: true });
-    el.addEventListener("touchmove", onUserScroll, { passive: true });
-    return () => {
-      el.removeEventListener("wheel", onUserScroll);
-      el.removeEventListener("touchmove", onUserScroll);
-    };
-  }, []);
-  useEffect5(() => {
-    const active = stream.state.activeSection;
-    if (!active) return;
-    if (active === lastAutoScrolledSectionRef.current) return;
-    userScrollOverrideRef.current = false;
-    lastAutoScrolledSectionRef.current = active;
-    const target = document.getElementById(`iter-section-${active}`);
-    if (target && !userScrollOverrideRef.current) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  }, [stream.state.activeSection]);
+  const latestMarkdown = latestVersion?.output_markdown ?? "";
   const handleSkip = (a) => resolveMutation.mutateAsync({
     assumptionId: a.id,
     body: { status: "irrelevant", user_response: SKIP_MARKER2 }
   });
   const onMarkReady = () => finalizeMutation.mutateAsync();
-  const modelHint = modelLatencyHint(
-    sess?.current_primary_model_id ?? sess?.last_call_model_id ?? sess?.model_id ?? ""
-  );
-  const meta = useMemo5(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
-  const [autoIterCountdown, setAutoIterCountdown] = useState7(null);
-  const autoIterCancelledRef = useRef4(false);
-  const autoIterFiredRef = useRef4(null);
-  const allResolvedKey = useMemo5(() => {
+  const meta = useMemo7(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
+  const [autoIterCountdown, setAutoIterCountdown] = useState8(null);
+  const autoIterCancelledRef = useRef6(false);
+  const autoIterFiredRef = useRef6(null);
+  const allResolvedKey = useMemo7(() => {
     if (openAssumptions.length !== 0) return null;
     if ((versions.data?.length ?? 0) === 0) return null;
     if (status === "finalized" || status === "abandoned") return null;
@@ -1861,7 +2216,7 @@ ${a.rationale}`;
     const v = versions.data?.[0]?.version_number ?? 0;
     return `v${v}`;
   }, [openAssumptions.length, versions.data, status, turnBudgetSpent, isComplete, isStreaming]);
-  useEffect5(() => {
+  useEffect7(() => {
     if (allResolvedKey === null) {
       setAutoIterCountdown(null);
       autoIterCancelledRef.current = false;
@@ -1889,7 +2244,7 @@ ${a.rationale}`;
     autoIterCancelledRef.current = true;
     setAutoIterCountdown(null);
   };
-  useEffect5(() => {
+  useEffect7(() => {
     if (autoIterCountdown === null) return;
     const onKey = (e) => {
       if (e.key === "Escape") {
@@ -1900,13 +2255,21 @@ ${a.rationale}`;
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [autoIterCountdown]);
-  return /* @__PURE__ */ jsxs11("div", { className: "flex h-full flex-col gap-3", "data-feedback-id": "iter.focus-view", children: [
-    /* @__PURE__ */ jsxs11("header", { className: "flex items-center gap-2 border-b border-input pb-2", children: [
-      /* @__PURE__ */ jsxs11(Button, { size: "sm", variant: "ghost", onClick: onExit, className: "-ml-2 h-7 px-2", children: [
-        /* @__PURE__ */ jsx12(ArrowLeft, { className: "h-3.5 w-3.5" }),
+  const timelineEvents = useChatTimeline(versions.data, visibleAssumptions);
+  const activeStreamSection = useMemo7(() => {
+    const s = stream.state.activeSection;
+    if (!s) return null;
+    return SPEC_SECTION_ORDER.includes(s) ? s : null;
+  }, [stream.state.activeSection]);
+  const sessionDisabled = status === "finalized" || status === "abandoned";
+  const showReadyPrompt = !isComplete && !sessionDisabled && openAssumptions.length === 0 && (versions.data?.length ?? 0) > 0 && !isStreaming && autoIterCountdown === null;
+  return /* @__PURE__ */ jsxs12("div", { className: "flex h-full flex-col gap-2", "data-feedback-id": "iter.focus-view", children: [
+    /* @__PURE__ */ jsxs12("header", { className: "flex items-center gap-2 border-b border-input pb-2", children: [
+      /* @__PURE__ */ jsxs12(Button, { size: "sm", variant: "ghost", onClick: onExit, className: "-ml-2 h-7 px-2", children: [
+        /* @__PURE__ */ jsx13(ArrowLeft, { className: "h-3.5 w-3.5" }),
         " Volver"
       ] }),
-      /* @__PURE__ */ jsx12(
+      /* @__PURE__ */ jsx13(
         "code",
         {
           className: "rounded bg-muted px-1 py-0.5 font-mono text-muted-foreground",
@@ -1914,34 +2277,34 @@ ${a.rationale}`;
           children: feedback?.ticket_code ?? "\u2014"
         }
       ),
-      /* @__PURE__ */ jsx12(
+      /* @__PURE__ */ jsx13(
         "span",
         {
           className: "truncate font-semibold",
-          style: { fontSize: "clamp(0.875rem, 0.8rem + 0.3cqi, 1.125rem)" },
+          style: { fontSize: "clamp(0.85rem, 0.78rem + 0.3cqi, 1.05rem)" },
           children: feedback?.title ?? "Iter session"
         }
       ),
-      /* @__PURE__ */ jsxs11(
+      /* @__PURE__ */ jsxs12(
         "span",
         {
           className: "ml-auto flex shrink-0 items-center gap-2 text-muted-foreground",
           style: { fontSize: "0.65rem" },
           children: [
-            maxTurns > 0 ? /* @__PURE__ */ jsxs11("span", { className: "rounded bg-muted px-1.5 py-0.5 font-mono uppercase tracking-wide", children: [
-              "Round ",
+            maxTurns > 0 ? /* @__PURE__ */ jsxs12("span", { className: "rounded bg-muted px-1.5 py-0.5 font-mono uppercase tracking-wide", children: [
+              "R ",
               Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns),
               "/",
               maxTurns
             ] }) : null,
-            meta.active ? /* @__PURE__ */ jsxs11(
+            meta.active ? /* @__PURE__ */ jsxs12(
               "span",
               {
                 className: "hidden truncate font-mono @[60ch]/focus:inline",
                 title: `Modelo activo: ${meta.active}`,
-                style: { maxWidth: "12ch" },
+                style: { maxWidth: "10ch" },
                 children: [
-                  /* @__PURE__ */ jsx12("span", { "aria-hidden": "true", children: "\u26A1" }),
+                  /* @__PURE__ */ jsx13("span", { "aria-hidden": "true", children: "\u26A1" }),
                   " ",
                   meta.active
                 ]
@@ -1950,19 +2313,46 @@ ${a.rationale}`;
           ]
         }
       ),
-      isComplete ? /* @__PURE__ */ jsx12(
+      isComplete ? /* @__PURE__ */ jsx13(
         Badge,
         {
           className: "shrink-0 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 uppercase tracking-wide",
-          style: { fontSize: "0.625rem" },
+          style: { fontSize: "0.6rem" },
           children: "Spec ready"
         }
       ) : null,
-      /* @__PURE__ */ jsx12(
+      !sessionDisabled ? /* @__PURE__ */ jsxs12(Fragment3, { children: [
+        /* @__PURE__ */ jsx13(
+          Button,
+          {
+            size: "sm",
+            onClick: () => onMarkReady(),
+            disabled: !sess?.current_iteration_id || finalizeMutation.isPending || isStreaming || openAssumptions.length > 0,
+            className: "h-7 px-2",
+            style: { fontSize: "0.7rem" },
+            title: openAssumptions.length > 0 ? "Resuelve las preguntas pendientes antes de marcar como listo." : "Finalizar el spec y producir el paquete dev-ready.",
+            children: "Mark ready"
+          }
+        ),
+        /* @__PURE__ */ jsx13(
+          Button,
+          {
+            size: "sm",
+            variant: "ghost",
+            onClick: () => abandonMutation.mutateAsync(),
+            disabled: abandonMutation.isPending || isStreaming,
+            className: "h-7 px-2 text-muted-foreground",
+            style: { fontSize: "0.7rem" },
+            title: "Descartar esta sesi\xF3n iter permanentemente.",
+            children: "Abandon"
+          }
+        )
+      ] }) : null,
+      /* @__PURE__ */ jsx13(
         ContextDialog,
         {
           feedback,
-          trigger: /* @__PURE__ */ jsx12(
+          trigger: /* @__PURE__ */ jsx13(
             Button,
             {
               size: "sm",
@@ -1970,31 +2360,31 @@ ${a.rationale}`;
               className: "h-7 w-7 shrink-0 p-0",
               title: "Ver contexto original (feedback + screenshot)",
               "aria-label": "Ver contexto original",
-              children: /* @__PURE__ */ jsx12(Settings, { className: "h-3.5 w-3.5" })
+              children: /* @__PURE__ */ jsx13(Settings, { className: "h-3.5 w-3.5" })
             }
           )
         }
       )
     ] }),
-    session.error ? /* @__PURE__ */ jsxs11(
+    session.error ? /* @__PURE__ */ jsxs12(
       "div",
       {
         className: "rounded border border-destructive/60 bg-destructive/10 p-2 text-destructive",
         style: { fontSize: "0.7rem" },
         children: [
-          /* @__PURE__ */ jsx12("strong", { className: "font-semibold", children: "Couldn't load this session." }),
+          /* @__PURE__ */ jsx13("strong", { className: "font-semibold", children: "Couldn't load this session." }),
           " ",
           String(session.error.message ?? session.error)
         ]
       }
     ) : null,
-    showAutoFireBanner ? /* @__PURE__ */ jsxs11("div", { className: "flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs", children: [
-      /* @__PURE__ */ jsx12(Loader23, { className: "h-4 w-4 animate-spin shrink-0 text-primary" }),
-      /* @__PURE__ */ jsxs11("div", { className: "flex-1", children: [
-        /* @__PURE__ */ jsx12("div", { className: "font-semibold text-primary", children: "Iniciando primera ronda\u2026" }),
-        /* @__PURE__ */ jsx12("div", { className: "text-muted-foreground", style: { fontSize: "0.65rem" }, children: "El AI est\xE1 leyendo tu feedback, los archivos adjuntos y los datos t\xE9cnicos." })
+    showAutoFireBanner ? /* @__PURE__ */ jsxs12("div", { className: "flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs", children: [
+      /* @__PURE__ */ jsx13(Loader23, { className: "h-4 w-4 animate-spin shrink-0 text-primary" }),
+      /* @__PURE__ */ jsxs12("div", { className: "flex-1", children: [
+        /* @__PURE__ */ jsx13("div", { className: "font-semibold text-primary", children: "Iniciando primera ronda\u2026" }),
+        /* @__PURE__ */ jsx13("div", { className: "text-muted-foreground", style: { fontSize: "0.65rem" }, children: "El AI est\xE1 leyendo tu feedback, los archivos adjuntos y los datos t\xE9cnicos." })
       ] }),
-      /* @__PURE__ */ jsx12(
+      /* @__PURE__ */ jsx13(
         Button,
         {
           size: "sm",
@@ -2006,136 +2396,71 @@ ${a.rationale}`;
         }
       )
     ] }) : null,
-    /* @__PURE__ */ jsx12(FallbackToast, { fallback: stream.state.providerFallback }),
-    isComplete && sess?.completion_reason ? /* @__PURE__ */ jsxs11(
-      "p",
+    /* @__PURE__ */ jsx13(FallbackToast, { fallback: stream.state.providerFallback }),
+    streamBudgetExhausted || stream.state.errorMessage && stream.state.status === "error" ? /* @__PURE__ */ jsx13(
+      "div",
       {
-        className: "rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100",
+        className: "rounded border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100",
         style: { fontSize: "0.7rem" },
+        children: streamBudgetExhausted ? "Has usado todas las rondas para este spec. Marca como listo o abandona la sesi\xF3n." : stream.state.errorMessage
+      }
+    ) : null,
+    status === "finalized" && pkgQuery.data?.presigned_zip_url ? /* @__PURE__ */ jsxs12(
+      "div",
+      {
+        className: "rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100",
+        style: { fontSize: "0.75rem" },
         children: [
-          /* @__PURE__ */ jsx12("strong", { className: "font-semibold", children: "Why ready: " }),
-          sess.completion_reason
+          /* @__PURE__ */ jsx13("p", { className: "mb-2 font-semibold", children: "Spec finalized \u2014 your package is ready." }),
+          /* @__PURE__ */ jsx13(
+            "a",
+            {
+              href: pkgQuery.data.presigned_zip_url,
+              download: true,
+              className: "inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700",
+              style: { fontSize: "0.7rem" },
+              children: "\u2B07 Download package ZIP"
+            }
+          )
         ]
       }
     ) : null,
-    /* @__PURE__ */ jsx12(
+    /* @__PURE__ */ jsx13(
       IterFocusShell,
       {
-        spec: /* @__PURE__ */ jsxs11("div", { className: "flex h-full min-h-0 flex-col gap-2", children: [
-          (versions.data?.length ?? 0) > 0 && !isStreaming && status !== "finalized" && status !== "abandoned" ? autoIterCountdown !== null ? /* @__PURE__ */ jsxs11(
-            "div",
-            {
-              className: "flex items-center gap-3 rounded-md border-2 border-primary/60 bg-primary/10 px-3 py-2 text-primary dark:border-primary/70 dark:bg-primary/15",
-              style: { fontSize: "0.85rem" },
-              children: [
-                /* @__PURE__ */ jsx12(Loader23, { "aria-hidden": "true", className: "h-5 w-5 shrink-0 animate-spin" }),
-                /* @__PURE__ */ jsxs11("div", { className: "flex-1 leading-snug", children: [
-                  /* @__PURE__ */ jsxs11("strong", { className: "font-semibold", children: [
-                    "Auto-iter en ",
-                    autoIterCountdown,
-                    "s."
-                  ] }),
-                  " ",
-                  "Has resuelto todas las preguntas; voy a lanzar la siguiente ronda autom\xE1ticamente. Pulsa Cancelar (o Esc) si prefieres revisar primero."
-                ] }),
-                /* @__PURE__ */ jsx12(
-                  Button,
-                  {
-                    size: "sm",
-                    variant: "outline",
-                    onClick: cancelAutoIter,
-                    className: "shrink-0",
-                    title: "Cancelar el auto-iter (Esc)",
-                    children: "Cancelar"
-                  }
-                )
-              ]
-            }
-          ) : openAssumptions.length === 0 ? /* @__PURE__ */ jsxs11(
-            "div",
-            {
-              className: "rounded-md border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100",
-              style: { fontSize: "0.75rem" },
-              children: [
-                /* @__PURE__ */ jsx12("span", { "aria-hidden": "true", className: "mr-1.5", children: "\u2705" }),
-                /* @__PURE__ */ jsx12("strong", { className: "font-semibold", children: "Todo respondido" }),
-                " \u2014 listo para iterar de nuevo o marcar como listo."
-              ]
-            }
-          ) : null : null,
-          /* @__PURE__ */ jsx12(
-            "div",
-            {
-              ref: specScrollRef,
-              className: "flex-1 min-h-0 overflow-auto",
-              style: { maxWidth: "75ch", marginInline: "auto", width: "100%" },
-              children: /* @__PURE__ */ jsx12(
-                EditableSpecPanel,
-                {
-                  markdown: renderedMarkdown,
-                  streaming: isStreaming,
-                  activeSection: stream.state.activeSection,
-                  sectionStates: isStreaming ? stream.state.sectionStates : void 0,
-                  editable: !isStreaming && status !== "finalized" && status !== "abandoned" && !!latestVersion,
-                  onSaveEdit: async (next) => {
-                    if (!latestVersion) return;
-                    await editMarkdownMutation.mutateAsync({
-                      versionId: latestVersion.id,
-                      markdown: next
-                    });
-                  },
-                  saving: editMarkdownMutation.isPending,
-                  modelHint,
-                  textareaMinHeightClass: "min-h-[60vh]",
-                  emptyStateMessage: "El spec aparecer\xE1 aqu\xED cuando termine la primera ronda. Mientras tanto, puedes cancelar.",
-                  roundNumber: Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || void 0,
-                  maxRounds: maxTurns || void 0
-                }
-              )
-            }
-          )
-        ] }),
-        questions: /* @__PURE__ */ jsx12(
-          QuestionStackPanel,
+        spec: /* @__PURE__ */ jsx13(
+          SpecTabsPanel,
           {
-            assumptions: visibleAssumptions,
-            onResolve: (assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body }),
-            onSkip: (a) => handleSkip(a),
-            disabled: status === "finalized" || status === "abandoned",
-            emptyMessage: (versions.data?.length ?? 0) === 0 ? "Las preguntas aparecer\xE1n cuando el AI termine de leer tu feedback." : "El AI no devolvi\xF3 preguntas en esta ronda. Edita el spec o usa el chat para pedir cambios."
+            latestMarkdown,
+            latestVersionId: latestVersion?.id ?? null,
+            streaming: isStreaming,
+            sectionStates: isStreaming ? stream.state.sectionStates : void 0,
+            activeStreamSection,
+            editable: !isStreaming && !sessionDisabled && !!latestVersion,
+            saving: editMarkdownMutation.isPending,
+            onSaveEdit: async (next) => {
+              if (!latestVersion) return;
+              await editMarkdownMutation.mutateAsync({
+                versionId: latestVersion.id,
+                markdown: next
+              });
+            }
           }
         ),
-        chat: status === "finalized" && pkgQuery.data?.presigned_zip_url ? /* @__PURE__ */ jsxs11(
-          "div",
+        chat: /* @__PURE__ */ jsx13(
+          CopilotChatPanel,
           {
-            className: "rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-900 space-y-2 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100",
-            style: { fontSize: "0.75rem" },
-            children: [
-              /* @__PURE__ */ jsx12("p", { className: "font-semibold", children: "Spec finalized \u2014 your package is ready." }),
-              /* @__PURE__ */ jsx12(
-                "a",
-                {
-                  href: pkgQuery.data.presigned_zip_url,
-                  download: true,
-                  className: "inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700",
-                  style: { fontSize: "0.7rem" },
-                  children: "\u2B07 Download package ZIP"
-                }
-              ),
-              /* @__PURE__ */ jsx12("p", { className: "text-emerald-800/80", style: { fontSize: "0.625rem" }, children: "You can also re-download anytime from the ticket card after returning to the feed." })
-            ]
-          }
-        ) : status === "abandoned" ? null : /* @__PURE__ */ jsx12(
-          ChatStrip,
-          {
-            streaming: isStreaming,
-            turnBudgetSpent,
+            events: timelineEvents,
+            streamStatus: stream.state.status,
+            disabled: sessionDisabled,
+            showReadyPrompt,
+            autoIterCountdown,
             isComplete,
-            openCount: openAssumptions.length,
-            banner: streamBudgetExhausted ? "Has usado todas las rondas para este spec. Marca como listo o abandona la sesi\xF3n." : stream.state.errorMessage && stream.state.status === "error" ? stream.state.errorMessage : null,
-            onRunIteration: (message) => stream.start({ user_message: message, restructure_allowed: false }),
-            onMarkReady,
-            onAbandon: () => abandonMutation.mutateAsync()
+            onResolveAssumption: (assumptionId, body) => resolveMutation.mutateAsync({ assumptionId, body }),
+            onSkipAssumption: (a) => handleSkip(a),
+            onSend: (message) => stream.start({ user_message: message, restructure_allowed: false }),
+            onCancelAutoIter: cancelAutoIter,
+            onMarkReady
           }
         )
       }
@@ -2144,7 +2469,7 @@ ${a.rationale}`;
 }
 
 // src/Canvas.tsx
-import { jsx as jsx13, jsxs as jsxs12 } from "react/jsx-runtime";
+import { jsx as jsx14, jsxs as jsxs13 } from "react/jsx-runtime";
 function statusVariant(s) {
   if (s === "new") return "default";
   if (s === "triaged" || s === "in_progress") return "secondary";
@@ -2178,14 +2503,14 @@ function Canvas({
   const config = useFeedbackConfig();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
-  const [expandedId, setExpandedId] = useState8(null);
-  const [iterByFeedback, setIterByFeedback] = useState8({});
-  const [iterStartingId, setIterStartingId] = useState8(null);
-  const [iterError, setIterError] = useState8(null);
-  const [focusedFeedbackId, setFocusedFeedbackId] = useState8(null);
-  const [tab, setTab] = useState8("compose");
-  const cardRefs = useRef5({});
-  const openIter = useCallback(
+  const [expandedId, setExpandedId] = useState9(null);
+  const [iterByFeedback, setIterByFeedback] = useState9({});
+  const [iterStartingId, setIterStartingId] = useState9(null);
+  const [iterError, setIterError] = useState9(null);
+  const [focusedFeedbackId, setFocusedFeedbackId] = useState9(null);
+  const [tab, setTab] = useState9("compose");
+  const cardRefs = useRef7({});
+  const openIter = useCallback2(
     async (feedbackId) => {
       setIterStartingId(feedbackId);
       setIterError(null);
@@ -2205,7 +2530,7 @@ function Canvas({
     },
     [bindings, config.iterStyle]
   );
-  const handleSubmitted = useCallback(
+  const handleSubmitted = useCallback2(
     (feedbackId, opts) => {
       void query.refetch();
       setExpandedId(feedbackId);
@@ -2222,7 +2547,7 @@ function Canvas({
     },
     [openIter, query]
   );
-  useEffect6(() => {
+  useEffect8(() => {
     const known = new Set((query.data ?? []).map((r) => r.id));
     setIterByFeedback((prev) => {
       const next = {};
@@ -2230,11 +2555,11 @@ function Canvas({
       return next;
     });
   }, [query.data]);
-  useEffect6(() => {
+  useEffect8(() => {
     onFocusChange?.(focusedFeedbackId !== null);
   }, [focusedFeedbackId, onFocusChange]);
   if (focusedFeedbackId && iterByFeedback[focusedFeedbackId]) {
-    return /* @__PURE__ */ jsx13("div", { className: "h-full", children: /* @__PURE__ */ jsx13(
+    return /* @__PURE__ */ jsx14("div", { className: "h-full", children: /* @__PURE__ */ jsx14(
       IterFocusView,
       {
         sessionId: iterByFeedback[focusedFeedbackId] ?? "",
@@ -2245,14 +2570,14 @@ function Canvas({
   }
   const minePendingCount = (query.data ?? []).filter((r) => r.status === "done").length;
   const mineTotalCount = (query.data ?? []).length;
-  return /* @__PURE__ */ jsxs12("div", { className: "space-y-3", children: [
-    /* @__PURE__ */ jsxs12(
+  return /* @__PURE__ */ jsxs13("div", { className: "space-y-3", children: [
+    /* @__PURE__ */ jsxs13(
       "div",
       {
         className: "grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium",
         role: "tablist",
         children: [
-          /* @__PURE__ */ jsx13(
+          /* @__PURE__ */ jsx14(
             "button",
             {
               type: "button",
@@ -2264,7 +2589,7 @@ function Canvas({
               children: "\u270E Nuevo feedback"
             }
           ),
-          /* @__PURE__ */ jsxs12(
+          /* @__PURE__ */ jsxs13(
             "button",
             {
               type: "button",
@@ -2274,8 +2599,8 @@ function Canvas({
               className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${tab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
               "data-feedback-id": "feedback.tab.mine",
               children: [
-                /* @__PURE__ */ jsx13("span", { children: "\u{1F4CB} Mis feedbacks" }),
-                mineTotalCount > 0 ? /* @__PURE__ */ jsx13(
+                /* @__PURE__ */ jsx14("span", { children: "\u{1F4CB} Mis feedbacks" }),
+                mineTotalCount > 0 ? /* @__PURE__ */ jsx14(
                   "span",
                   {
                     className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${minePendingCount > 0 ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"}`,
@@ -2289,7 +2614,7 @@ function Canvas({
         ]
       }
     ),
-    tab === "compose" ? /* @__PURE__ */ jsx13(
+    tab === "compose" ? /* @__PURE__ */ jsx14(
       Compose,
       {
         locked,
@@ -2297,24 +2622,24 @@ function Canvas({
         onClearLocked,
         onSubmitted: handleSubmitted
       }
-    ) : query.isLoading ? /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : query.isError ? /* @__PURE__ */ jsx13("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : (query.data ?? []).length === 0 ? /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") }) : /* @__PURE__ */ jsx13("ul", { className: "space-y-2", children: (query.data ?? []).map((r) => {
+    ) : query.isLoading ? /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : query.isError ? /* @__PURE__ */ jsx14("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : (query.data ?? []).length === 0 ? /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") }) : /* @__PURE__ */ jsx14("ul", { className: "space-y-2", children: (query.data ?? []).map((r) => {
       const recentlyResolved = r.status === "done";
       const isOpen = expandedId === r.id;
       const iterSessionId = iterByFeedback[r.id] ?? null;
-      return /* @__PURE__ */ jsx13(
+      return /* @__PURE__ */ jsx14(
         "li",
         {
           ref: (el) => {
             cardRefs.current[r.id] = el;
           },
-          children: /* @__PURE__ */ jsxs12(
+          children: /* @__PURE__ */ jsxs13(
             "div",
             {
               className: `rounded-md border ${recentlyResolved ? "border-primary bg-primary/5" : "border-input"}`,
               children: [
-                /* @__PURE__ */ jsxs12("div", { className: "w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md", children: [
-                  /* @__PURE__ */ jsxs12("div", { className: "flex items-center gap-2", children: [
-                    /* @__PURE__ */ jsxs12(
+                /* @__PURE__ */ jsxs13("div", { className: "w-full p-2 text-sm flex flex-col gap-1 hover:bg-accent rounded-md", children: [
+                  /* @__PURE__ */ jsxs13("div", { className: "flex items-center gap-2", children: [
+                    /* @__PURE__ */ jsxs13(
                       "button",
                       {
                         type: "button",
@@ -2324,14 +2649,14 @@ function Canvas({
                         "aria-controls": `ticket-detail-${r.id}`,
                         "data-feedback-id": "feedback.canvas.row",
                         children: [
-                          /* @__PURE__ */ jsx13("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-                          /* @__PURE__ */ jsx13(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
-                          /* @__PURE__ */ jsx13("span", { className: "truncate flex-1 font-medium", children: r.title }),
-                          isOpen ? /* @__PURE__ */ jsx13(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx13(ChevronDown2, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
+                          /* @__PURE__ */ jsx14("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+                          /* @__PURE__ */ jsx14(Badge, { variant: statusVariant(r.status), className: "shrink-0", children: humanStatus(r.status) }),
+                          /* @__PURE__ */ jsx14("span", { className: "truncate flex-1 font-medium", children: r.title }),
+                          isOpen ? /* @__PURE__ */ jsx14(ChevronUp, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" }) : /* @__PURE__ */ jsx14(ChevronDown2, { className: "h-3.5 w-3.5 shrink-0 text-muted-foreground" })
                         ]
                       }
                     ),
-                    !iterSessionId && /* @__PURE__ */ jsxs12(
+                    !iterSessionId && /* @__PURE__ */ jsxs13(
                       Button,
                       {
                         type: "button",
@@ -2346,55 +2671,55 @@ function Canvas({
                         "data-feedback-id": "feedback.canvas.iterate",
                         title: "Iterate with AI",
                         children: [
-                          /* @__PURE__ */ jsx13(Sparkles2, { className: "h-3.5 w-3.5" }),
+                          /* @__PURE__ */ jsx14(Sparkles2, { className: "h-3.5 w-3.5" }),
                           iterStartingId === r.id ? "Opening\u2026" : "Iterate"
                         ]
                       }
                     )
                   ] }),
-                  recentlyResolved && !isOpen ? /* @__PURE__ */ jsx13("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
+                  recentlyResolved && !isOpen ? /* @__PURE__ */ jsx14("span", { className: "text-[11px] text-primary", children: t("feedback.mine.action_hint") }) : null
                 ] }),
-                isOpen ? /* @__PURE__ */ jsxs12(
+                isOpen ? /* @__PURE__ */ jsxs13(
                   "div",
                   {
                     id: `ticket-detail-${r.id}`,
                     className: "border-t border-input px-3 py-3 space-y-3 text-xs",
                     children: [
-                      r.created_at ? /* @__PURE__ */ jsx13("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
+                      r.created_at ? /* @__PURE__ */ jsx14("p", { className: "text-muted-foreground", children: t("feedback.mine.submitted_at", {
                         date: r.created_at.slice(0, 16).replace("T", " ")
                       }) }) : null,
-                      /* @__PURE__ */ jsxs12("section", { children: [
-                        /* @__PURE__ */ jsx13("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
-                        /* @__PURE__ */ jsx13("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx13("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
+                      /* @__PURE__ */ jsxs13("section", { children: [
+                        /* @__PURE__ */ jsx14("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.description") }),
+                        /* @__PURE__ */ jsx14("p", { className: "whitespace-pre-wrap", children: r.description || /* @__PURE__ */ jsx14("span", { className: "italic text-muted-foreground", children: t("feedback.mine.no_description") }) })
                       ] }),
-                      r.expected_outcome ? /* @__PURE__ */ jsxs12("section", { children: [
-                        /* @__PURE__ */ jsx13("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
-                        /* @__PURE__ */ jsx13("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
+                      r.expected_outcome ? /* @__PURE__ */ jsxs13("section", { children: [
+                        /* @__PURE__ */ jsx14("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.field.expected_outcome") }),
+                        /* @__PURE__ */ jsx14("p", { className: "whitespace-pre-wrap", children: r.expected_outcome })
                       ] }) : null,
-                      r.triage_note ? /* @__PURE__ */ jsxs12("section", { className: "rounded bg-muted/50 p-2", children: [
-                        /* @__PURE__ */ jsx13("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
-                        /* @__PURE__ */ jsx13("p", { className: "whitespace-pre-wrap", children: r.triage_note })
+                      r.triage_note ? /* @__PURE__ */ jsxs13("section", { className: "rounded bg-muted/50 p-2", children: [
+                        /* @__PURE__ */ jsx14("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.triage_note") }),
+                        /* @__PURE__ */ jsx14("p", { className: "whitespace-pre-wrap", children: r.triage_note })
                       ] }) : null,
-                      r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs12("section", { children: [
-                        /* @__PURE__ */ jsx13("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
+                      r.attachments && r.attachments.length > 0 ? /* @__PURE__ */ jsxs13("section", { children: [
+                        /* @__PURE__ */ jsx14("h4", { className: "font-semibold text-foreground mb-1", children: t("feedback.mine.attachments", {
                           count: String(r.attachments.length)
                         }) }),
-                        /* @__PURE__ */ jsx13("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
+                        /* @__PURE__ */ jsx14("ul", { className: "space-y-1.5", children: r.attachments.map((a) => {
                           const isImage = a.content_type.startsWith("image/");
                           const label = a.filename ?? a.kind;
-                          return /* @__PURE__ */ jsxs12(
+                          return /* @__PURE__ */ jsxs13(
                             "li",
                             {
                               className: "flex items-center gap-2 rounded border border-input bg-background p-1.5",
                               children: [
-                                isImage && a.presigned_url ? /* @__PURE__ */ jsx13(
+                                isImage && a.presigned_url ? /* @__PURE__ */ jsx14(
                                   "a",
                                   {
                                     href: a.presigned_url,
                                     target: "_blank",
                                     rel: "noreferrer",
                                     className: "shrink-0",
-                                    children: /* @__PURE__ */ jsx13(
+                                    children: /* @__PURE__ */ jsx14(
                                       "img",
                                       {
                                         src: a.presigned_url,
@@ -2405,12 +2730,12 @@ function Canvas({
                                     )
                                   }
                                 ) : null,
-                                /* @__PURE__ */ jsx13("span", { className: "flex-1 truncate font-mono", children: label }),
-                                /* @__PURE__ */ jsxs12("span", { className: "text-muted-foreground shrink-0", children: [
+                                /* @__PURE__ */ jsx14("span", { className: "flex-1 truncate font-mono", children: label }),
+                                /* @__PURE__ */ jsxs13("span", { className: "text-muted-foreground shrink-0", children: [
                                   (a.byte_size / 1024).toFixed(1),
                                   " KB"
                                 ] }),
-                                a.presigned_url ? /* @__PURE__ */ jsx13(
+                                a.presigned_url ? /* @__PURE__ */ jsx14(
                                   "a",
                                   {
                                     href: a.presigned_url,
@@ -2426,8 +2751,8 @@ function Canvas({
                           );
                         }) })
                       ] }) : null,
-                      /* @__PURE__ */ jsx13(CommentThread, { feedbackId: r.id }),
-                      iterSessionId && config.iterStyle === "inline" ? /* @__PURE__ */ jsx13(
+                      /* @__PURE__ */ jsx14(CommentThread, { feedbackId: r.id }),
+                      iterSessionId && config.iterStyle === "inline" ? /* @__PURE__ */ jsx14(
                         InlineIterPane,
                         {
                           sessionId: iterSessionId,
@@ -2439,18 +2764,18 @@ function Canvas({
                             });
                           }
                         }
-                      ) : iterSessionId && config.iterStyle === "focus" ? /* @__PURE__ */ jsxs12(
+                      ) : iterSessionId && config.iterStyle === "focus" ? /* @__PURE__ */ jsxs13(
                         Button,
                         {
                           size: "sm",
                           onClick: () => setFocusedFeedbackId(r.id),
                           "data-feedback-id": "feedback.canvas.resume-focus",
                           children: [
-                            /* @__PURE__ */ jsx13(Sparkles2, { className: "h-3.5 w-3.5" }),
+                            /* @__PURE__ */ jsx14(Sparkles2, { className: "h-3.5 w-3.5" }),
                             " Resume iter"
                           ]
                         }
-                      ) : /* @__PURE__ */ jsxs12(
+                      ) : /* @__PURE__ */ jsxs13(
                         Button,
                         {
                           size: "sm",
@@ -2458,12 +2783,12 @@ function Canvas({
                           disabled: iterStartingId === r.id,
                           "data-feedback-id": "feedback.canvas.iterate-inline",
                           children: [
-                            /* @__PURE__ */ jsx13(Sparkles2, { className: "h-3.5 w-3.5" }),
+                            /* @__PURE__ */ jsx14(Sparkles2, { className: "h-3.5 w-3.5" }),
                             iterStartingId === r.id ? "Opening\u2026" : "Iterate with AI"
                           ]
                         }
                       ),
-                      iterError && iterStartingId === null ? /* @__PURE__ */ jsx13("p", { className: "text-xs text-destructive", children: iterError }) : null
+                      iterError && iterStartingId === null ? /* @__PURE__ */ jsx14("p", { className: "text-xs text-destructive", children: iterError }) : null
                     ]
                   }
                 ) : null
@@ -2479,8 +2804,8 @@ function Canvas({
 
 // src/VersionPill.tsx
 import { useQuery as useQuery3 } from "@tanstack/react-query";
-import { useState as useState9 } from "react";
-import { jsx as jsx14, jsxs as jsxs13 } from "react/jsx-runtime";
+import { useState as useState10 } from "react";
+import { jsx as jsx15, jsxs as jsxs14 } from "react/jsx-runtime";
 async function fetchBackendHealth(baseUrl, pathPrefix) {
   const url = `${baseUrl.replace(/\/$/, "")}${pathPrefix}/health`;
   const resp = await fetch(url, { credentials: "include" });
@@ -2491,7 +2816,7 @@ async function fetchBackendHealth(baseUrl, pathPrefix) {
 }
 function VersionPill() {
   const bindings = useFeedbackBindings();
-  const [expanded, setExpanded] = useState9(false);
+  const [expanded, setExpanded] = useState10(false);
   const health = useQuery3({
     queryKey: ["feedback-widget-health"],
     queryFn: () => fetchBackendHealth(bindings.apiBaseUrl, bindings.apiPathPrefix ?? "/api/v1/feedback"),
@@ -2501,7 +2826,7 @@ function VersionPill() {
   const beVersion = health.data?.version ?? "?";
   const beStatus = health.isLoading ? "\u2026" : health.isError ? "error" : health.data?.ok ? "ok" : "?";
   const matched = VERSION === beVersion;
-  return /* @__PURE__ */ jsxs13(
+  return /* @__PURE__ */ jsxs14(
     "button",
     {
       type: "button",
@@ -2510,33 +2835,33 @@ function VersionPill() {
       className: "block w-full pt-1 pb-2 text-center text-[10px] text-muted-foreground/70 hover:text-muted-foreground transition-colors",
       "data-feedback-id": "feedback.version-pill",
       children: [
-        /* @__PURE__ */ jsx14("span", { "aria-hidden": "true", children: "\u2699" }),
+        /* @__PURE__ */ jsx15("span", { "aria-hidden": "true", children: "\u2699" }),
         " ",
-        /* @__PURE__ */ jsxs13("code", { className: "font-mono", children: [
+        /* @__PURE__ */ jsxs14("code", { className: "font-mono", children: [
           "fe v",
           VERSION,
           " \xB7 be v",
           beVersion
         ] }),
-        !matched && beVersion !== "?" ? /* @__PURE__ */ jsx14("span", { className: "ml-1 text-amber-600/80", title: "Frontend and backend versions don't match", children: "\u26A0" }) : null,
-        expanded ? /* @__PURE__ */ jsxs13("div", { className: "mt-1 mx-auto max-w-md rounded border border-input bg-card p-2 text-left font-mono text-[10px] leading-snug", children: [
-          /* @__PURE__ */ jsxs13("div", { children: [
+        !matched && beVersion !== "?" ? /* @__PURE__ */ jsx15("span", { className: "ml-1 text-amber-600/80", title: "Frontend and backend versions don't match", children: "\u26A0" }) : null,
+        expanded ? /* @__PURE__ */ jsxs14("div", { className: "mt-1 mx-auto max-w-md rounded border border-input bg-card p-2 text-left font-mono text-[10px] leading-snug", children: [
+          /* @__PURE__ */ jsxs14("div", { children: [
             "frontend: ",
             VERSION
           ] }),
-          /* @__PURE__ */ jsxs13("div", { children: [
+          /* @__PURE__ */ jsxs14("div", { children: [
             "backend: ",
             beVersion,
             " (",
             beStatus,
             ")"
           ] }),
-          /* @__PURE__ */ jsxs13("div", { children: [
+          /* @__PURE__ */ jsxs14("div", { children: [
             "api: ",
             bindings.apiBaseUrl,
             bindings.apiPathPrefix ?? "/api/v1/feedback"
           ] }),
-          !matched && beVersion !== "?" ? /* @__PURE__ */ jsx14("div", { className: "mt-1 text-amber-700", children: "\u26A0 Versiones distintas \u2014 refresca el navegador y/o reconstruye el backend." }) : null
+          !matched && beVersion !== "?" ? /* @__PURE__ */ jsx15("div", { className: "mt-1 text-amber-700", children: "\u26A0 Versiones distintas \u2014 refresca el navegador y/o reconstruye el backend." }) : null
         ] }) : null
       ]
     }
@@ -2544,7 +2869,7 @@ function VersionPill() {
 }
 
 // src/FeedbackPanel.tsx
-import { Fragment as Fragment5, jsx as jsx15, jsxs as jsxs14 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx16, jsxs as jsxs15 } from "react/jsx-runtime";
 var _FEED_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-[560px]";
 var _FOCUS_WIDTH = "w-full sm:w-screen sm:max-w-none";
 function FeedbackPanel({
@@ -2556,24 +2881,24 @@ function FeedbackPanel({
 }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
-  const [isFocused, setIsFocused] = useState10(false);
+  const [isFocused, setIsFocused] = useState11(false);
   const widthClass = isFocused ? _FOCUS_WIDTH : _FEED_WIDTH;
-  return /* @__PURE__ */ jsx15(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs14(
+  return /* @__PURE__ */ jsx16(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs15(
     SheetContent,
     {
       side: "right",
       className: `${widthClass} overflow-y-auto transition-all duration-200`,
       "data-feedback-widget-root": "true",
       children: [
-        !isFocused ? /* @__PURE__ */ jsxs14(SheetHeader, { children: [
-          /* @__PURE__ */ jsxs14(SheetTitle, { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx15(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
-            /* @__PURE__ */ jsx15("span", { children: t("feedback.panel_title") })
+        !isFocused ? /* @__PURE__ */ jsxs15(SheetHeader, { children: [
+          /* @__PURE__ */ jsxs15(SheetTitle, { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx16(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
+            /* @__PURE__ */ jsx16("span", { children: t("feedback.panel_title") })
           ] }),
-          /* @__PURE__ */ jsx15(SheetDescription, { children: t("feedback.panel_description") })
+          /* @__PURE__ */ jsx16(SheetDescription, { children: t("feedback.panel_description") })
         ] }) : null,
-        /* @__PURE__ */ jsxs14("div", { className: `flex-1 min-h-0 ${isFocused ? "p-3 sm:p-4" : "px-4 mt-4"}`, children: [
-          /* @__PURE__ */ jsx15(
+        /* @__PURE__ */ jsxs15("div", { className: `flex-1 min-h-0 ${isFocused ? "p-3 sm:p-4" : "px-4 mt-4"}`, children: [
+          /* @__PURE__ */ jsx16(
             Canvas,
             {
               locked,
@@ -2582,8 +2907,8 @@ function FeedbackPanel({
               onFocusChange: setIsFocused
             }
           ),
-          !isFocused ? /* @__PURE__ */ jsxs14(Fragment5, { children: [
-            /* @__PURE__ */ jsxs14(
+          !isFocused ? /* @__PURE__ */ jsxs15(Fragment4, { children: [
+            /* @__PURE__ */ jsxs15(
               "a",
               {
                 href: "https://rl3.dev",
@@ -2592,19 +2917,19 @@ function FeedbackPanel({
                 className: "mt-4 flex items-center justify-center gap-1.5 pt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors",
                 "aria-label": t("feedback.powered_by_aria"),
                 children: [
-                  /* @__PURE__ */ jsx15(Rl3Mark, { className: "h-3.5 w-3.5" }),
-                  /* @__PURE__ */ jsxs14("span", { children: [
+                  /* @__PURE__ */ jsx16(Rl3Mark, { className: "h-3.5 w-3.5" }),
+                  /* @__PURE__ */ jsxs15("span", { children: [
                     t("feedback.powered_by"),
                     " ",
-                    /* @__PURE__ */ jsx15("strong", { className: "font-semibold", children: "RL3" })
+                    /* @__PURE__ */ jsx16("strong", { className: "font-semibold", children: "RL3" })
                   ] })
                 ]
               }
             ),
-            /* @__PURE__ */ jsx15(VersionPill, {})
+            /* @__PURE__ */ jsx16(VersionPill, {})
           ] }) : null
         ] }),
-        !isFocused ? /* @__PURE__ */ jsx15(SheetFooter, { className: "mt-4", children: /* @__PURE__ */ jsx15(
+        !isFocused ? /* @__PURE__ */ jsx16(SheetFooter, { className: "mt-4", children: /* @__PURE__ */ jsx16(
           Button,
           {
             variant: "outline",
@@ -2622,4 +2947,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-6ECYY26F.js.map
+//# sourceMappingURL=FeedbackPanel-GBFQY4YV.js.map
