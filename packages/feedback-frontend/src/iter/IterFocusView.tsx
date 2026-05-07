@@ -460,8 +460,8 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
                   <span aria-hidden="true" className="mr-1.5">
                     ✅
                   </span>
-                  <strong className="font-semibold">Todo respondido</strong> — listo para iterar de
-                  nuevo o marcar como listo.
+                  <strong className="font-semibold">Todo respondido</strong> — listo para iterar
+                  de nuevo o marcar como listo.
                 </div>
               ) : (
                 <p

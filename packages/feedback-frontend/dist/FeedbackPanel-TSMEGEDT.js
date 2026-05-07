@@ -1240,13 +1240,19 @@ function FallbackToast({ fallback }) {
         onOpenChange: setOpen,
         "aria-live": "polite",
         className: [
-          "rounded-md border p-2",
-          "border-amber-300 bg-amber-50 text-amber-900",
-          "dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100",
+          // v0.5 contrast tuning: solid amber background + dark text
+          // on light, near-black background + bright text on dark.
+          // Earlier amber-50/amber-900 was too washed out per user
+          // feedback ("muy difícil de leer"). Border raised from
+          // amber-300 to amber-500 for boundary clarity. Drop
+          // shadow on both modes pulls the toast off the canvas.
+          "rounded-md border-2 p-3 shadow-lg",
+          "border-amber-500 bg-amber-100 text-amber-950",
+          "dark:border-amber-400 dark:bg-amber-950 dark:text-amber-50",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]"
         ].join(" "),
-        style: { fontSize: "0.7rem" },
+        style: { fontSize: "0.8rem" },
         children: /* @__PURE__ */ jsxs6("div", { className: "flex items-start gap-2", children: [
           /* @__PURE__ */ jsx7("span", { "aria-hidden": "true", children: "\u26A1" }),
           /* @__PURE__ */ jsxs6("div", { className: "flex-1 space-y-1", children: [
@@ -1255,8 +1261,8 @@ function FallbackToast({ fallback }) {
               /* @__PURE__ */ jsx7(
                 "code",
                 {
-                  className: "rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40",
-                  style: { fontSize: "0.6rem" },
+                  className: "rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50",
+                  style: { fontSize: "0.7rem" },
                   children: fallback.fromModel
                 }
               ),
@@ -1266,12 +1272,12 @@ function FallbackToast({ fallback }) {
               /* @__PURE__ */ jsx7(
                 "code",
                 {
-                  className: "rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40",
-                  style: { fontSize: "0.6rem" },
+                  className: "rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50",
+                  style: { fontSize: "0.7rem" },
                   children: fallback.toModel
                 }
               ),
-              /* @__PURE__ */ jsx7("span", { className: "block text-amber-800/90 dark:text-amber-200/90", children: fallback.reason })
+              /* @__PURE__ */ jsx7("span", { className: "mt-1 block text-amber-900 dark:text-amber-100", children: fallback.reason })
             ] }) : null })
           ] }),
           /* @__PURE__ */ jsx7(Toast.Close, { asChild: true, children: /* @__PURE__ */ jsx7(
@@ -1320,10 +1326,12 @@ function IterFocusShell({ sidebar, main, rail }) {
         "grid-cols-1",
         "[grid-template-areas:'rail'_'sidebar'_'main']",
         // Mid: two columns (sidebar | main); rail spans top.
-        "@[60ch]/focus:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]",
+        "@[60ch]/focus:grid-cols-[minmax(0,0.7fr)_minmax(0,2.4fr)]",
         "@[60ch]/focus:[grid-template-areas:'rail_rail'_'sidebar_main']",
-        // Wide: three columns, single row.
-        "@[100ch]/focus:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)_minmax(0,1.1fr)]",
+        // Wide: three columns. v0.5 tuning — user feedback after
+        // first deploy: sidebar was too wide, rail too cramped to
+        // read the contexto. Shrink sidebar, grow rail.
+        "@[100ch]/focus:grid-cols-[minmax(0,0.7fr)_minmax(0,2.4fr)_minmax(0,1.4fr)]",
         "@[100ch]/focus:grid-rows-1",
         "@[100ch]/focus:[grid-template-areas:'sidebar_main_rail']"
       ].join(" "),
@@ -2656,4 +2664,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-RPR37WGS.js.map
+//# sourceMappingURL=FeedbackPanel-TSMEGEDT.js.map

@@ -41,10 +41,12 @@ export function IterFocusShell({ sidebar, main, rail }: IterFocusShellProps): Re
           "grid-cols-1",
           "[grid-template-areas:'rail'_'sidebar'_'main']",
           // Mid: two columns (sidebar | main); rail spans top.
-          "@[60ch]/focus:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)]",
+          "@[60ch]/focus:grid-cols-[minmax(0,0.7fr)_minmax(0,2.4fr)]",
           "@[60ch]/focus:[grid-template-areas:'rail_rail'_'sidebar_main']",
-          // Wide: three columns, single row.
-          "@[100ch]/focus:grid-cols-[minmax(0,1fr)_minmax(0,2.4fr)_minmax(0,1.1fr)]",
+          // Wide: three columns. v0.5 tuning — user feedback after
+          // first deploy: sidebar was too wide, rail too cramped to
+          // read the contexto. Shrink sidebar, grow rail.
+          "@[100ch]/focus:grid-cols-[minmax(0,0.7fr)_minmax(0,2.4fr)_minmax(0,1.4fr)]",
           "@[100ch]/focus:grid-rows-1",
           "@[100ch]/focus:[grid-template-areas:'sidebar_main_rail']",
         ].join(" ")}

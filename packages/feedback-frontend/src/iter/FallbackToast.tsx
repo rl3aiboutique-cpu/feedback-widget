@@ -56,13 +56,19 @@ export function FallbackToast({ fallback }: FallbackToastProps): ReactElement {
         onOpenChange={setOpen}
         aria-live="polite"
         className={[
-          "rounded-md border p-2",
-          "border-amber-300 bg-amber-50 text-amber-900",
-          "dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100",
+          // v0.5 contrast tuning: solid amber background + dark text
+          // on light, near-black background + bright text on dark.
+          // Earlier amber-50/amber-900 was too washed out per user
+          // feedback ("muy difícil de leer"). Border raised from
+          // amber-300 to amber-500 for boundary clarity. Drop
+          // shadow on both modes pulls the toast off the canvas.
+          "rounded-md border-2 p-3 shadow-lg",
+          "border-amber-500 bg-amber-100 text-amber-950",
+          "dark:border-amber-400 dark:bg-amber-950 dark:text-amber-50",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
           "data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)]",
         ].join(" ")}
-        style={{ fontSize: "0.7rem" }}
+        style={{ fontSize: "0.8rem" }}
       >
         <div className="flex items-start gap-2">
           <span aria-hidden="true">⚡</span>
@@ -72,19 +78,19 @@ export function FallbackToast({ fallback }: FallbackToastProps): ReactElement {
               {fallback ? (
                 <>
                   <code
-                    className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40"
-                    style={{ fontSize: "0.6rem" }}
+                    className="rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50"
+                    style={{ fontSize: "0.7rem" }}
                   >
                     {fallback.fromModel}
                   </code>{" "}
                   →{" "}
                   <code
-                    className="rounded bg-amber-100 px-1 font-mono dark:bg-amber-900/40"
-                    style={{ fontSize: "0.6rem" }}
+                    className="rounded bg-amber-200 px-1.5 py-0.5 font-mono text-amber-950 dark:bg-amber-900 dark:text-amber-50"
+                    style={{ fontSize: "0.7rem" }}
                   >
                     {fallback.toModel}
                   </code>
-                  <span className="block text-amber-800/90 dark:text-amber-200/90">
+                  <span className="mt-1 block text-amber-900 dark:text-amber-100">
                     {fallback.reason}
                   </span>
                 </>
