@@ -1,10 +1,9 @@
 import {
   AssumptionCard,
-  RenderedMarkdown,
-  StreamingSkeleton,
+  EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-BUIWLOT4.js";
+} from "./chunk-ZPHKRKIS.js";
 import {
   Button,
   Textarea,
@@ -21,9 +20,9 @@ import {
 
 // src/iter/IterWorkspace.tsx
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Save, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Fragment, jsx, jsxs } from "react/jsx-runtime";
+import { jsx, jsxs } from "react/jsx-runtime";
 function IterWorkspace({ sessionId, onClose }) {
   const bindings = useFeedbackBindings();
   const qc = useQueryClient();
@@ -270,7 +269,7 @@ function DocumentTab(props) {
     /* @__PURE__ */ jsxs("main", { className: "flex flex-1 flex-col", children: [
       !props.latestVersion && props.streamStatus === "idle" && /* @__PURE__ */ jsx(FirstRunCard, { busy: false, onRun: props.onFirstRun }),
       /* @__PURE__ */ jsx(
-        WorkingDocumentPanel,
+        EditableSpecPanel,
         {
           markdown: props.markdown,
           streaming: props.streaming,
@@ -618,56 +617,6 @@ function ErrorBanner(props) {
     /* @__PURE__ */ jsx("div", { className: "mt-1 text-xs", children: props.message })
   ] });
 }
-function WorkingDocumentPanel(props) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const startEditing = () => {
-    setDraft(props.markdown);
-    setEditing(true);
-  };
-  const cancelEditing = () => {
-    setEditing(false);
-    setDraft("");
-  };
-  const save = async () => {
-    if (!draft.trim()) return;
-    await props.onSaveEdit(draft);
-    setEditing(false);
-  };
-  if (props.streaming) {
-    return /* @__PURE__ */ jsx(StreamingSkeleton, { activeSection: props.activeSection, modelHint: props.modelHint });
-  }
-  if (!props.markdown) {
-    return /* @__PURE__ */ jsx("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: "Press \u201CGenerate first version\u201D or run an iteration to populate the working document." });
-  }
-  return /* @__PURE__ */ jsxs("div", { className: "flex flex-1 flex-col", children: [
-    /* @__PURE__ */ jsxs("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
-      !editing && props.editable && /* @__PURE__ */ jsxs(Button, { size: "sm", variant: "outline", onClick: startEditing, children: [
-        /* @__PURE__ */ jsx(Pencil, { className: "h-3 w-3" }),
-        " Edit"
-      ] }),
-      editing && /* @__PURE__ */ jsxs(Fragment, { children: [
-        /* @__PURE__ */ jsxs(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
-          /* @__PURE__ */ jsx(X, { className: "h-3 w-3" }),
-          " Cancel"
-        ] }),
-        /* @__PURE__ */ jsxs(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
-          /* @__PURE__ */ jsx(Save, { className: "h-3 w-3" }),
-          props.saving ? "Saving\u2026" : "Save edits"
-        ] })
-      ] })
-    ] }),
-    editing ? /* @__PURE__ */ jsx(
-      Textarea,
-      {
-        value: draft,
-        onChange: (e) => setDraft(e.target.value),
-        rows: 28,
-        className: "flex-1 min-h-[28rem] font-mono text-xs"
-      }
-    ) : /* @__PURE__ */ jsx(RenderedMarkdown, { markdown: props.markdown })
-  ] });
-}
 function _resolveDisplayModel(session) {
   if (!session) return "(loading)";
   const isActive = session.status === "draft" || session.status === "iterating";
@@ -690,4 +639,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-YHV5QB4R.js.map
+//# sourceMappingURL=IterWorkspace-V3QECO35.js.map

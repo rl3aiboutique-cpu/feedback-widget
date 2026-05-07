@@ -12,7 +12,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Save, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useFeedbackBindings } from "../FeedbackProvider";
@@ -35,11 +35,8 @@ import type {
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
-import {
-  RenderedMarkdown,
-  StreamingSkeleton,
-  modelLatencyHint as _modelLatencyHint,
-} from "./markdownView";
+import { EditableSpecPanel } from "./EditableSpecPanel";
+import { modelLatencyHint as _modelLatencyHint } from "./markdownView";
 import { useIterRunStream } from "./useIterRunStream";
 
 export interface IterWorkspaceProps {
@@ -412,7 +409,7 @@ function DocumentTab(props: DocumentTabProps) {
         {!props.latestVersion && props.streamStatus === "idle" && (
           <FirstRunCard busy={false} onRun={props.onFirstRun} />
         )}
-        <WorkingDocumentPanel
+        <EditableSpecPanel
           markdown={props.markdown}
           streaming={props.streaming}
           activeSection={props.activeSection}
@@ -938,84 +935,9 @@ function ErrorBanner(props: { code: string | null; message: string | null }) {
 // v0.4.1 so `IterFocusView` can reuse them; this file just composes.
 // ─────────────────────────────────────────────────────────────────
 
-// Admin-only wrapper for the rendered markdown panel — adds the
-// edit-in-place textarea + save mutation. The submitter focus pane
-// (`IterFocusView`) reads spec markdown read-only, so this stays
-// in IterWorkspace rather than ./markdownView.
-interface WorkingDocumentPanelProps {
-  markdown: string;
-  streaming: boolean;
-  activeSection: "personas" | "user_stories" | "spec" | "diagram" | "assumptions" | null;
-  editable: boolean;
-  onSaveEdit: (next: string) => Promise<void>;
-  saving: boolean;
-  modelHint: string;
-}
-
-function WorkingDocumentPanel(props: WorkingDocumentPanelProps) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-
-  const startEditing = () => {
-    setDraft(props.markdown);
-    setEditing(true);
-  };
-  const cancelEditing = () => {
-    setEditing(false);
-    setDraft("");
-  };
-  const save = async () => {
-    if (!draft.trim()) return;
-    await props.onSaveEdit(draft);
-    setEditing(false);
-  };
-
-  if (props.streaming) {
-    return <StreamingSkeleton activeSection={props.activeSection} modelHint={props.modelHint} />;
-  }
-
-  if (!props.markdown) {
-    return (
-      <div className="flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground">
-        Press &ldquo;Generate first version&rdquo; or run an iteration to populate the working
-        document.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="mb-2 flex items-center justify-end gap-2">
-        {!editing && props.editable && (
-          <Button size="sm" variant="outline" onClick={startEditing}>
-            <Pencil className="h-3 w-3" /> Edit
-          </Button>
-        )}
-        {editing && (
-          <>
-            <Button size="sm" variant="outline" onClick={cancelEditing} disabled={props.saving}>
-              <X className="h-3 w-3" /> Cancel
-            </Button>
-            <Button size="sm" onClick={save} disabled={props.saving || !draft.trim()}>
-              <Save className="h-3 w-3" />
-              {props.saving ? "Saving…" : "Save edits"}
-            </Button>
-          </>
-        )}
-      </div>
-      {editing ? (
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          rows={28}
-          className="flex-1 min-h-[28rem] font-mono text-xs"
-        />
-      ) : (
-        <RenderedMarkdown markdown={props.markdown} />
-      )}
-    </div>
-  );
-}
+// WorkingDocumentPanel moved to ./EditableSpecPanel in v0.4.4 so the
+// submitter focus view can reuse the same edit-in-place pattern. This
+// file just imports + composes.
 
 // What the user should see in the workspace header for "model".
 // Active sessions (still running) show the CURRENT primary model

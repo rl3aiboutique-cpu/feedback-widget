@@ -150,17 +150,29 @@ function ThinkingDots() {
 export function StreamingSkeleton({
   activeSection,
   modelHint,
+  roundNumber,
+  maxRounds,
 }: {
   activeSection: IterStreamSection | null;
   modelHint: string;
+  /** Optional — surfaced as "Borrador N de hasta M" when both passed. */
+  roundNumber?: number;
+  maxRounds?: number;
 }) {
   const message = _useRotatingMessage(true);
+  const sectionLabel = activeSection ? activeSection.replace("_", " ") : null;
+  const heading =
+    roundNumber && maxRounds
+      ? `Borrador ${roundNumber} de hasta ${maxRounds} — el AI está ${
+          sectionLabel ? `escribiendo ${sectionLabel}` : "leyendo tu feedback"
+        }…`
+      : "AI is drafting your spec";
   return (
     <div className="flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm">
       <div className="rounded-md border border-primary/30 bg-primary/5 p-4">
         <p className="flex items-center gap-2 font-medium text-primary">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          AI is drafting your spec
+          <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          <span className="leading-snug">{heading}</span>
           <ThinkingDots />
         </p>
         <p className="mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity">

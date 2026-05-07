@@ -9,6 +9,9 @@ import {
   usePostFeedbackCommentMutation
 } from "./chunk-QB73WXKP.js";
 
+// src/version.ts
+var VERSION = "0.4.4";
+
 // src/capture/consoleWrap.ts
 var DEFAULT_CAPACITY = 50;
 var _buffer = [];
@@ -775,6 +778,7 @@ function _xpathOf(el) {
 }
 
 export {
+  VERSION,
   installConsoleWrap,
   getConsoleTail,
   installNetworkWrap,
@@ -801,4 +805,4 @@ export {
   captureElementScreenshot,
   describeElement
 };
-//# sourceMappingURL=chunk-Q3HXJY7X.js.map
+//# sourceMappingURL=chunk-UJHPUIMU.js.map

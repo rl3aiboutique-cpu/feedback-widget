@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.4] — 2026-05-07
+
+User feedback: *"no puedo editar las tarjetas… no puedo editar el texto del md… super anti user friendly mucho scroll… la primera iteración tiene que hacerse automática… tiene que ver más pantalla completa"* + a 503 UNAVAILABLE that retry didn't catch + CI failing on mypy strict in `bundle.py`. v0.4.4 ships all four fixes plus a small version-pill for ops visibility.
+
+### Added
+
+- **Auto-fire of v1** — clicking "Iterate" on a feedback card now starts the first AI iteration automatically. Banner *"Iniciando primera ronda… [Cancelar]"* lets the user bail before the turn is consumed (cancel calls `abandonMutation` so `ITER_MAX_TURNS` isn't burned).
+- **`EditableSpecPanel`** — extracted from `IterWorkspace`'s `WorkingDocumentPanel`, now shared between admin view and submitter focus view. Submitter clicks `[✎ Editar]` on the spec markdown → textarea swap → `[💾 Guardar]` writes via the existing `editIterVersionMarkdown` mutation. Disabled during streaming.
+- **Sticky assumptions inbox** — `❓ Preguntas pendientes (N)` strip stays at the top of the spec area while the user scrolls the doc body. When all assumptions are resolved, swaps to a green `✅ Todo respondido — listo para iterar de nuevo o marcar como listo.` strip.
+- **Inline streaming status copy** — the skeleton now opens with *"Borrador {N} de hasta {M} — el AI está escribiendo {sección}…"* instead of the generic "AI is drafting your spec", so the user sees concrete progress against the turn budget.
+- **Auto-scroll-to-top on stream done** — when a fresh version lands, the spec area smooth-scrolls to the top so the user sees the new content rather than wherever they were.
+- **`<VersionPill>`** — discreet `fe v0.4.4 · be v0.4.4` text at the bottom of the panel. Click to expand for API base URL + frontend/backend version mismatch warning. Visible whenever the panel is open and not in focus mode. Backend version comes from the existing `GET /health` endpoint; no new endpoint needed.
+
+### Changed
+
+- **Focus mode is full-viewport** during iter. The Sheet expands to `w-screen max-w-none` on `sm+` (mobile already was full-width). The picker doesn't matter during iter (the ticket was already submitted in the compose tab), so we can safely cover the host. `← Volver` in the focus header is the single-button-back-to-feed path.
+- **Sheet header (`RL3 Feedback` / "Tell us what's happening…") is hidden during focus mode** — the focus view has its own header with breadcrumb + round counter, and the duplicate title was wasting vertical space.
+- **`transition-[max-width]` → `transition-all`** on the Sheet so the drawer→full-screen swap feels smooth.
+- **`IterWorkspace.tsx` 73 lines lighter** — the `WorkingDocumentPanel` extraction removes a duplicate edit-textarea implementation; the admin view imports `EditableSpecPanel` instead.
+
+### Fixed
+
+- **CI: `bundle.py` mypy strict 10 errors** — added `feedback_widget.bundle` to the existing SQLModel-overrides group in `pyproject.toml`. Same posture as the other iter modules that use the dynamic `.where(Col == val)` / `.order_by(Col.desc())` SQLModel idiom that mypy strict can't infer through. PR #4's `lint-typecheck-test` job goes from FAILURE → SUCCESS.
+
 ## [0.4.3] — 2026-05-07
 
 User feedback: *"mira los tickets anteriores si los pondría en otra

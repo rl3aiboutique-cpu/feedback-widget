@@ -14,26 +14,27 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  VERSION,
   captureElementScreenshot,
   capturePageScreenshot,
   getConsoleTail,
   getErrorsTail,
   getNetworkSuccessTail,
   getNetworkTail
-} from "./chunk-Q3HXJY7X.js";
+} from "./chunk-UJHPUIMU.js";
 import {
   AssumptionCard,
-  RenderedMarkdown,
-  StreamingSkeleton,
+  EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-BUIWLOT4.js";
+} from "./chunk-ZPHKRKIS.js";
 import {
   Button,
   SubmitFeedbackError,
   Textarea,
   abandonIterSession,
   cn,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,
@@ -49,7 +50,7 @@ import {
 } from "./chunk-QB73WXKP.js";
 
 // src/FeedbackPanel.tsx
-import { useState as useState7 } from "react";
+import { useState as useState8 } from "react";
 
 // src/Canvas.tsx
 import { ChevronDown as ChevronDown2, ChevronUp, Sparkles as Sparkles2 } from "lucide-react";
@@ -1341,6 +1342,14 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
       qc.invalidateQueries({ queryKey: ["iter-session", sessionId] });
     }
   });
+  const editMarkdownMutation = useMutation2({
+    mutationFn: ({ versionId, markdown }) => editIterVersionMarkdown(bindings, sessionId, versionId, {
+      output_markdown: markdown
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["iter-versions", sessionId] });
+    }
+  });
   const pkgQuery = useQuery2({
     queryKey: ["iter-package", sessionId],
     queryFn: () => getIterPackage(bindings, sessionId),
@@ -1353,6 +1362,22 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
       qc.invalidateQueries({ queryKey: ["iter-assumptions", sessionId] });
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
+  const autoFiredRef = useRef2(false);
+  const autoFireUserCancelledRef = useRef2(false);
+  const isVirginSession = !session.isLoading && session.data !== void 0 && !session.data.current_iteration_id && (versions.data?.length ?? 0) === 0;
+  useEffect4(() => {
+    if (!autoFiredRef.current && !autoFireUserCancelledRef.current && isVirginSession && stream.state.status === "idle") {
+      autoFiredRef.current = true;
+      stream.start({ user_message: "", restructure_allowed: false });
+    }
+  }, [isVirginSession, stream]);
+  const showAutoFireBanner = autoFiredRef.current && stream.state.status === "running" && (versions.data?.length ?? 0) === 0;
+  const cancelAutoFire = () => {
+    autoFireUserCancelledRef.current = true;
+    stream.reset();
+    abandonMutation.mutate();
+    onExitRef.current();
+  };
   const status = session.data?.status ?? "loading";
   const onExitRef = useRef2(onExit);
   useEffect4(() => {
@@ -1401,6 +1426,12 @@ ${a.rationale}`;
   }, [versions.data]);
   const renderedMarkdown = isStreaming ? "" : latestVersion?.output_markdown ?? "";
   const [msg, setMsg] = useState5("");
+  const specScrollRef = useRef2(null);
+  useEffect4(() => {
+    if (stream.state.status === "done" && stream.state.versionId && specScrollRef.current) {
+      specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [stream.state.status, stream.state.versionId]);
   const handleSkip = (a) => resolveMutation.mutateAsync({
     assumptionId: a.id,
     body: { status: "irrelevant", user_response: SKIP_MARKER2 }
@@ -1432,6 +1463,24 @@ ${a.rationale}`;
       " ",
       String(session.error.message ?? session.error)
     ] }) : null,
+    showAutoFireBanner ? /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs", children: [
+      /* @__PURE__ */ jsx7(Loader22, { className: "h-4 w-4 animate-spin shrink-0 text-primary" }),
+      /* @__PURE__ */ jsxs6("div", { className: "flex-1", children: [
+        /* @__PURE__ */ jsx7("div", { className: "font-semibold text-primary", children: "Iniciando primera ronda\u2026" }),
+        /* @__PURE__ */ jsx7("div", { className: "text-[11px] text-muted-foreground", children: "El AI est\xE1 leyendo tu feedback, los archivos adjuntos y los datos t\xE9cnicos. Esto tarda 60\u2013180 segundos en la primera ronda." })
+      ] }),
+      /* @__PURE__ */ jsx7(
+        Button,
+        {
+          size: "sm",
+          variant: "ghost",
+          onClick: cancelAutoFire,
+          className: "shrink-0 text-muted-foreground",
+          title: "Cancelar la primera ronda y volver al feed (no consume turno)",
+          children: "Cancelar"
+        }
+      )
+    ] }) : null,
     /* @__PURE__ */ jsx7(IterContextPanel, { feedback, defaultOpen: !sess?.current_iteration_id }),
     isComplete && sess?.completion_reason ? /* @__PURE__ */ jsxs6("p", { className: "rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900", children: [
       /* @__PURE__ */ jsx7("strong", { className: "font-semibold", children: "Why ready: " }),
@@ -1439,7 +1488,15 @@ ${a.rationale}`;
     ] }) : null,
     /* @__PURE__ */ jsxs6("div", { className: "flex flex-1 min-h-0 flex-col lg:flex-row gap-3", children: [
       /* @__PURE__ */ jsxs6("div", { className: "flex flex-1 min-w-0 flex-col gap-3 overflow-hidden", children: [
-        focused ? /* @__PURE__ */ jsxs6("div", { className: "space-y-2", children: [
+        focused ? /* @__PURE__ */ jsxs6("div", { className: "sticky top-0 z-10 -mx-3 px-3 pt-2 pb-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-input space-y-2", children: [
+          /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-primary", children: [
+            /* @__PURE__ */ jsx7("span", { "aria-hidden": "true", children: "\u2753" }),
+            /* @__PURE__ */ jsxs6("span", { children: [
+              "Preguntas pendientes (",
+              openAssumptions.length,
+              ")"
+            ] })
+          ] }),
           /* @__PURE__ */ jsx7(
             AssumptionCard,
             {
@@ -1451,9 +1508,9 @@ ${a.rationale}`;
           ),
           remainingOpen.length > 0 ? /* @__PURE__ */ jsxs6("details", { className: "rounded border border-input bg-muted/30 p-2 text-xs", children: [
             /* @__PURE__ */ jsxs6("summary", { className: "cursor-pointer font-medium select-none", children: [
-              "More to review (",
+              "+ ",
               remainingOpen.length,
-              ")"
+              " m\xE1s"
             ] }),
             /* @__PURE__ */ jsx7("div", { className: "mt-2 space-y-2", children: remainingOpen.map((a) => /* @__PURE__ */ jsx7(
               AssumptionCard,
@@ -1466,8 +1523,33 @@ ${a.rationale}`;
               a.id
             )) })
           ] }) : null
-        ] }) : status !== "finalized" && status !== "abandoned" ? /* @__PURE__ */ jsx7("p", { className: "rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground", children: (versions.data?.length ?? 0) > 0 ? "All assumptions on this round are resolved. Run another iteration to refresh the spec, or mark it ready if you're happy with it." : "Run the first iteration to see the AI's draft and any assumptions it needs you to confirm." }) : null,
-        /* @__PURE__ */ jsx7("div", { className: "flex-1 min-h-0 overflow-auto", children: isStreaming ? /* @__PURE__ */ jsx7(StreamingSkeleton, { activeSection: stream.state.activeSection, modelHint }) : renderedMarkdown ? /* @__PURE__ */ jsx7(RenderedMarkdown, { markdown: renderedMarkdown }) : /* @__PURE__ */ jsx7("div", { className: "rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground", children: "The spec document will appear here once you run the first iteration." }) })
+        ] }) : status !== "finalized" && status !== "abandoned" ? (versions.data?.length ?? 0) > 0 ? /* @__PURE__ */ jsxs6("div", { className: "sticky top-0 z-10 -mx-3 px-3 py-2 bg-emerald-50/95 backdrop-blur border-b border-emerald-200 text-[12px] text-emerald-900", children: [
+          /* @__PURE__ */ jsx7("span", { "aria-hidden": "true", className: "mr-1.5", children: "\u2705" }),
+          /* @__PURE__ */ jsx7("strong", { className: "font-semibold", children: "Todo respondido" }),
+          " \u2014 listo para iterar de nuevo o marcar como listo."
+        ] }) : /* @__PURE__ */ jsx7("p", { className: "rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground", children: "Run the first iteration to see the AI's draft and any assumptions it needs you to confirm." }) : null,
+        /* @__PURE__ */ jsx7("div", { ref: specScrollRef, className: "flex-1 min-h-0 overflow-auto", children: /* @__PURE__ */ jsx7(
+          EditableSpecPanel,
+          {
+            markdown: renderedMarkdown,
+            streaming: isStreaming,
+            activeSection: stream.state.activeSection,
+            editable: !isStreaming && status !== "finalized" && status !== "abandoned" && !!latestVersion,
+            onSaveEdit: async (next) => {
+              if (!latestVersion) return;
+              await editMarkdownMutation.mutateAsync({
+                versionId: latestVersion.id,
+                markdown: next
+              });
+            },
+            saving: editMarkdownMutation.isPending,
+            modelHint,
+            textareaMinHeightClass: "min-h-[60vh]",
+            emptyStateMessage: "El spec aparecer\xE1 aqu\xED cuando termine la primera ronda. Mientras tanto, puedes cancelar.",
+            roundNumber: Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || void 0,
+            maxRounds: maxTurns || void 0
+          }
+        ) })
       ] }),
       /* @__PURE__ */ jsx7("aside", { className: "lg:w-60 lg:shrink-0", children: /* @__PURE__ */ jsxs6("details", { className: "rounded-md border border-input bg-card text-xs", children: [
         /* @__PURE__ */ jsxs6("summary", { className: "cursor-pointer px-2 py-1.5 font-medium select-none flex items-center gap-2", children: [
@@ -1894,10 +1976,79 @@ function Canvas({
   ] });
 }
 
-// src/FeedbackPanel.tsx
+// src/VersionPill.tsx
+import { useQuery as useQuery3 } from "@tanstack/react-query";
+import { useState as useState7 } from "react";
 import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
+async function fetchBackendHealth(baseUrl, pathPrefix) {
+  const url = `${baseUrl.replace(/\/$/, "")}${pathPrefix}/health`;
+  const resp = await fetch(url, { credentials: "include" });
+  if (!resp.ok) {
+    throw new Error(`health check ${resp.status}`);
+  }
+  return resp.json();
+}
+function VersionPill() {
+  const bindings = useFeedbackBindings();
+  const [expanded, setExpanded] = useState7(false);
+  const health = useQuery3({
+    queryKey: ["feedback-widget-health"],
+    queryFn: () => fetchBackendHealth(
+      bindings.apiBaseUrl,
+      bindings.apiPathPrefix ?? "/api/v1/feedback"
+    ),
+    staleTime: 3e4,
+    retry: false
+  });
+  const beVersion = health.data?.version ?? "?";
+  const beStatus = health.isLoading ? "\u2026" : health.isError ? "error" : health.data?.ok ? "ok" : "?";
+  const matched = VERSION === beVersion;
+  return /* @__PURE__ */ jsxs8(
+    "button",
+    {
+      type: "button",
+      onClick: () => setExpanded((v) => !v),
+      title: "Click to expand version detail",
+      className: "block w-full pt-1 pb-2 text-center text-[10px] text-muted-foreground/70 hover:text-muted-foreground transition-colors",
+      "data-feedback-id": "feedback.version-pill",
+      children: [
+        /* @__PURE__ */ jsx9("span", { "aria-hidden": "true", children: "\u2699" }),
+        " ",
+        /* @__PURE__ */ jsxs8("code", { className: "font-mono", children: [
+          "fe v",
+          VERSION,
+          " \xB7 be v",
+          beVersion
+        ] }),
+        !matched && beVersion !== "?" ? /* @__PURE__ */ jsx9("span", { className: "ml-1 text-amber-600/80", title: "Frontend and backend versions don't match", children: "\u26A0" }) : null,
+        expanded ? /* @__PURE__ */ jsxs8("div", { className: "mt-1 mx-auto max-w-md rounded border border-input bg-card p-2 text-left font-mono text-[10px] leading-snug", children: [
+          /* @__PURE__ */ jsxs8("div", { children: [
+            "frontend: ",
+            VERSION
+          ] }),
+          /* @__PURE__ */ jsxs8("div", { children: [
+            "backend: ",
+            beVersion,
+            " (",
+            beStatus,
+            ")"
+          ] }),
+          /* @__PURE__ */ jsxs8("div", { children: [
+            "api: ",
+            bindings.apiBaseUrl,
+            bindings.apiPathPrefix ?? "/api/v1/feedback"
+          ] }),
+          !matched && beVersion !== "?" ? /* @__PURE__ */ jsx9("div", { className: "mt-1 text-amber-700", children: "\u26A0 Versiones distintas \u2014 refresca el navegador y/o reconstruye el backend." }) : null
+        ] }) : null
+      ]
+    }
+  );
+}
+
+// src/FeedbackPanel.tsx
+import { Fragment as Fragment3, jsx as jsx10, jsxs as jsxs9 } from "react/jsx-runtime";
 var _FEED_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-[560px]";
-var _FOCUS_WIDTH = "w-full sm:max-w-lg md:max-w-2xl lg:max-w-[720px] xl:max-w-[800px]";
+var _FOCUS_WIDTH = "w-full sm:w-screen sm:max-w-none";
 function FeedbackPanel({
   open,
   onOpenChange,
@@ -1907,24 +2058,24 @@ function FeedbackPanel({
 }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
-  const [isFocused, setIsFocused] = useState7(false);
+  const [isFocused, setIsFocused] = useState8(false);
   const widthClass = isFocused ? _FOCUS_WIDTH : _FEED_WIDTH;
-  return /* @__PURE__ */ jsx9(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs8(
+  return /* @__PURE__ */ jsx10(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs9(
     SheetContent,
     {
       side: "right",
-      className: `${widthClass} overflow-y-auto transition-[max-width] duration-200`,
+      className: `${widthClass} overflow-y-auto transition-all duration-200`,
       "data-feedback-widget-root": "true",
       children: [
-        /* @__PURE__ */ jsxs8(SheetHeader, { children: [
-          /* @__PURE__ */ jsxs8(SheetTitle, { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx9(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
-            /* @__PURE__ */ jsx9("span", { children: t("feedback.panel_title") })
+        !isFocused ? /* @__PURE__ */ jsxs9(SheetHeader, { children: [
+          /* @__PURE__ */ jsxs9(SheetTitle, { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx10(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
+            /* @__PURE__ */ jsx10("span", { children: t("feedback.panel_title") })
           ] }),
-          !isFocused ? /* @__PURE__ */ jsx9(SheetDescription, { children: t("feedback.panel_description") }) : null
-        ] }),
-        /* @__PURE__ */ jsxs8("div", { className: "px-4 mt-4 flex-1 min-h-0", children: [
-          /* @__PURE__ */ jsx9(
+          /* @__PURE__ */ jsx10(SheetDescription, { children: t("feedback.panel_description") })
+        ] }) : null,
+        /* @__PURE__ */ jsxs9("div", { className: `flex-1 min-h-0 ${isFocused ? "p-3 sm:p-4" : "px-4 mt-4"}`, children: [
+          /* @__PURE__ */ jsx10(
             Canvas,
             {
               locked,
@@ -1933,26 +2084,29 @@ function FeedbackPanel({
               onFocusChange: setIsFocused
             }
           ),
-          !isFocused ? /* @__PURE__ */ jsxs8(
-            "a",
-            {
-              href: "https://rl3.dev",
-              target: "_blank",
-              rel: "noreferrer",
-              className: "mt-4 flex items-center justify-center gap-1.5 pt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors",
-              "aria-label": t("feedback.powered_by_aria"),
-              children: [
-                /* @__PURE__ */ jsx9(Rl3Mark, { className: "h-3.5 w-3.5" }),
-                /* @__PURE__ */ jsxs8("span", { children: [
-                  t("feedback.powered_by"),
-                  " ",
-                  /* @__PURE__ */ jsx9("strong", { className: "font-semibold", children: "RL3" })
-                ] })
-              ]
-            }
-          ) : null
+          !isFocused ? /* @__PURE__ */ jsxs9(Fragment3, { children: [
+            /* @__PURE__ */ jsxs9(
+              "a",
+              {
+                href: "https://rl3.dev",
+                target: "_blank",
+                rel: "noreferrer",
+                className: "mt-4 flex items-center justify-center gap-1.5 pt-2 text-[11px] text-muted-foreground hover:text-foreground transition-colors",
+                "aria-label": t("feedback.powered_by_aria"),
+                children: [
+                  /* @__PURE__ */ jsx10(Rl3Mark, { className: "h-3.5 w-3.5" }),
+                  /* @__PURE__ */ jsxs9("span", { children: [
+                    t("feedback.powered_by"),
+                    " ",
+                    /* @__PURE__ */ jsx10("strong", { className: "font-semibold", children: "RL3" })
+                  ] })
+                ]
+              }
+            ),
+            /* @__PURE__ */ jsx10(VersionPill, {})
+          ] }) : null
         ] }),
-        !isFocused ? /* @__PURE__ */ jsx9(SheetFooter, { className: "mt-4", children: /* @__PURE__ */ jsx9(
+        !isFocused ? /* @__PURE__ */ jsx10(SheetFooter, { className: "mt-4", children: /* @__PURE__ */ jsx10(
           Button,
           {
             variant: "outline",
@@ -1970,4 +2124,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-33HKWF4F.js.map
+//# sourceMappingURL=FeedbackPanel-UNEGC5UC.js.map

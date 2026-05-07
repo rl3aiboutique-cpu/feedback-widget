@@ -28,6 +28,7 @@ import { useMyFeedbackQuery } from "../adapter";
 import type { FeedbackRead } from "../client";
 import {
   abandonIterSession,
+  editIterVersionMarkdown,
   finalizeIterSession,
   getIterPackage,
   getIterSession,
@@ -40,9 +41,10 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
+import { EditableSpecPanel } from "./EditableSpecPanel";
 import { IterContextPanel } from "./IterContextPanel";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
-import { RenderedMarkdown, StreamingSkeleton, modelLatencyHint } from "./markdownView";
+import { modelLatencyHint } from "./markdownView";
 import { useIterRunStream } from "./useIterRunStream";
 
 // "Skip" — user can't answer this and asks the model to infer it.
@@ -120,6 +122,19 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     },
   });
 
+  // v0.4.4 — submitter can now edit the spec markdown in place.
+  // Same endpoint the admin IterWorkspace uses; same query
+  // invalidation key so the rendered markdown updates after save.
+  const editMarkdownMutation = useMutation({
+    mutationFn: ({ versionId, markdown }: { versionId: string; markdown: string }) =>
+      editIterVersionMarkdown(bindings, sessionId, versionId, {
+        output_markdown: markdown,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["iter-versions", sessionId] });
+    },
+  });
+
   const pkgQuery = useQuery({
     queryKey: ["iter-package", sessionId],
     queryFn: () => getIterPackage(bindings, sessionId),
@@ -135,6 +150,41 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
       qc.invalidateQueries({ queryKey: ["iter-assumptions", sessionId] });
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
+
+  // v0.4.4 — auto-fire the FIRST iteration when the user enters the
+  // focus mode of a virgin session. Subsequent iterations stay
+  // opt-in. Guard with a ref so a re-mount (host tab switch and
+  // back) doesn't double-fire. The user can [Cancelar] the banner
+  // to bail before the turn lands; cancel kills the session via
+  // abandonMutation so ITER_MAX_TURNS isn't burned.
+  const autoFiredRef = useRef(false);
+  const autoFireUserCancelledRef = useRef(false);
+  const isVirginSession =
+    !session.isLoading &&
+    session.data !== undefined &&
+    !session.data.current_iteration_id &&
+    (versions.data?.length ?? 0) === 0;
+  useEffect(() => {
+    if (
+      !autoFiredRef.current &&
+      !autoFireUserCancelledRef.current &&
+      isVirginSession &&
+      stream.state.status === "idle"
+    ) {
+      autoFiredRef.current = true;
+      stream.start({ user_message: "", restructure_allowed: false });
+    }
+  }, [isVirginSession, stream]);
+  // Banner stays visible while the FIRST stream is in flight (no
+  // versions yet) and auto-fire was the trigger.
+  const showAutoFireBanner =
+    autoFiredRef.current && stream.state.status === "running" && (versions.data?.length ?? 0) === 0;
+  const cancelAutoFire = () => {
+    autoFireUserCancelledRef.current = true;
+    stream.reset();
+    abandonMutation.mutate();
+    onExitRef.current();
+  };
 
   // Auto-exit focus when the session reaches a terminal state.
   const status = session.data?.status ?? "loading";
@@ -202,6 +252,17 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
   const [msg, setMsg] = useState("");
 
+  // Spec area smooth-scrolls to top when a fresh stream lands so the
+  // user sees the new content rather than wherever the previous
+  // version ended up. Ref only changes on each render of the spec
+  // panel; no state needed.
+  const specScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (stream.state.status === "done" && stream.state.versionId && specScrollRef.current) {
+      specScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [stream.state.status, stream.state.versionId]);
+
   const handleSkip = (a: IterAssumptionRead) =>
     resolveMutation.mutateAsync({
       assumptionId: a.id,
@@ -248,6 +309,31 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </div>
       ) : null}
 
+      {/* v0.4.4 auto-fire banner — visible while the first iteration
+          is in flight and the user can still bail without burning a
+          turn. Cancel kills the session via abandonMutation. */}
+      {showAutoFireBanner ? (
+        <div className="flex items-center gap-3 rounded-md border border-primary/40 bg-primary/5 p-3 text-xs">
+          <Loader2 className="h-4 w-4 animate-spin shrink-0 text-primary" />
+          <div className="flex-1">
+            <div className="font-semibold text-primary">Iniciando primera ronda…</div>
+            <div className="text-[11px] text-muted-foreground">
+              El AI está leyendo tu feedback, los archivos adjuntos y los datos técnicos. Esto tarda
+              60–180 segundos en la primera ronda.
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={cancelAutoFire}
+            className="shrink-0 text-muted-foreground"
+            title="Cancelar la primera ronda y volver al feed (no consume turno)"
+          >
+            Cancelar
+          </Button>
+        </div>
+      ) : null}
+
       {/* Original-context disclosure — force-open on the very first
           entry to a session so the user sees their screenshot at
           least once before it tucks itself away. */}
@@ -262,10 +348,19 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
       {/* Two-column body on lg+; stacked on md/sm. */}
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row gap-3">
-        {/* Left: focused question + spec markdown */}
+        {/* Left: sticky assumptions inbox + spec markdown below */}
         <div className="flex flex-1 min-w-0 flex-col gap-3 overflow-hidden">
+          {/* v0.4.4 — assumptions live in a sticky "inbox" strip at
+              the top of the spec area so they don't scroll out of
+              view as the doc grows. The header label makes it
+              self-explanatory; when N=0 we swap to a green
+              "todo respondido" strip. */}
           {focused ? (
-            <div className="space-y-2">
+            <div className="sticky top-0 z-10 -mx-3 px-3 pt-2 pb-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-input space-y-2">
+              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                <span aria-hidden="true">❓</span>
+                <span>Preguntas pendientes ({openAssumptions.length})</span>
+              </div>
               <AssumptionCard
                 assumption={focused}
                 disabled={status === "finalized" || status === "abandoned"}
@@ -277,7 +372,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               {remainingOpen.length > 0 ? (
                 <details className="rounded border border-input bg-muted/30 p-2 text-xs">
                   <summary className="cursor-pointer font-medium select-none">
-                    More to review ({remainingOpen.length})
+                    + {remainingOpen.length} más
                   </summary>
                   <div className="mt-2 space-y-2">
                     {remainingOpen.map((a) => (
@@ -296,27 +391,48 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               ) : null}
             </div>
           ) : status !== "finalized" && status !== "abandoned" ? (
-            <p className="rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground">
-              {(versions.data?.length ?? 0) > 0
-                ? "All assumptions on this round are resolved. Run another iteration to refresh the spec, or mark it ready if you're happy with it."
-                : "Run the first iteration to see the AI's draft and any assumptions it needs you to confirm."}
-            </p>
+            (versions.data?.length ?? 0) > 0 ? (
+              <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-emerald-50/95 backdrop-blur border-b border-emerald-200 text-[12px] text-emerald-900">
+                <span aria-hidden="true" className="mr-1.5">
+                  ✅
+                </span>
+                <strong className="font-semibold">Todo respondido</strong> — listo para iterar de
+                nuevo o marcar como listo.
+              </div>
+            ) : (
+              <p className="rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground">
+                Run the first iteration to see the AI's draft and any assumptions it needs you to
+                confirm.
+              </p>
+            )
           ) : null}
 
-          {/* Spec markdown — streaming skeleton during a run, rendered
-              markdown otherwise. Lives in the LEFT column under the
-              focused assumption so the user sees the spec growing as
-              they answer. */}
-          <div className="flex-1 min-h-0 overflow-auto">
-            {isStreaming ? (
-              <StreamingSkeleton activeSection={stream.state.activeSection} modelHint={modelHint} />
-            ) : renderedMarkdown ? (
-              <RenderedMarkdown markdown={renderedMarkdown} />
-            ) : (
-              <div className="rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground">
-                The spec document will appear here once you run the first iteration.
-              </div>
-            )}
+          {/* Spec markdown — editable in place via the [Editar] button.
+              EditableSpecPanel handles streaming skeleton, rendered
+              markdown, and the textarea swap internally. Disabled
+              while a stream is in flight. */}
+          <div ref={specScrollRef} className="flex-1 min-h-0 overflow-auto">
+            <EditableSpecPanel
+              markdown={renderedMarkdown}
+              streaming={isStreaming}
+              activeSection={stream.state.activeSection}
+              editable={
+                !isStreaming && status !== "finalized" && status !== "abandoned" && !!latestVersion
+              }
+              onSaveEdit={async (next) => {
+                if (!latestVersion) return;
+                await editMarkdownMutation.mutateAsync({
+                  versionId: latestVersion.id,
+                  markdown: next,
+                });
+              }}
+              saving={editMarkdownMutation.isPending}
+              modelHint={modelHint}
+              textareaMinHeightClass="min-h-[60vh]"
+              emptyStateMessage="El spec aparecerá aquí cuando termine la primera ronda. Mientras tanto, puedes cancelar."
+              roundNumber={Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || undefined}
+              maxRounds={maxTurns || undefined}
+            />
           </div>
         </div>
 

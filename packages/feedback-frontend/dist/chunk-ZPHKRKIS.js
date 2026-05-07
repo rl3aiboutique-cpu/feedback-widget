@@ -412,14 +412,18 @@ function ThinkingDots() {
 }
 function StreamingSkeleton({
   activeSection,
-  modelHint
+  modelHint,
+  roundNumber,
+  maxRounds
 }) {
   const message = _useRotatingMessage(true);
+  const sectionLabel = activeSection ? activeSection.replace("_", " ") : null;
+  const heading = roundNumber && maxRounds ? `Borrador ${roundNumber} de hasta ${maxRounds} \u2014 el AI est\xE1 ${sectionLabel ? `escribiendo ${sectionLabel}` : "leyendo tu feedback"}\u2026` : "AI is drafting your spec";
   return /* @__PURE__ */ jsxs2("div", { className: "flex-1 space-y-5 overflow-auto rounded-lg border bg-card p-6 text-sm", children: [
     /* @__PURE__ */ jsxs2("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-4", children: [
       /* @__PURE__ */ jsxs2("p", { className: "flex items-center gap-2 font-medium text-primary", children: [
-        /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin" }),
-        "AI is drafting your spec",
+        /* @__PURE__ */ jsx2(Loader2, { className: "h-4 w-4 animate-spin shrink-0" }),
+        /* @__PURE__ */ jsx2("span", { className: "leading-snug", children: heading }),
         /* @__PURE__ */ jsx2(ThinkingDots, {})
       ] }),
       /* @__PURE__ */ jsx2("p", { className: "mt-1 min-h-[1.25rem] text-xs text-muted-foreground transition-opacity", children: message }),
@@ -464,11 +468,76 @@ function modelLatencyHint(modelId) {
   return "May take a few minutes on the free tier.";
 }
 
+// src/iter/EditableSpecPanel.tsx
+import { Pencil, Save, X } from "lucide-react";
+import { useState as useState4 } from "react";
+import { Fragment, jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+var _DEFAULT_TEXTAREA_MIN_H = "min-h-[28rem]";
+var _DEFAULT_EMPTY_MSG = 'Press "Generate first version" or run an iteration to populate the working document.';
+function EditableSpecPanel(props) {
+  const [editing, setEditing] = useState4(false);
+  const [draft, setDraft] = useState4("");
+  const startEditing = () => {
+    setDraft(props.markdown);
+    setEditing(true);
+  };
+  const cancelEditing = () => {
+    setEditing(false);
+    setDraft("");
+  };
+  const save = async () => {
+    if (!draft.trim()) return;
+    await props.onSaveEdit(draft);
+    setEditing(false);
+  };
+  if (props.streaming) {
+    return /* @__PURE__ */ jsx3(
+      StreamingSkeleton,
+      {
+        activeSection: props.activeSection,
+        modelHint: props.modelHint,
+        roundNumber: props.roundNumber,
+        maxRounds: props.maxRounds
+      }
+    );
+  }
+  if (!props.markdown) {
+    return /* @__PURE__ */ jsx3("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: props.emptyStateMessage ?? _DEFAULT_EMPTY_MSG });
+  }
+  const textareaMinH = props.textareaMinHeightClass ?? _DEFAULT_TEXTAREA_MIN_H;
+  return /* @__PURE__ */ jsxs3("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxs3("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
+      !editing && props.editable && /* @__PURE__ */ jsxs3(Button, { size: "sm", variant: "outline", onClick: startEditing, title: "Editar el documento", children: [
+        /* @__PURE__ */ jsx3(Pencil, { className: "h-3 w-3" }),
+        " Editar"
+      ] }),
+      editing && /* @__PURE__ */ jsxs3(Fragment, { children: [
+        /* @__PURE__ */ jsxs3(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx3(X, { className: "h-3 w-3" }),
+          " Cancelar"
+        ] }),
+        /* @__PURE__ */ jsxs3(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx3(Save, { className: "h-3 w-3" }),
+          props.saving ? "Guardando\u2026" : "Guardar"
+        ] })
+      ] })
+    ] }),
+    editing ? /* @__PURE__ */ jsx3(
+      Textarea,
+      {
+        value: draft,
+        onChange: (e) => setDraft(e.target.value),
+        rows: 28,
+        className: `flex-1 ${textareaMinH} font-mono text-xs`
+      }
+    ) : /* @__PURE__ */ jsx3(RenderedMarkdown, { markdown: props.markdown })
+  ] });
+}
+
 export {
   AssumptionCard,
   useIterRunStream,
-  RenderedMarkdown,
-  StreamingSkeleton,
-  modelLatencyHint
+  modelLatencyHint,
+  EditableSpecPanel
 };
-//# sourceMappingURL=chunk-BUIWLOT4.js.map
+//# sourceMappingURL=chunk-ZPHKRKIS.js.map
