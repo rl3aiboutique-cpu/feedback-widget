@@ -42,13 +42,10 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
 import { EditableSpecPanel } from "./EditableSpecPanel";
-import { ElapsedTimer } from "./ElapsedTimer";
 import { FallbackToast } from "./FallbackToast";
-import { HintLine } from "./HintLine";
 import { IterFocusShell } from "./IterFocusShell";
 import { IterMetadataRail } from "./IterMetadataRail";
 import { IterPendingSidebar } from "./IterPendingSidebar";
-import { ModelBadge } from "./ModelBadge";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { modelLatencyHint } from "./markdownView";
 import { deriveIterRunMeta } from "./useIterRunMeta";
@@ -595,9 +592,8 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               maxTurns > 0 ? Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) : null
             }
             roundMax={maxTurns > 0 ? maxTurns : null}
-            modelBadgeSlot={<ModelBadge meta={meta} />}
-            elapsedTimerSlot={<ElapsedTimer meta={meta} />}
-            hintSlot={<HintLine meta={meta} errorMessage={stream.state.errorMessage} />}
+            meta={meta}
+            errorMessage={stream.state.errorMessage}
           />
         }
       />

@@ -602,7 +602,7 @@ function modelLatencyHint(modelId) {
 
 // src/iter/EditableSpecPanel.tsx
 import { Pencil, Save, X } from "lucide-react";
-import { useMemo, useState as useState5 } from "react";
+import { useMemo as useMemo2, useState as useState5 } from "react";
 
 // src/iter/DiagramPanel.tsx
 import { Check, Loader2 as Loader22 } from "lucide-react";
@@ -746,7 +746,7 @@ function DiagramPanel({ markdown, status }) {
             {
               className: "overflow-x-auto rounded border border-input bg-muted/40 p-2 font-mono text-foreground/90",
               style: { fontSize: "0.7rem" },
-              children: source ?? markdown.replace(/^## Diagram\s*/, "").trim()
+              children: source ?? markdown.replace(/^#{1,6}\s+Diagram\s*\n*/i, "").trim()
             }
           )
         ] }) : /* @__PURE__ */ jsx3(
@@ -764,7 +764,7 @@ function DiagramPanel({ markdown, status }) {
 
 // src/iter/SpecSectionCard.tsx
 import { Check as Check2, Loader2 as Loader23 } from "lucide-react";
-import { useEffect as useEffect3, useRef as useRef4 } from "react";
+import { useEffect as useEffect3, useMemo, useRef as useRef4 } from "react";
 import { jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
 function SpecSectionCard({
   sectionKey,
@@ -772,6 +772,15 @@ function SpecSectionCard({
   markdown
 }) {
   const bodyRef = useRef4(null);
+  const bodyMarkdown = useMemo(() => {
+    if (!markdown) return markdown;
+    const newlineIdx = markdown.indexOf("\n");
+    const firstLine = newlineIdx === -1 ? markdown : markdown.slice(0, newlineIdx);
+    if (SECTION_PATTERN[sectionKey].test(firstLine)) {
+      return markdown.slice(newlineIdx + 1).trimStart();
+    }
+    return markdown;
+  }, [markdown, sectionKey]);
   useEffect3(() => {
     let cancelled = false;
     if (status === "pending") return;
@@ -780,7 +789,7 @@ function SpecSectionCard({
     void import("markdown-it").then(({ default: MarkdownIt }) => {
       if (cancelled || !bodyRef.current) return;
       const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
-      const html = md.render(markdown);
+      const html = md.render(bodyMarkdown);
       const range = document.createRange();
       range.selectNodeContents(bodyRef.current);
       const fragment = range.createContextualFragment(html);
@@ -789,7 +798,7 @@ function SpecSectionCard({
     return () => {
       cancelled = true;
     };
-  }, [status, markdown]);
+  }, [status, bodyMarkdown]);
   const label = SECTION_LABEL[sectionKey];
   const minHeightEm = SECTION_SKELETON_HEIGHT_EM[sectionKey];
   const headerStripCls = status === "done" ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-900/10" : status === "streaming" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/30";
@@ -870,7 +879,11 @@ function SpecSectionCard({
           {
             ref: bodyRef,
             className: [
-              "p-3 text-sm leading-relaxed",
+              // v0.5.2 — asymmetric padding: tighter top so the body
+              // sits right under the header strip (was creating a
+              // visible jump). Sides + bottom keep the previous
+              // breathing room.
+              "px-3 pb-3 pt-1 text-sm leading-relaxed",
               "[&_h1]:mt-2 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold",
               "[&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold",
               "[&_h3]:mt-1.5 [&_h3]:mb-1 [&_h3]:text-[0.85rem] [&_h3]:font-semibold",
@@ -916,12 +929,12 @@ function EditableSpecPanel(props) {
     await props.onSaveEdit(draft);
     setEditing(false);
   };
-  const derivedSectionStates = useMemo(() => {
+  const derivedSectionStates = useMemo2(() => {
     if (props.sectionStates) return props.sectionStates;
     if (props.markdown) return splitMarkdownByH2(props.markdown);
     return void 0;
   }, [props.sectionStates, props.markdown]);
-  const hidden = useMemo(
+  const hidden = useMemo2(
     () => new Set(props.hideSections ?? []),
     [props.hideSections]
   );
@@ -998,4 +1011,4 @@ export {
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-4DXAUH2U.js.map
+//# sourceMappingURL=chunk-D7XNYUQY.js.map

@@ -181,7 +181,10 @@ export function DiagramPanel({ markdown, status }: DiagramPanelProps): ReactElem
             className="overflow-x-auto rounded border border-input bg-muted/40 p-2 font-mono text-foreground/90"
             style={{ fontSize: "0.7rem" }}
           >
-            {source ?? markdown.replace(/^## Diagram\s*/, "").trim()}
+            {/* v0.5.2 — flexible heading strip (H1 or H2) so the
+                fallback code block doesn't redundantly include
+                "# Diagram" / "## Diagram" at the top. */}
+            {source ?? markdown.replace(/^#{1,6}\s+Diagram\s*\n*/i, "").trim()}
           </pre>
         </div>
       ) : (

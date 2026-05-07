@@ -22,10 +22,11 @@
  */
 
 import { Check, Loader2 } from "lucide-react";
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useMemo, useRef } from "react";
 
 import {
   SECTION_LABEL,
+  SECTION_PATTERN,
   SECTION_SKELETON_HEIGHT_EM,
   type SectionStatus,
   type SpecSectionKey,
@@ -44,6 +45,22 @@ export function SpecSectionCard({
 }: SpecSectionCardProps): ReactElement {
   const bodyRef = useRef<HTMLElement | null>(null);
 
+  // v0.5.2 — strip the first heading line if it matches the section
+  // label. The card header already shows "Personas" / "User Stories"
+  // / etc., so rendering the model's literal `# Personas` H1 inside
+  // the body just duplicates the label. We only strip the FIRST
+  // line to avoid touching legitimate H1 sub-headings deeper in the
+  // section (e.g. the model puts a `# Feature Name` inside Spec).
+  const bodyMarkdown = useMemo(() => {
+    if (!markdown) return markdown;
+    const newlineIdx = markdown.indexOf("\n");
+    const firstLine = newlineIdx === -1 ? markdown : markdown.slice(0, newlineIdx);
+    if (SECTION_PATTERN[sectionKey].test(firstLine)) {
+      return markdown.slice(newlineIdx + 1).trimStart();
+    }
+    return markdown;
+  }, [markdown, sectionKey]);
+
   // Render the section's markdown slice into the body. Re-runs on
   // every status / markdown change because streaming chunks update
   // both. `markdown-it` is dynamic-imported the first time to avoid
@@ -56,7 +73,7 @@ export function SpecSectionCard({
     void import("markdown-it").then(({ default: MarkdownIt }) => {
       if (cancelled || !bodyRef.current) return;
       const md = new MarkdownIt({ html: false, breaks: false, linkify: true });
-      const html = md.render(markdown);
+      const html = md.render(bodyMarkdown);
       const range = document.createRange();
       range.selectNodeContents(bodyRef.current);
       const fragment = range.createContextualFragment(html);
@@ -65,7 +82,7 @@ export function SpecSectionCard({
     return () => {
       cancelled = true;
     };
-  }, [status, markdown]);
+  }, [status, bodyMarkdown]);
 
   const label = SECTION_LABEL[sectionKey];
   const minHeightEm = SECTION_SKELETON_HEIGHT_EM[sectionKey];
@@ -148,7 +165,11 @@ export function SpecSectionCard({
         <article
           ref={bodyRef}
           className={[
-            "p-3 text-sm leading-relaxed",
+            // v0.5.2 — asymmetric padding: tighter top so the body
+            // sits right under the header strip (was creating a
+            // visible jump). Sides + bottom keep the previous
+            // breathing room.
+            "px-3 pb-3 pt-1 text-sm leading-relaxed",
             "[&_h1]:mt-2 [&_h1]:mb-1.5 [&_h1]:text-base [&_h1]:font-semibold",
             "[&_h2]:mt-2 [&_h2]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold",
             "[&_h3]:mt-1.5 [&_h3]:mb-1 [&_h3]:text-[0.85rem] [&_h3]:font-semibold",
