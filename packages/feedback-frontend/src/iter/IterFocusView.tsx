@@ -42,7 +42,9 @@ import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
 import { EditableSpecPanel } from "./EditableSpecPanel";
-import { IterContextPanel } from "./IterContextPanel";
+import { IterFocusShell } from "./IterFocusShell";
+import { IterMetadataRail } from "./IterMetadataRail";
+import { IterPendingSidebar } from "./IterPendingSidebar";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { modelLatencyHint } from "./markdownView";
 import { useIterRunStream } from "./useIterRunStream";
@@ -228,10 +230,30 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
     }
     return out;
   }, [userFacing]);
-  const openAssumptions = visibleAssumptions.filter((a) => a.status === "open");
-  const otherAssumptions = visibleAssumptions.filter((a) => a.status !== "open");
-  const focused: IterAssumptionRead | null = openAssumptions[0] ?? null;
-  const remainingOpen = openAssumptions.slice(1);
+  const openAssumptions = useMemo(
+    () => visibleAssumptions.filter((a) => a.status === "open"),
+    [visibleAssumptions],
+  );
+  const otherAssumptions = useMemo(
+    () => visibleAssumptions.filter((a) => a.status !== "open"),
+    [visibleAssumptions],
+  );
+
+  // v0.5.0 (Block A) — sidebar-driven selection of the focused
+  // assumption. Default = first open. If the user resolves the
+  // currently selected one (or it leaves the open set for any other
+  // reason) we re-anchor on the next first-open so main never
+  // renders a card that's no longer "open".
+  const [selectedAssumptionId, setSelectedAssumptionId] = useState<string | null>(null);
+  useEffect(() => {
+    const stillOpen =
+      selectedAssumptionId !== null && openAssumptions.some((a) => a.id === selectedAssumptionId);
+    if (!stillOpen) {
+      setSelectedAssumptionId(openAssumptions[0]?.id ?? null);
+    }
+  }, [openAssumptions, selectedAssumptionId]);
+  const focused: IterAssumptionRead | null =
+    openAssumptions.find((a) => a.id === selectedAssumptionId) ?? openAssumptions[0] ?? null;
 
   const sess = session.data;
   const isStreaming = stream.state.status === "running";
@@ -279,22 +301,31 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
   return (
     <div className="flex h-full flex-col gap-3" data-feedback-id="iter.focus-view">
-      {/* Header */}
+      {/* Header — round indicator moved to the rail in v0.5.0; the
+          header now keeps Back / ticket / title and the Spec-ready
+          badge only. Title scales fluidly with the focus pane width
+          via clamp(). */}
       <header className="flex items-center gap-2 border-b border-input pb-2">
         <Button size="sm" variant="ghost" onClick={onExit} className="-ml-2 h-7 px-2">
           <ArrowLeft className="h-3.5 w-3.5" /> Volver
         </Button>
-        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-muted-foreground">
+        <code
+          className="rounded bg-muted px-1 py-0.5 font-mono text-muted-foreground"
+          style={{ fontSize: "0.7rem" }}
+        >
           {feedback?.ticket_code ?? "—"}
         </code>
-        <span className="truncate font-semibold text-sm">{feedback?.title ?? "Iter session"}</span>
-        {maxTurns > 0 ? (
-          <Badge variant="outline" className="ml-auto shrink-0 text-[10px] uppercase tracking-wide">
-            Round {Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns)} / {maxTurns}
-          </Badge>
-        ) : null}
+        <span
+          className="truncate font-semibold"
+          style={{ fontSize: "clamp(0.875rem, 0.8rem + 0.3cqi, 1.125rem)" }}
+        >
+          {feedback?.title ?? "Iter session"}
+        </span>
         {isComplete ? (
-          <Badge className="shrink-0 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 text-[10px] uppercase tracking-wide">
+          <Badge
+            className="ml-auto shrink-0 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 uppercase tracking-wide"
+            style={{ fontSize: "0.625rem" }}
+          >
             Spec ready
           </Badge>
         ) : null}
@@ -360,17 +391,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </output>
       ) : null}
 
-      {/* Original-context disclosure — force-open on the very first
-          entry to a session so the user sees their screenshot at
-          least once before it tucks itself away. v0.4.5: also auto-
-          collapses on idle→running so the spec stream gets the full
-          vertical real estate the user asked for. */}
-      <IterContextPanel
-        feedback={feedback}
-        defaultOpen={!sess?.current_iteration_id}
-        streaming={isStreaming}
-      />
-
       {isComplete && sess?.completion_reason ? (
         <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900">
           <strong className="font-semibold">Why ready: </strong>
@@ -378,21 +398,24 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </p>
       ) : null}
 
-      {/* Two-column body on lg+; stacked on md/sm. */}
-      <div className="flex flex-1 min-h-0 flex-col lg:flex-row gap-3">
-        {/* Left: sticky assumptions inbox + spec markdown below */}
-        <div className="flex flex-1 min-w-0 flex-col gap-3 overflow-hidden">
-          {/* v0.4.4 — assumptions live in a sticky "inbox" strip at
-              the top of the spec area so they don't scroll out of
-              view as the doc grows. The header label makes it
-              self-explanatory; when N=0 we swap to a green
-              "todo respondido" strip. */}
-          {focused ? (
-            <div className="sticky top-0 z-10 -mx-3 px-3 pt-2 pb-3 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-input space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                <span aria-hidden="true">❓</span>
-                <span>Preguntas pendientes ({openAssumptions.length})</span>
-              </div>
+      {/* v0.5.0 (Block A) — three-slot fluid grid. The shell owns
+          the @container query; the three slots reflow wide → mid →
+          narrow without media queries. Sidebar holds the full pending
+          list (no `+ N más`); main holds the focused-question card +
+          spec stream; rail holds run metadata + IterContextPanel. */}
+      <IterFocusShell
+        sidebar={
+          <IterPendingSidebar
+            openAssumptions={openAssumptions}
+            resolvedAssumptions={otherAssumptions}
+            selectedId={selectedAssumptionId}
+            onSelect={setSelectedAssumptionId}
+            disabled={status === "finalized" || status === "abandoned"}
+          />
+        }
+        main={
+          <div className="flex h-full min-h-0 flex-col gap-3">
+            {focused ? (
               <AssumptionCard
                 assumption={focused}
                 disabled={status === "finalized" || status === "abandoned"}
@@ -401,110 +424,72 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
                 }
                 onSkip={() => handleSkip(focused)}
               />
-              {remainingOpen.length > 0 ? (
-                <details className="rounded border border-input bg-muted/30 p-2 text-xs">
-                  <summary className="cursor-pointer font-medium select-none">
-                    + {remainingOpen.length} más
-                  </summary>
-                  <div className="mt-2 space-y-2">
-                    {remainingOpen.map((a) => (
-                      <AssumptionCard
-                        key={a.id}
-                        assumption={a}
-                        disabled={status === "finalized" || status === "abandoned"}
-                        onResolve={(body) =>
-                          resolveMutation.mutateAsync({ assumptionId: a.id, body })
-                        }
-                        onSkip={() => handleSkip(a)}
-                      />
-                    ))}
-                  </div>
-                </details>
-              ) : null}
-            </div>
-          ) : status !== "finalized" && status !== "abandoned" ? (
-            (versions.data?.length ?? 0) > 0 ? (
-              <div className="sticky top-0 z-10 -mx-3 px-3 py-2 bg-emerald-50/95 backdrop-blur border-b border-emerald-200 text-[12px] text-emerald-900">
-                <span aria-hidden="true" className="mr-1.5">
-                  ✅
-                </span>
-                <strong className="font-semibold">Todo respondido</strong> — listo para iterar de
-                nuevo o marcar como listo.
-              </div>
-            ) : (
-              <p className="rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground">
-                Run the first iteration to see the AI's draft and any assumptions it needs you to
-                confirm.
-              </p>
-            )
-          ) : null}
-
-          {/* Spec markdown — editable in place via the [Editar] button.
-              EditableSpecPanel handles streaming skeleton, rendered
-              markdown, and the textarea swap internally. Disabled
-              while a stream is in flight. */}
-          <div ref={specScrollRef} className="flex-1 min-h-0 overflow-auto">
-            <EditableSpecPanel
-              markdown={renderedMarkdown}
-              streaming={isStreaming}
-              activeSection={stream.state.activeSection}
-              editable={
-                !isStreaming && status !== "finalized" && status !== "abandoned" && !!latestVersion
-              }
-              onSaveEdit={async (next) => {
-                if (!latestVersion) return;
-                await editMarkdownMutation.mutateAsync({
-                  versionId: latestVersion.id,
-                  markdown: next,
-                });
-              }}
-              saving={editMarkdownMutation.isPending}
-              modelHint={modelHint}
-              textareaMinHeightClass="min-h-[60vh]"
-              emptyStateMessage="El spec aparecerá aquí cuando termine la primera ronda. Mientras tanto, puedes cancelar."
-              roundNumber={Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || undefined}
-              maxRounds={maxTurns || undefined}
-            />
-          </div>
-        </div>
-
-        {/* Right: resolved-assumptions rail. Closed by default —
-            during deep iter work the open ✅ list competes with the
-            focused question for attention. The badge keeps the count
-            visible so the user knows progress is being tracked. */}
-        <aside className="lg:w-60 lg:shrink-0">
-          <details className="rounded-md border border-input bg-card text-xs">
-            <summary className="cursor-pointer px-2 py-1.5 font-medium select-none flex items-center gap-2">
-              <span>Resueltas</span>
-              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
-                {otherAssumptions.length}
-              </span>
-            </summary>
-            <div className="border-t border-input p-2 space-y-2 max-h-72 overflow-auto">
-              {otherAssumptions.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground italic">Nada resuelto todavía.</p>
+            ) : status !== "finalized" && status !== "abandoned" ? (
+              (versions.data?.length ?? 0) > 0 ? (
+                <div
+                  className="rounded-md border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  <span aria-hidden="true" className="mr-1.5">
+                    ✅
+                  </span>
+                  <strong className="font-semibold">Todo respondido</strong> — listo para iterar de
+                  nuevo o marcar como listo.
+                </div>
               ) : (
-                otherAssumptions.map((a) => (
-                  <div
-                    key={a.id}
-                    className="rounded border border-input bg-background p-1.5 text-[11px]"
-                  >
-                    <div className="flex items-center gap-1">
-                      <span aria-hidden="true">
-                        {a.status === "confirmed" ? "✅" : a.status === "corrected" ? "✏️" : "—"}
-                      </span>
-                      <code className="truncate font-mono text-[10px] text-muted-foreground">
-                        {a.slot_key}
-                      </code>
-                    </div>
-                    <p className="mt-0.5 leading-snug line-clamp-2">{a.statement}</p>
-                  </div>
-                ))
-              )}
+                <p
+                  className="rounded border border-input bg-muted/30 p-3 text-muted-foreground"
+                  style={{ fontSize: "0.75rem" }}
+                >
+                  Run the first iteration to see the AI's draft and any assumptions it needs you to
+                  confirm.
+                </p>
+              )
+            ) : null}
+            <div
+              ref={specScrollRef}
+              className="flex-1 min-h-0 overflow-auto"
+              style={{ maxWidth: "75ch", marginInline: "auto", width: "100%" }}
+            >
+              <EditableSpecPanel
+                markdown={renderedMarkdown}
+                streaming={isStreaming}
+                activeSection={stream.state.activeSection}
+                editable={
+                  !isStreaming &&
+                  status !== "finalized" &&
+                  status !== "abandoned" &&
+                  !!latestVersion
+                }
+                onSaveEdit={async (next) => {
+                  if (!latestVersion) return;
+                  await editMarkdownMutation.mutateAsync({
+                    versionId: latestVersion.id,
+                    markdown: next,
+                  });
+                }}
+                saving={editMarkdownMutation.isPending}
+                modelHint={modelHint}
+                textareaMinHeightClass="min-h-[60vh]"
+                emptyStateMessage="El spec aparecerá aquí cuando termine la primera ronda. Mientras tanto, puedes cancelar."
+                roundNumber={Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) || undefined}
+                maxRounds={maxTurns || undefined}
+              />
             </div>
-          </details>
-        </aside>
-      </div>
+          </div>
+        }
+        rail={
+          <IterMetadataRail
+            feedback={feedback}
+            contextDefaultOpen={!sess?.current_iteration_id}
+            contextStreaming={isStreaming}
+            roundCurrent={
+              maxTurns > 0 ? Math.min(usedTurns + (isStreaming ? 1 : 0), maxTurns) : null
+            }
+            roundMax={maxTurns > 0 ? maxTurns : null}
+          />
+        }
+      />
 
       {(stream.state.errorMessage || streamBudgetExhausted) && stream.state.status === "error" ? (
         <div className="rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900">
