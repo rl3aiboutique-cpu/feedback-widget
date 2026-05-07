@@ -3,7 +3,7 @@ import {
   EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-IJG7J5D7.js";
+} from "./chunk-W7RZSDVX.js";
 import {
   Button,
   Textarea,
@@ -639,4 +639,4 @@ export {
   IterWorkspaceComponent,
   IterWorkspace as default
 };
-//# sourceMappingURL=IterWorkspace-GEHIFQE3.js.map
+//# sourceMappingURL=IterWorkspace-SU7LYRX4.js.map

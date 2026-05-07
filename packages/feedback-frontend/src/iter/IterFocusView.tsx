@@ -41,6 +41,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
+import { DiagramPanel } from "./DiagramPanel";
 import { EditableSpecPanel } from "./EditableSpecPanel";
 import { ElapsedTimer } from "./ElapsedTimer";
 import { FallbackToast } from "./FallbackToast";
@@ -51,6 +52,7 @@ import { IterPendingSidebar } from "./IterPendingSidebar";
 import { ModelBadge } from "./ModelBadge";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { modelLatencyHint } from "./markdownView";
+import { splitMarkdownByH2 } from "./specSectionState";
 import { deriveIterRunMeta } from "./useIterRunMeta";
 import { useIterRunStream } from "./useIterRunStream";
 
@@ -345,6 +347,76 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
   // string in copy; everything reads from `meta.active`.
   const meta = useMemo(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
 
+  // v0.5 — diagram source for the rail's pinned DiagramPanel.
+  // While streaming we read from the live sectionStates; otherwise
+  // we split the persisted output_markdown by H2 boundaries to
+  // recover the diagram slice for past versions.
+  const diagramSection = useMemo(() => {
+    if (isStreaming) {
+      return stream.state.sectionStates.diagram;
+    }
+    if (latestVersion?.output_markdown) {
+      return splitMarkdownByH2(latestVersion.output_markdown).diagram;
+    }
+    return { status: "pending" as const, markdown: "" };
+  }, [isStreaming, stream.state.sectionStates, latestVersion]);
+
+  // v0.5 — auto-iter countdown when the user just resolved the LAST
+  // open assumption. Drops a 5 s warning banner with a Cancel button
+  // before firing the next iteration so the senior-analyst loop
+  // keeps moving without forcing the user to remember to click Run.
+  // Counter is wall-clock so re-renders don't drift; refs guard
+  // against double-fire from query refetches; cancellation persists
+  // for the lifetime of the resolution-state.
+  const [autoIterCountdown, setAutoIterCountdown] = useState<number | null>(null);
+  const autoIterCancelledRef = useRef(false);
+  const autoIterFiredRef = useRef<string | null>(null);
+  const allResolvedKey = useMemo(() => {
+    if (openAssumptions.length !== 0) return null;
+    if ((versions.data?.length ?? 0) === 0) return null;
+    if (status === "finalized" || status === "abandoned") return null;
+    if (turnBudgetSpent || isComplete || isStreaming) return null;
+    const v = versions.data?.[0]?.version_number ?? 0;
+    return `v${v}`;
+  }, [openAssumptions.length, versions.data, status, turnBudgetSpent, isComplete, isStreaming]);
+  useEffect(() => {
+    if (allResolvedKey === null) {
+      setAutoIterCountdown(null);
+      autoIterCancelledRef.current = false;
+      return;
+    }
+    if (autoIterFiredRef.current === allResolvedKey) return;
+    if (autoIterCancelledRef.current) return;
+    setAutoIterCountdown(5);
+    const startedAt = Date.now();
+    const tick = window.setInterval(() => {
+      const remaining = 5 - Math.floor((Date.now() - startedAt) / 1000);
+      if (remaining <= 0) {
+        window.clearInterval(tick);
+        if (autoIterCancelledRef.current) return;
+        autoIterFiredRef.current = allResolvedKey;
+        setAutoIterCountdown(null);
+        stream.start({ user_message: "", restructure_allowed: false });
+      } else {
+        setAutoIterCountdown(remaining);
+      }
+    }, 250);
+    return () => window.clearInterval(tick);
+  }, [allResolvedKey, stream]);
+  const cancelAutoIter = () => {
+    autoIterCancelledRef.current = true;
+    setAutoIterCountdown(null);
+  };
+  // Esc closes the countdown banner — same gesture the toast uses.
+  useEffect(() => {
+    if (autoIterCountdown === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelAutoIter();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [autoIterCountdown]);
+
   return (
     <div className="flex h-full flex-col gap-3" data-feedback-id="iter.focus-view">
       {/* Header — round indicator moved to the rail in v0.5.0; the
@@ -453,16 +525,39 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               />
             ) : status !== "finalized" && status !== "abandoned" ? (
               (versions.data?.length ?? 0) > 0 ? (
-                <div
-                  className="rounded-md border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
-                  style={{ fontSize: "0.75rem" }}
-                >
-                  <span aria-hidden="true" className="mr-1.5">
-                    ✅
-                  </span>
-                  <strong className="font-semibold">Todo respondido</strong> — listo para iterar
-                  de nuevo o marcar como listo.
-                </div>
+                autoIterCountdown !== null ? (
+                  <div
+                    className="flex items-center gap-3 rounded-md border-2 border-primary/60 bg-primary/10 px-3 py-2 text-primary dark:border-primary/70 dark:bg-primary/15"
+                    style={{ fontSize: "0.85rem" }}
+                  >
+                    <Loader2 aria-hidden="true" className="h-5 w-5 shrink-0 animate-spin" />
+                    <div className="flex-1 leading-snug">
+                      <strong className="font-semibold">Auto-iter en {autoIterCountdown}s.</strong>{" "}
+                      Has resuelto todas las preguntas; voy a lanzar la siguiente ronda
+                      automáticamente. Pulsa Cancelar (o Esc) si prefieres revisar primero.
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={cancelAutoIter}
+                      className="shrink-0"
+                      title="Cancelar el auto-iter (Esc)"
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <div
+                    className="rounded-md border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-900/20 dark:text-emerald-100"
+                    style={{ fontSize: "0.75rem" }}
+                  >
+                    <span aria-hidden="true" className="mr-1.5">
+                      ✅
+                    </span>
+                    <strong className="font-semibold">Todo respondido</strong> — listo para iterar
+                    de nuevo o marcar como listo.
+                  </div>
+                )
               ) : (
                 <p
                   className="rounded border border-input bg-muted/30 p-3 text-muted-foreground"
@@ -483,6 +578,7 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
                 streaming={isStreaming}
                 activeSection={stream.state.activeSection}
                 sectionStates={isStreaming ? stream.state.sectionStates : undefined}
+                hideSections={["diagram"]}
                 editable={
                   !isStreaming &&
                   status !== "finalized" &&
@@ -518,6 +614,9 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
             modelBadgeSlot={<ModelBadge meta={meta} />}
             elapsedTimerSlot={<ElapsedTimer meta={meta} />}
             hintSlot={<HintLine meta={meta} errorMessage={stream.state.errorMessage} />}
+            diagramSlot={
+              <DiagramPanel markdown={diagramSection.markdown} status={diagramSection.status} />
+            }
           />
         }
       />

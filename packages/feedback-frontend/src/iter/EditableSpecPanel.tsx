@@ -35,6 +35,11 @@ export interface EditableSpecPanelProps {
    * StreamingSkeleton fallback stays for callers that don't pass
    * sectionStates yet (admin IterWorkspace). */
   sectionStates?: SpecSectionStates;
+  /** v0.5 — sections to hide from the stacked render. Used by the
+   * focus view to lift the Diagram out of main and pin it in the
+   * rail (sticky, always visible) while keeping the text cards in
+   * the main column. */
+  hideSections?: ReadonlyArray<keyof SpecSectionStates>;
   /** When false the [Edit] button is hidden (e.g. terminal session). */
   editable: boolean;
   /** Caller's save handler — wires to `editIterVersionMarkdown` mutation. */
@@ -94,11 +99,16 @@ export function EditableSpecPanel(props: EditableSpecPanelProps): ReactElement {
     return undefined;
   }, [props.sectionStates, props.markdown]);
 
+  const hidden: ReadonlySet<keyof SpecSectionStates> = useMemo(
+    () => new Set(props.hideSections ?? []),
+    [props.hideSections],
+  );
+
   // Streaming + sectionStates available → progressive cards.
   // Streaming + no sectionStates (legacy caller) → fallback skeleton.
   if (props.streaming) {
     if (props.sectionStates) {
-      return _renderSectionCards(props.sectionStates);
+      return _renderSectionCards(props.sectionStates, hidden);
     }
     return (
       <StreamingSkeleton
@@ -148,7 +158,7 @@ export function EditableSpecPanel(props: EditableSpecPanelProps): ReactElement {
           className={`flex-1 ${textareaMinH} font-mono text-xs`}
         />
       ) : derivedSectionStates ? (
-        _renderSectionCards(derivedSectionStates)
+        _renderSectionCards(derivedSectionStates, hidden)
       ) : (
         <RenderedMarkdown markdown={props.markdown} />
       )}
@@ -156,10 +166,13 @@ export function EditableSpecPanel(props: EditableSpecPanelProps): ReactElement {
   );
 }
 
-function _renderSectionCards(states: SpecSectionStates): ReactElement {
+function _renderSectionCards(
+  states: SpecSectionStates,
+  hidden: ReadonlySet<keyof SpecSectionStates>,
+): ReactElement {
   return (
     <div className="flex flex-1 flex-col gap-2">
-      {SPEC_SECTION_ORDER.map((key) => (
+      {SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map((key) => (
         <SpecSectionCard
           key={key}
           sectionKey={key}

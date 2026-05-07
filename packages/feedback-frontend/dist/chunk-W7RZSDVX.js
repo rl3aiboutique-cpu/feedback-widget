@@ -762,9 +762,13 @@ function EditableSpecPanel(props) {
     if (props.markdown) return splitMarkdownByH2(props.markdown);
     return void 0;
   }, [props.sectionStates, props.markdown]);
+  const hidden = useMemo(
+    () => new Set(props.hideSections ?? []),
+    [props.hideSections]
+  );
   if (props.streaming) {
     if (props.sectionStates) {
-      return _renderSectionCards(props.sectionStates);
+      return _renderSectionCards(props.sectionStates, hidden);
     }
     return /* @__PURE__ */ jsx4(
       StreamingSkeleton,
@@ -805,11 +809,11 @@ function EditableSpecPanel(props) {
         rows: 28,
         className: `flex-1 ${textareaMinH} font-mono text-xs`
       }
-    ) : derivedSectionStates ? _renderSectionCards(derivedSectionStates) : /* @__PURE__ */ jsx4(RenderedMarkdown, { markdown: props.markdown })
+    ) : derivedSectionStates ? _renderSectionCards(derivedSectionStates, hidden) : /* @__PURE__ */ jsx4(RenderedMarkdown, { markdown: props.markdown })
   ] });
 }
-function _renderSectionCards(states) {
-  return /* @__PURE__ */ jsx4("div", { className: "flex flex-1 flex-col gap-2", children: SPEC_SECTION_ORDER.map((key) => /* @__PURE__ */ jsx4(
+function _renderSectionCards(states, hidden) {
+  return /* @__PURE__ */ jsx4("div", { className: "flex flex-1 flex-col gap-2", children: SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map((key) => /* @__PURE__ */ jsx4(
     SpecSectionCard,
     {
       sectionKey: key,
@@ -822,8 +826,9 @@ function _renderSectionCards(states) {
 
 export {
   AssumptionCard,
+  splitMarkdownByH2,
   useIterRunStream,
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-IJG7J5D7.js.map
+//# sourceMappingURL=chunk-W7RZSDVX.js.map
