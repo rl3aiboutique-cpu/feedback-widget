@@ -135,6 +135,15 @@ export function SpecSectionCard({
           <div className="h-3 w-[92%] rounded bg-muted" />
           <div className="h-3 w-[60%] rounded bg-muted" />
         </div>
+      ) : status === "done" && !markdown.trim() ? (
+        // v0.5.1 — never claim "listo" with empty content. NN/G H1
+        // (Visibility of System Status) — the status badge must
+        // accurately describe what's there. If the model finished
+        // and produced no text for this section, say so explicitly
+        // instead of leaving an empty card under a green badge.
+        <div className="p-3 italic text-muted-foreground" style={{ fontSize: "0.7rem" }}>
+          Esta versión del spec no incluye contenido para esta sección.
+        </div>
       ) : (
         <article
           ref={bodyRef}

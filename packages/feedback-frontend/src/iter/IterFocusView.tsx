@@ -41,7 +41,6 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 import { AssumptionCard } from "./AssumptionCard";
-import { DiagramPanel } from "./DiagramPanel";
 import { EditableSpecPanel } from "./EditableSpecPanel";
 import { ElapsedTimer } from "./ElapsedTimer";
 import { FallbackToast } from "./FallbackToast";
@@ -52,7 +51,6 @@ import { IterPendingSidebar } from "./IterPendingSidebar";
 import { ModelBadge } from "./ModelBadge";
 import { containsForbidden, defaultForbiddenWords } from "./forbiddenWords";
 import { modelLatencyHint } from "./markdownView";
-import { splitMarkdownByH2 } from "./specSectionState";
 import { deriveIterRunMeta } from "./useIterRunMeta";
 import { useIterRunStream } from "./useIterRunStream";
 
@@ -347,20 +345,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
   // string in copy; everything reads from `meta.active`.
   const meta = useMemo(() => deriveIterRunMeta(stream.state, sess), [stream.state, sess]);
 
-  // v0.5 — diagram source for the rail's pinned DiagramPanel.
-  // While streaming we read from the live sectionStates; otherwise
-  // we split the persisted output_markdown by H2 boundaries to
-  // recover the diagram slice for past versions.
-  const diagramSection = useMemo(() => {
-    if (isStreaming) {
-      return stream.state.sectionStates.diagram;
-    }
-    if (latestVersion?.output_markdown) {
-      return splitMarkdownByH2(latestVersion.output_markdown).diagram;
-    }
-    return { status: "pending" as const, markdown: "" };
-  }, [isStreaming, stream.state.sectionStates, latestVersion]);
-
   // v0.5 — auto-iter countdown when the user just resolved the LAST
   // open assumption. Drops a 5 s warning banner with a Cancel button
   // before firing the next iteration so the senior-analyst loop
@@ -614,9 +598,6 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
             modelBadgeSlot={<ModelBadge meta={meta} />}
             elapsedTimerSlot={<ElapsedTimer meta={meta} />}
             hintSlot={<HintLine meta={meta} errorMessage={stream.state.errorMessage} />}
-            diagramSlot={
-              <DiagramPanel markdown={diagramSection.markdown} status={diagramSection.status} />
-            }
           />
         }
       />

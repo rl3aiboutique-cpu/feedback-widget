@@ -41,16 +41,14 @@ export function IterFocusShell({ sidebar, main, rail }: IterFocusShellProps): Re
           "grid-cols-1",
           "[grid-template-areas:'rail'_'sidebar'_'main']",
           // Mid: two columns (sidebar | main); rail spans top.
-          "@[60ch]/focus:grid-cols-[minmax(0,0.6fr)_minmax(0,2fr)]",
+          "@[60ch]/focus:grid-cols-[minmax(0,0.5fr)_minmax(0,2.6fr)]",
           "@[60ch]/focus:[grid-template-areas:'rail_rail'_'sidebar_main']",
-          // Wide: three columns. v0.5 tuning — second pass after
-          // user feedback ('el contexto es más importante'): rail
-          // becomes the dominant column because that's where the
-          // diagram + Contexto original live; main shrinks to a
-          // text-friendly size (spec already has max-width 75ch so
-          // it stays readable inside the smaller main). Sidebar
-          // stays narrow.
-          "@[100ch]/focus:grid-cols-[minmax(0,0.6fr)_minmax(0,1.4fr)_minmax(0,2fr)]",
+          // Wide: three columns. v0.5.1 tuning — diagram moved
+          // back into main (rendered inline after the Spec card),
+          // so the rail goes back to slim metadata-only and main
+          // becomes the spec hero column. Approximate share on a
+          // 1400px focus pane: 11% / 67% / 22%.
+          "@[100ch]/focus:grid-cols-[minmax(0,0.5fr)_minmax(0,3fr)_minmax(0,1fr)]",
           "@[100ch]/focus:grid-rows-1",
           "@[100ch]/focus:[grid-template-areas:'sidebar_main_rail']",
         ].join(" ")}

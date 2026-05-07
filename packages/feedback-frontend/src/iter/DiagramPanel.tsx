@@ -160,6 +160,12 @@ export function DiagramPanel({ markdown, status }: DiagramPanelProps): ReactElem
         >
           Pendiente…
         </div>
+      ) : status === "done" && !markdown.trim() ? (
+        // v0.5.1 — match SpecSectionCard's empty-done message so the
+        // green "listo" badge always corresponds to real content.
+        <div className="p-3 italic text-muted-foreground" style={{ fontSize: "0.7rem" }}>
+          Esta versión del spec no incluye un diagrama.
+        </div>
       ) : svg ? (
         <div
           ref={containerRef}

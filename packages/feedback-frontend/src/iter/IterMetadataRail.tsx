@@ -41,10 +41,6 @@ export interface IterMetadataRailProps {
   elapsedTimerSlot?: ReactNode;
   hintSlot?: ReactNode;
   toastLandingSlot?: ReactNode;
-  /** v0.5 — diagram lives in the rail (sticky / always visible)
-   * instead of as one of the spec stack's cards. Pre-built node so
-   * the rail stays presentation-only. */
-  diagramSlot?: ReactNode;
 }
 
 export function IterMetadataRail({
@@ -57,7 +53,6 @@ export function IterMetadataRail({
   elapsedTimerSlot,
   hintSlot,
   toastLandingSlot,
-  diagramSlot,
 }: IterMetadataRailProps): ReactElement {
   const showRoundBadge = roundCurrent !== null && roundMax !== null && roundMax > 0;
   return (
@@ -98,15 +93,10 @@ export function IterMetadataRail({
           model badge. */}
       {toastLandingSlot ? <div>{toastLandingSlot}</div> : null}
 
-      {/* v0.5 — diagram pinned at the top of the rail. Sticky so it
-          stays in viewport while the user scrolls the spec text in
-          the main column. The diagram is the visual anchor of the
-          spec; "always visible" was the user's hard requirement. */}
-      {diagramSlot ? (
-        <div className="sticky top-0 z-10 -mx-px bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-          {diagramSlot}
-        </div>
-      ) : null}
+      {/* v0.5.1 — diagram moved out of the rail and into the main
+          spec stack (rendered inline via DiagramPanel right after
+          the Spec card). The rail goes back to metadata-only:
+          model badge, elapsed timer, hint, Contexto. */}
 
       {/* Original-feedback collapsible. Lives in the rail so the main
           column gets full vertical real estate during streaming. */}

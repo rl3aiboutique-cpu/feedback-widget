@@ -21,6 +21,7 @@ Traefik) from idle-closing the connection during long generations.
 from __future__ import annotations
 
 import asyncio
+import re
 from collections.abc import AsyncIterator
 
 from .iter_schemas import (
@@ -91,18 +92,29 @@ def make_error(*, error_code: str, message: str) -> SSEEventError:
 # detector is a tiny stateful matcher rather than a Markdown parser
 # because the prompt fixes the section order and headings.
 
-_SECTION_HEADERS: dict[str, str] = {
-    "## Personas": "personas",
-    "## User Stories": "user_stories",
-    "## Spec": "spec",
-    "## Diagram": "diagram",
-    "## Assumptions": "assumptions",
+# v0.5.1 — heading matcher is now level-agnostic. The system prompt
+# in `iter_prompts/system_v1.py` actually emits H1 (`# Personas`) for
+# the four canonical sections, but the older comment in this file
+# claimed H2. Both header levels are now accepted (`#{1,6}\s+Name`)
+# so the parser tolerates the model's actual output and any prompt-
+# template tweak that swaps levels in the future. Case-insensitive
+# for safety. Trailing `\b` anchors each label so `Spec` doesn't
+# match `Specification` and so on.
+#
+# Assumptions is no longer matched: the prompt emits assumptions as
+# a JSON list, not as a markdown section, so the entry was always
+# dead weight that surfaced as an empty card on the frontend.
+_SECTION_PATTERNS: dict[str, re.Pattern[str]] = {
+    "personas": re.compile(r"^#{1,6}\s+Personas\b", re.IGNORECASE | re.MULTILINE),
+    "user_stories": re.compile(r"^#{1,6}\s+User\s+Stories\b", re.IGNORECASE | re.MULTILINE),
+    "spec": re.compile(r"^#{1,6}\s+Spec\b", re.IGNORECASE | re.MULTILINE),
+    "diagram": re.compile(r"^#{1,6}\s+Diagram\b", re.IGNORECASE | re.MULTILINE),
 }
 
 
 class SectionDetector:
-    """Emit a section name the first time its H2 heading appears in
-    the streaming text. Idempotent on re-feeds of the same content."""
+    """Emit a section name the first time its heading appears in the
+    streaming text. Idempotent on re-feeds of the same content."""
 
     def __init__(self) -> None:
         self._seen: set[str] = set()
@@ -113,10 +125,10 @@ class SectionDetector:
         chunk relative to everything seen before."""
         self._buffer += chunk
         newly: list[str] = []
-        for header, name in _SECTION_HEADERS.items():
+        for name, pattern in _SECTION_PATTERNS.items():
             if name in self._seen:
                 continue
-            if header in self._buffer:
+            if pattern.search(self._buffer):
                 self._seen.add(name)
                 newly.append(name)
         return newly

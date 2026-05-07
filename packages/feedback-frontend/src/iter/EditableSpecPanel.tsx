@@ -18,6 +18,7 @@ import { type ReactElement, useMemo, useState } from "react";
 
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { DiagramPanel } from "./DiagramPanel";
 import { SpecSectionCard } from "./SpecSectionCard";
 import { type IterStreamSection, RenderedMarkdown, StreamingSkeleton } from "./markdownView";
 import { SPEC_SECTION_ORDER, type SpecSectionStates, splitMarkdownByH2 } from "./specSectionState";
@@ -171,15 +172,24 @@ function _renderSectionCards(
   hidden: ReadonlySet<keyof SpecSectionStates>,
 ): ReactElement {
   return (
-    <div className="flex flex-1 flex-col gap-2">
-      {SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map((key) => (
-        <SpecSectionCard
-          key={key}
-          sectionKey={key}
-          status={states[key].status}
-          markdown={states[key].markdown}
-        />
-      ))}
+    <div className="flex flex-1 flex-col gap-3">
+      {SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map((key) =>
+        // v0.5.1 — diagram is rendered as a Mermaid SVG inline,
+        // right after the Spec card. Other sections render as
+        // markdown cards. Keeping diagram in the spec stack (vs
+        // floating it to the rail) means the user reads the spec
+        // text top-down and arrives at the diagram in context.
+        key === "diagram" ? (
+          <DiagramPanel key={key} status={states[key].status} markdown={states[key].markdown} />
+        ) : (
+          <SpecSectionCard
+            key={key}
+            sectionKey={key}
+            status={states[key].status}
+            markdown={states[key].markdown}
+          />
+        ),
+      )}
     </div>
   );
 }

@@ -128,23 +128,28 @@ export function useIterRunStream(
 function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
   switch (ev.type) {
     case "token": {
-      // v0.5 (Block B) — append the chunk to both the cumulative
-      // markdown buffer (used by the editor / past renderer) AND to
-      // the active section's bucket so the SpecSectionCard renders
-      // its body progressively. If no section event has fired yet
-      // (rare — the prompt's first line is `## Personas`), the
-      // chunk lands only in `partialMarkdown` and is invisible to
-      // the section cards until the first H2 boundary.
+      // v0.5 (Block B / B-fix) — append the chunk to both the
+      // cumulative markdown buffer (used by the editor / past
+      // renderer) AND to the active section's bucket so the
+      // SpecSectionCard renders its body progressively. If no
+      // section event has fired yet (e.g. preamble bytes before
+      // the first `# Personas`), the chunk lands only in
+      // `partialMarkdown` and is invisible to the section cards
+      // until the first heading boundary.
+      // v0.5.1: guard the `cur.activeSection` lookup — Assumptions
+      // is no longer in SPEC_SECTION_ORDER, but historical SSE
+      // streams may still set `activeSection` to "assumptions".
       const next: IterStreamState = {
         ...cur,
         partialMarkdown: cur.partialMarkdown + ev.chunk,
       };
       const active = cur.activeSection;
-      if (active) {
-        const prevEntry = cur.sectionStates[active];
+      if (active && (SPEC_SECTION_ORDER as readonly string[]).includes(active)) {
+        const key = active as SpecSectionKey;
+        const prevEntry = cur.sectionStates[key];
         next.sectionStates = {
           ...cur.sectionStates,
-          [active]: {
+          [key]: {
             status: "streaming",
             markdown: prevEntry.markdown + ev.chunk,
           },
@@ -156,10 +161,19 @@ function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
       // Flip the previously-active section to `done`, the new one to
       // `streaming`. Sections that never streamed stay `pending`
       // until a later `section`/`done` event reaches them.
+      // v0.5.1: Assumptions is no longer a tracked section (prompt
+      // emits assumptions as JSON, not MD). If the backend or an
+      // older session sends `section: "assumptions"`, ignore it.
+      if (!(SPEC_SECTION_ORDER as readonly string[]).includes(ev.section)) {
+        return cur;
+      }
       const incoming = ev.section as SpecSectionKey;
       const nextStates: SpecSectionStates = { ...cur.sectionStates };
-      if (cur.activeSection) {
-        const prev = cur.activeSection;
+      if (
+        cur.activeSection &&
+        (SPEC_SECTION_ORDER as readonly string[]).includes(cur.activeSection)
+      ) {
+        const prev = cur.activeSection as SpecSectionKey;
         nextStates[prev] = {
           status: "done",
           markdown: cur.sectionStates[prev].markdown,

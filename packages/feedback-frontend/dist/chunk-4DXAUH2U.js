@@ -229,48 +229,37 @@ function AssumptionCard({ assumption, onResolve, onSkip, disabled }) {
 import { useCallback, useRef, useState as useState2 } from "react";
 
 // src/iter/specSectionState.ts
-var SPEC_SECTION_ORDER = [
-  "personas",
-  "user_stories",
-  "spec",
-  "diagram",
-  "assumptions"
-];
-var SECTION_H2_PREFIX = {
-  personas: "## Personas",
-  user_stories: "## User Stories",
-  spec: "## Spec",
-  diagram: "## Diagram",
-  assumptions: "## Assumptions"
+var SPEC_SECTION_ORDER = ["personas", "user_stories", "spec", "diagram"];
+var SECTION_PATTERN = {
+  personas: /^#{1,6}\s+Personas\b/i,
+  user_stories: /^#{1,6}\s+User\s+Stories\b/i,
+  spec: /^#{1,6}\s+Spec\b/i,
+  diagram: /^#{1,6}\s+Diagram\b/i
 };
 var SECTION_LABEL = {
   personas: "Personas",
   user_stories: "User Stories",
   spec: "Spec",
-  diagram: "Diagram",
-  assumptions: "Assumptions"
+  diagram: "Diagram"
 };
 var SECTION_SKELETON_HEIGHT_EM = {
   personas: 8,
   user_stories: 14,
   spec: 24,
-  diagram: 6,
-  assumptions: 12
+  diagram: 6
 };
 var _INITIAL_SECTION_STATES = {
   personas: { status: "pending", markdown: "" },
   user_stories: { status: "pending", markdown: "" },
   spec: { status: "pending", markdown: "" },
-  diagram: { status: "pending", markdown: "" },
-  assumptions: { status: "pending", markdown: "" }
+  diagram: { status: "pending", markdown: "" }
 };
 function splitMarkdownByH2(markdown) {
   const out = {
     personas: { status: "done", markdown: "" },
     user_stories: { status: "done", markdown: "" },
     spec: { status: "done", markdown: "" },
-    diagram: { status: "done", markdown: "" },
-    assumptions: { status: "done", markdown: "" }
+    diagram: { status: "done", markdown: "" }
   };
   if (!markdown.trim()) return out;
   const lines = markdown.split("\n");
@@ -279,7 +268,8 @@ function splitMarkdownByH2(markdown) {
     const line = lines[li];
     if (!line) continue;
     for (const key of SPEC_SECTION_ORDER) {
-      if (line.startsWith(SECTION_H2_PREFIX[key]) && sectionStart[key] === void 0) {
+      if (sectionStart[key] !== void 0) continue;
+      if (SECTION_PATTERN[key].test(line)) {
         sectionStart[key] = li;
       }
     }
@@ -375,11 +365,12 @@ function _reduce(cur, ev) {
         partialMarkdown: cur.partialMarkdown + ev.chunk
       };
       const active = cur.activeSection;
-      if (active) {
-        const prevEntry = cur.sectionStates[active];
+      if (active && SPEC_SECTION_ORDER.includes(active)) {
+        const key = active;
+        const prevEntry = cur.sectionStates[key];
         next.sectionStates = {
           ...cur.sectionStates,
-          [active]: {
+          [key]: {
             status: "streaming",
             markdown: prevEntry.markdown + ev.chunk
           }
@@ -388,9 +379,12 @@ function _reduce(cur, ev) {
       return next;
     }
     case "section": {
+      if (!SPEC_SECTION_ORDER.includes(ev.section)) {
+        return cur;
+      }
       const incoming = ev.section;
       const nextStates = { ...cur.sectionStates };
-      if (cur.activeSection) {
+      if (cur.activeSection && SPEC_SECTION_ORDER.includes(cur.activeSection)) {
         const prev = cur.activeSection;
         nextStates[prev] = {
           status: "done",
@@ -608,19 +602,177 @@ function modelLatencyHint(modelId) {
 
 // src/iter/EditableSpecPanel.tsx
 import { Pencil, Save, X } from "lucide-react";
-import { useMemo, useState as useState4 } from "react";
+import { useMemo, useState as useState5 } from "react";
+
+// src/iter/DiagramPanel.tsx
+import { Check, Loader2 as Loader22 } from "lucide-react";
+import { useEffect as useEffect2, useRef as useRef3, useState as useState4 } from "react";
+import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+var _MERMAID_FENCE_RE = /```mermaid\s*\n([\s\S]*?)```/;
+function _extractMermaidSource(markdown) {
+  const m = _MERMAID_FENCE_RE.exec(markdown);
+  return m ? m[1]?.trim() ?? null : null;
+}
+var _mermaidInitPromise = null;
+function _loadMermaid() {
+  if (_mermaidInitPromise) return _mermaidInitPromise;
+  _mermaidInitPromise = import("mermaid").then((mod) => {
+    const m = mod.default;
+    m.initialize({
+      startOnLoad: false,
+      theme: "default",
+      logLevel: "fatal",
+      securityLevel: "strict"
+    });
+    return m;
+  });
+  return _mermaidInitPromise;
+}
+var _mermaidRenderId = 0;
+function DiagramPanel({ markdown, status }) {
+  const [svg, setSvg] = useState4(null);
+  const [renderError, setRenderError] = useState4(null);
+  const containerRef = useRef3(null);
+  const source = _extractMermaidSource(markdown);
+  const shouldRender = status === "done" || source !== null;
+  useEffect2(() => {
+    if (!shouldRender || !source) {
+      setSvg(null);
+      setRenderError(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const mermaid = await _loadMermaid();
+        const id = `iter-diagram-${++_mermaidRenderId}`;
+        const { svg: rendered } = await mermaid.render(id, source);
+        if (cancelled) return;
+        setSvg(rendered);
+        setRenderError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setSvg(null);
+        setRenderError(err instanceof Error ? err.message : String(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [shouldRender, source]);
+  useEffect2(() => {
+    if (!containerRef.current) return;
+    if (svg) {
+      const range = document.createRange();
+      range.selectNodeContents(containerRef.current);
+      const fragment = range.createContextualFragment(svg);
+      containerRef.current.replaceChildren(fragment);
+    } else {
+      containerRef.current.replaceChildren();
+    }
+  }, [svg]);
+  const headerStripCls = status === "done" ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-900/10" : status === "streaming" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/30";
+  return /* @__PURE__ */ jsxs3(
+    "section",
+    {
+      "aria-label": "Diagrama",
+      className: [
+        "rounded-md border transition-colors",
+        status === "done" ? "border-emerald-200 dark:border-emerald-900/40" : status === "streaming" ? "border-primary/30" : "border-input"
+      ].join(" "),
+      children: [
+        /* @__PURE__ */ jsxs3(
+          "header",
+          {
+            className: `flex items-center gap-2 rounded-t-md border-b px-3 py-1.5 ${headerStripCls}`,
+            children: [
+              /* @__PURE__ */ jsx3(
+                "h2",
+                {
+                  className: "font-semibold tracking-tight",
+                  style: { fontSize: "clamp(0.85rem, 0.78rem + 0.3cqi, 1rem)" },
+                  children: "Diagrama"
+                }
+              ),
+              status === "streaming" ? /* @__PURE__ */ jsxs3(
+                "span",
+                {
+                  className: "flex items-center gap-1 text-primary",
+                  style: { fontSize: "0.65rem" },
+                  "aria-live": "polite",
+                  children: [
+                    /* @__PURE__ */ jsx3(Loader22, { className: "h-3 w-3 animate-spin" }),
+                    "dibujando\u2026"
+                  ]
+                }
+              ) : null,
+              status === "done" ? /* @__PURE__ */ jsxs3(
+                "span",
+                {
+                  className: "flex items-center gap-1 text-emerald-700 dark:text-emerald-300",
+                  style: { fontSize: "0.65rem" },
+                  children: [
+                    /* @__PURE__ */ jsx3(Check, { className: "h-3 w-3" }),
+                    "listo"
+                  ]
+                }
+              ) : null
+            ]
+          }
+        ),
+        status === "pending" ? /* @__PURE__ */ jsx3(
+          "div",
+          {
+            "aria-hidden": "true",
+            className: "flex items-center justify-center p-6 text-muted-foreground",
+            style: { minHeight: "10em", fontSize: "0.7rem" },
+            children: "Pendiente\u2026"
+          }
+        ) : status === "done" && !markdown.trim() ? (
+          // v0.5.1 — match SpecSectionCard's empty-done message so the
+          // green "listo" badge always corresponds to real content.
+          /* @__PURE__ */ jsx3("div", { className: "p-3 italic text-muted-foreground", style: { fontSize: "0.7rem" }, children: "Esta versi\xF3n del spec no incluye un diagrama." })
+        ) : svg ? /* @__PURE__ */ jsx3(
+          "div",
+          {
+            ref: containerRef,
+            className: "p-3 [&_svg]:w-full [&_svg]:h-auto [&_svg]:max-w-full",
+            style: { minHeight: "8em" }
+          }
+        ) : renderError ? /* @__PURE__ */ jsxs3("div", { className: "p-3 space-y-2", children: [
+          /* @__PURE__ */ jsx3("p", { className: "text-muted-foreground", style: { fontSize: "0.65rem" }, children: "No se pudo renderizar el diagrama (sintaxis Mermaid inv\xE1lida); aqu\xED est\xE1 el c\xF3digo." }),
+          /* @__PURE__ */ jsx3(
+            "pre",
+            {
+              className: "overflow-x-auto rounded border border-input bg-muted/40 p-2 font-mono text-foreground/90",
+              style: { fontSize: "0.7rem" },
+              children: source ?? markdown.replace(/^## Diagram\s*/, "").trim()
+            }
+          )
+        ] }) : /* @__PURE__ */ jsx3(
+          "div",
+          {
+            className: "flex items-center justify-center p-6 text-muted-foreground",
+            style: { minHeight: "8em", fontSize: "0.7rem" },
+            children: "Esperando contenido\u2026"
+          }
+        )
+      ]
+    }
+  );
+}
 
 // src/iter/SpecSectionCard.tsx
-import { Check, Loader2 as Loader22 } from "lucide-react";
-import { useEffect as useEffect2, useRef as useRef3 } from "react";
-import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+import { Check as Check2, Loader2 as Loader23 } from "lucide-react";
+import { useEffect as useEffect3, useRef as useRef4 } from "react";
+import { jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
 function SpecSectionCard({
   sectionKey,
   status,
   markdown
 }) {
-  const bodyRef = useRef3(null);
-  useEffect2(() => {
+  const bodyRef = useRef4(null);
+  useEffect3(() => {
     let cancelled = false;
     if (status === "pending") return;
     const el = bodyRef.current;
@@ -645,7 +797,7 @@ function SpecSectionCard({
     "rounded-md border transition-colors",
     status === "done" ? "border-emerald-200 dark:border-emerald-900/40" : status === "streaming" ? "border-primary/30" : "border-input"
   ].join(" ");
-  return /* @__PURE__ */ jsxs3(
+  return /* @__PURE__ */ jsxs4(
     "section",
     {
       "aria-label": label,
@@ -654,12 +806,12 @@ function SpecSectionCard({
       className: cardCls,
       style: { minHeight: `${minHeightEm}em` },
       children: [
-        /* @__PURE__ */ jsxs3(
+        /* @__PURE__ */ jsxs4(
           "header",
           {
             className: `sticky top-0 z-[1] flex items-center gap-2 rounded-t-md border-b px-3 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-opacity-90 ${headerStripCls}`,
             children: [
-              /* @__PURE__ */ jsx3(
+              /* @__PURE__ */ jsx4(
                 "h2",
                 {
                   className: "font-semibold tracking-tight",
@@ -667,25 +819,25 @@ function SpecSectionCard({
                   children: label
                 }
               ),
-              status === "streaming" ? /* @__PURE__ */ jsxs3(
+              status === "streaming" ? /* @__PURE__ */ jsxs4(
                 "span",
                 {
                   className: "flex items-center gap-1 text-primary",
                   style: { fontSize: "0.65rem" },
                   "aria-live": "polite",
                   children: [
-                    /* @__PURE__ */ jsx3(Loader22, { className: "h-3 w-3 animate-spin" }),
+                    /* @__PURE__ */ jsx4(Loader23, { className: "h-3 w-3 animate-spin" }),
                     "escribiendo\u2026"
                   ]
                 }
               ) : null,
-              status === "done" ? /* @__PURE__ */ jsxs3(
+              status === "done" ? /* @__PURE__ */ jsxs4(
                 "span",
                 {
                   className: "flex items-center gap-1 text-emerald-700 dark:text-emerald-300",
                   style: { fontSize: "0.65rem" },
                   children: [
-                    /* @__PURE__ */ jsx3(Check, { className: "h-3 w-3" }),
+                    /* @__PURE__ */ jsx4(Check2, { className: "h-3 w-3" }),
                     "listo"
                   ]
                 }
@@ -693,20 +845,27 @@ function SpecSectionCard({
             ]
           }
         ),
-        status === "pending" ? /* @__PURE__ */ jsxs3(
+        status === "pending" ? /* @__PURE__ */ jsxs4(
           "div",
           {
             "aria-hidden": "true",
             className: "space-y-2 p-3",
             style: { minHeight: `${Math.max(minHeightEm - 2, 4)}em` },
             children: [
-              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[85%] rounded bg-muted" }),
-              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[70%] rounded bg-muted" }),
-              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[92%] rounded bg-muted" }),
-              /* @__PURE__ */ jsx3("div", { className: "h-3 w-[60%] rounded bg-muted" })
+              /* @__PURE__ */ jsx4("div", { className: "h-3 w-[85%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx4("div", { className: "h-3 w-[70%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx4("div", { className: "h-3 w-[92%] rounded bg-muted" }),
+              /* @__PURE__ */ jsx4("div", { className: "h-3 w-[60%] rounded bg-muted" })
             ]
           }
-        ) : /* @__PURE__ */ jsx3(
+        ) : status === "done" && !markdown.trim() ? (
+          // v0.5.1 — never claim "listo" with empty content. NN/G H1
+          // (Visibility of System Status) — the status badge must
+          // accurately describe what's there. If the model finished
+          // and produced no text for this section, say so explicitly
+          // instead of leaving an empty card under a green badge.
+          /* @__PURE__ */ jsx4("div", { className: "p-3 italic text-muted-foreground", style: { fontSize: "0.7rem" }, children: "Esta versi\xF3n del spec no incluye contenido para esta secci\xF3n." })
+        ) : /* @__PURE__ */ jsx4(
           "article",
           {
             ref: bodyRef,
@@ -738,12 +897,12 @@ function SpecSectionCard({
 }
 
 // src/iter/EditableSpecPanel.tsx
-import { Fragment, jsx as jsx4, jsxs as jsxs4 } from "react/jsx-runtime";
+import { Fragment, jsx as jsx5, jsxs as jsxs5 } from "react/jsx-runtime";
 var _DEFAULT_TEXTAREA_MIN_H = "min-h-[28rem]";
 var _DEFAULT_EMPTY_MSG = 'Press "Generate first version" or run an iteration to populate the working document.';
 function EditableSpecPanel(props) {
-  const [editing, setEditing] = useState4(false);
-  const [draft, setDraft] = useState4("");
+  const [editing, setEditing] = useState5(false);
+  const [draft, setDraft] = useState5("");
   const startEditing = () => {
     setDraft(props.markdown);
     setEditing(true);
@@ -770,7 +929,7 @@ function EditableSpecPanel(props) {
     if (props.sectionStates) {
       return _renderSectionCards(props.sectionStates, hidden);
     }
-    return /* @__PURE__ */ jsx4(
+    return /* @__PURE__ */ jsx5(
       StreamingSkeleton,
       {
         activeSection: props.activeSection,
@@ -781,27 +940,27 @@ function EditableSpecPanel(props) {
     );
   }
   if (!props.markdown) {
-    return /* @__PURE__ */ jsx4("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: props.emptyStateMessage ?? _DEFAULT_EMPTY_MSG });
+    return /* @__PURE__ */ jsx5("div", { className: "flex-1 rounded border bg-card p-6 text-center text-sm text-muted-foreground", children: props.emptyStateMessage ?? _DEFAULT_EMPTY_MSG });
   }
   const textareaMinH = props.textareaMinHeightClass ?? _DEFAULT_TEXTAREA_MIN_H;
-  return /* @__PURE__ */ jsxs4("div", { className: "flex flex-1 flex-col", children: [
-    /* @__PURE__ */ jsxs4("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
-      !editing && props.editable && /* @__PURE__ */ jsxs4(Button, { size: "sm", variant: "outline", onClick: startEditing, title: "Editar el documento", children: [
-        /* @__PURE__ */ jsx4(Pencil, { className: "h-3 w-3" }),
+  return /* @__PURE__ */ jsxs5("div", { className: "flex flex-1 flex-col", children: [
+    /* @__PURE__ */ jsxs5("div", { className: "mb-2 flex items-center justify-end gap-2", children: [
+      !editing && props.editable && /* @__PURE__ */ jsxs5(Button, { size: "sm", variant: "outline", onClick: startEditing, title: "Editar el documento", children: [
+        /* @__PURE__ */ jsx5(Pencil, { className: "h-3 w-3" }),
         " Editar"
       ] }),
-      editing && /* @__PURE__ */ jsxs4(Fragment, { children: [
-        /* @__PURE__ */ jsxs4(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
-          /* @__PURE__ */ jsx4(X, { className: "h-3 w-3" }),
+      editing && /* @__PURE__ */ jsxs5(Fragment, { children: [
+        /* @__PURE__ */ jsxs5(Button, { size: "sm", variant: "outline", onClick: cancelEditing, disabled: props.saving, children: [
+          /* @__PURE__ */ jsx5(X, { className: "h-3 w-3" }),
           " Cancelar"
         ] }),
-        /* @__PURE__ */ jsxs4(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
-          /* @__PURE__ */ jsx4(Save, { className: "h-3 w-3" }),
+        /* @__PURE__ */ jsxs5(Button, { size: "sm", onClick: save, disabled: props.saving || !draft.trim(), children: [
+          /* @__PURE__ */ jsx5(Save, { className: "h-3 w-3" }),
           props.saving ? "Guardando\u2026" : "Guardar"
         ] })
       ] })
     ] }),
-    editing ? /* @__PURE__ */ jsx4(
+    editing ? /* @__PURE__ */ jsx5(
       Textarea,
       {
         value: draft,
@@ -809,26 +968,34 @@ function EditableSpecPanel(props) {
         rows: 28,
         className: `flex-1 ${textareaMinH} font-mono text-xs`
       }
-    ) : derivedSectionStates ? _renderSectionCards(derivedSectionStates, hidden) : /* @__PURE__ */ jsx4(RenderedMarkdown, { markdown: props.markdown })
+    ) : derivedSectionStates ? _renderSectionCards(derivedSectionStates, hidden) : /* @__PURE__ */ jsx5(RenderedMarkdown, { markdown: props.markdown })
   ] });
 }
 function _renderSectionCards(states, hidden) {
-  return /* @__PURE__ */ jsx4("div", { className: "flex flex-1 flex-col gap-2", children: SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map((key) => /* @__PURE__ */ jsx4(
-    SpecSectionCard,
-    {
-      sectionKey: key,
-      status: states[key].status,
-      markdown: states[key].markdown
-    },
-    key
-  )) });
+  return /* @__PURE__ */ jsx5("div", { className: "flex flex-1 flex-col gap-3", children: SPEC_SECTION_ORDER.filter((k) => !hidden.has(k)).map(
+    (key) => (
+      // v0.5.1 — diagram is rendered as a Mermaid SVG inline,
+      // right after the Spec card. Other sections render as
+      // markdown cards. Keeping diagram in the spec stack (vs
+      // floating it to the rail) means the user reads the spec
+      // text top-down and arrives at the diagram in context.
+      key === "diagram" ? /* @__PURE__ */ jsx5(DiagramPanel, { status: states[key].status, markdown: states[key].markdown }, key) : /* @__PURE__ */ jsx5(
+        SpecSectionCard,
+        {
+          sectionKey: key,
+          status: states[key].status,
+          markdown: states[key].markdown
+        },
+        key
+      )
+    )
+  ) });
 }
 
 export {
   AssumptionCard,
-  splitMarkdownByH2,
   useIterRunStream,
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-W7RZSDVX.js.map
+//# sourceMappingURL=chunk-4DXAUH2U.js.map
