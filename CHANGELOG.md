@@ -7,6 +7,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.2] — 2026-05-07
+
+Patch on top of v0.4.1 driven by three independent subagent reviews
+(code review, silent-failure hunt, UX evaluation) plus a real
+browser test against capellai-ai-crm. Fixes findings in priority
+order: crash risks → data correctness → UX papercuts.
+
+### Fixed
+
+- **`bundle.py` iter section** now wraps each render step (session
+  lookup, artifact render, summary count) in its own try/except
+  with `logger.exception` + a flagged `iter/STATUS.md` marker.
+  Previously a transient DB blip on the iter side could 500 the
+  ENTIRE bundle including the feedback half. Each section now
+  fails independently and visibly.
+- **`bundle.py` assumption-count for ITERATING sessions** —
+  `iter_session.current_iteration_id` can legitimately be None
+  during a race; queries now resolve "latest version id" from the
+  version table directly. Replaced the
+  `select(...).scalars().all().__len__()` count idiom with
+  `select(func.count())`.
+- **`gemini.py` retry loops** now re-raise `asyncio.CancelledError`
+  before catching `BaseException`. SSE disconnects now propagate
+  cleanly through structured concurrency instead of being wrapped
+  as fatal LLM errors. Mid-stream errors get a `logger.warning`
+  before being raised so ops sees the abort.
+- **`gemini.py:_resolve_model` error message** referenced the
+  non-existent `gemma-4-26b-a4b-it`; now suggests
+  `gemini-flash-lite-latest` + `gemini-flash-latest` as fallback,
+  matching the v0.4.1 default chain.
+- **`forbiddenWords.ts` empty-list guard** — `_buildRegex([])`
+  used to produce a `(?:)` regex that matched at every boundary,
+  silently hiding every assumption. Now returns a never-matching
+  regex; pathological inputs caught with try/catch and the same
+  safe fallback.
+
+### Changed (UX papercuts)
+
+- **`forbiddenWords.ts` list tightened** from ~80 words to ~30 by
+  dropping ambiguous tokens (state, index, join, action, service,
+  controller, hook, ref, prop, build, deploy, package, library,
+  module, queue, image, streaming, polling, etc.) that have
+  legitimate non-technical meanings. The server-side scrubber
+  stays as the broader enforcement layer; the frontend filter is
+  defense-in-depth and shouldn't false-positive on plain English.
+- **`IterFocusView` no longer auto-exits on `finalized`** — the
+  package download CTA now persists in a sticky emerald banner
+  inside the focus pane until the user explicitly clicks
+  "← Volver". 1.2s wasn't enough time to read + click; was the
+  biggest UX risk surfaced in review.
+- **`IterFocusView` Resueltas rail closed by default** with a
+  pill-badge count instead of always-open. During deep work the
+  open ✅ list competed with the focused question.
+- **`IterContextPanel` force-opens on first session entry**
+  (`!sess?.current_iteration_id`) so the user sees their
+  screenshot at least once before it tucks itself away.
+- **`IterFocusView` redundant Close button removed.** Header
+  "← Volver" is the single exit semantic ("I'm leaving this view,
+  my work stays running"); footer "Abandon" is the explicit kill.
+  Two buttons doing the same thing made non-technical users worry
+  Close was destructive.
+- **`IterFocusView` session GET errors surface as a destructive
+  banner** instead of a silent permanent loading state.
+- **`FeedbackPanel` focus width** capped at 720px on `lg`
+  (1024–1279px) so the host has 304px+ for the element picker;
+  only expands to 800px on `xl` (≥1280px).
+
 ## [0.4.1] — 2026-05-07
 
 Patch — focus mode for iter, real retry on streaming, comprehensive

@@ -38,8 +38,12 @@ interface FeedbackPanelProps {
   onScreenshotCaptured?: (shot: ScreenshotResult | null) => void;
 }
 
+// v0.4.2 — at lg (1024px viewport) the previous 800px focus width
+// left only 224px for the host, killing the element-picker promise.
+// Cap at 720px on lg (host gets 304px) and only push to 800px on
+// xl (≥1280px viewport, host gets 480px+).
 const _FEED_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-[560px]";
-const _FOCUS_WIDTH = "w-full sm:max-w-lg md:max-w-2xl lg:max-w-[800px] xl:max-w-[800px]";
+const _FOCUS_WIDTH = "w-full sm:max-w-lg md:max-w-2xl lg:max-w-[720px] xl:max-w-[800px]";
 
 export function FeedbackPanel({
   open,

@@ -20,8 +20,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, X } from "lucide-react";
-import { type ReactElement, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { type ReactElement, useEffect, useMemo, useRef, useState } from "react";
 
 import { useFeedbackBindings } from "../FeedbackProvider";
 import { useMyFeedbackQuery } from "../adapter";
@@ -138,15 +138,25 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
 
   // Auto-exit focus when the session reaches a terminal state.
   const status = session.data?.status ?? "loading";
+  // Auto-exit on `abandoned` — user explicitly killed the session,
+  // dropping them back to the feed avoids a dead screen. For
+  // `finalized` we deliberately keep the user in focus so the
+  // package download CTA stays visible (1.2s wasn't enough time to
+  // read + click; surfaced as the biggest UX risk in the v0.4.1
+  // review). The user clicks "← Volver" when ready.
+  // ``onExit`` is captured via a ref so re-renders of the parent
+  // don't reset the abandoned-exit timeout.
+  const onExitRef = useRef(onExit);
   useEffect(() => {
-    if (status === "finalized" || status === "abandoned") {
-      // Tiny delay so the user sees the package download / abandon
-      // confirmation before bouncing out of focus mode.
-      const id = window.setTimeout(() => onExit(), 1200);
+    onExitRef.current = onExit;
+  }, [onExit]);
+  useEffect(() => {
+    if (status === "abandoned") {
+      const id = window.setTimeout(() => onExitRef.current(), 1200);
       return () => window.clearTimeout(id);
     }
     return undefined;
-  }, [status, onExit]);
+  }, [status]);
 
   // Defense-in-depth: hide any assumption whose text matches a
   // forbidden word the scrubber might have missed. Soft-fail with
@@ -229,8 +239,19 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         ) : null}
       </header>
 
-      {/* Original-context disclosure */}
-      <IterContextPanel feedback={feedback} />
+      {/* Surface session/version/assumption fetch failures explicitly
+          so the user doesn't sit on a blank loading state forever. */}
+      {session.error ? (
+        <div className="rounded border border-destructive/60 bg-destructive/10 p-2 text-[11px] text-destructive">
+          <strong className="font-semibold">Couldn't load this session.</strong>{" "}
+          {String((session.error as { message?: string }).message ?? session.error)}
+        </div>
+      ) : null}
+
+      {/* Original-context disclosure — force-open on the very first
+          entry to a session so the user sees their screenshot at
+          least once before it tucks itself away. */}
+      <IterContextPanel feedback={feedback} defaultOpen={!sess?.current_iteration_id} />
 
       {isComplete && sess?.completion_reason ? (
         <p className="rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900">
@@ -299,11 +320,17 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
           </div>
         </div>
 
-        {/* Right: resolved-assumptions rail */}
+        {/* Right: resolved-assumptions rail. Closed by default —
+            during deep iter work the open ✅ list competes with the
+            focused question for attention. The badge keeps the count
+            visible so the user knows progress is being tracked. */}
         <aside className="lg:w-60 lg:shrink-0">
-          <details className="rounded-md border border-input bg-card text-xs lg:open" open>
-            <summary className="cursor-pointer px-2 py-1.5 font-medium select-none">
-              Resueltas ({otherAssumptions.length})
+          <details className="rounded-md border border-input bg-card text-xs">
+            <summary className="cursor-pointer px-2 py-1.5 font-medium select-none flex items-center gap-2">
+              <span>Resueltas</span>
+              <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900">
+                {otherAssumptions.length}
+              </span>
             </summary>
             <div className="border-t border-input p-2 space-y-2 max-h-72 overflow-auto">
               {otherAssumptions.length === 0 ? (
@@ -340,13 +367,19 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
       ) : null}
 
       {status === "finalized" && pkgQuery.data?.presigned_zip_url ? (
-        <a
-          href={pkgQuery.data.presigned_zip_url}
-          download
-          className="inline-block text-primary underline text-xs"
-        >
-          Download package ZIP
-        </a>
+        <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900 space-y-2">
+          <p className="font-semibold">Spec finalized — your package is ready.</p>
+          <a
+            href={pkgQuery.data.presigned_zip_url}
+            download
+            className="inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 text-white text-[11px] font-semibold hover:bg-emerald-700"
+          >
+            ⬇ Download package ZIP
+          </a>
+          <p className="text-[10px] text-emerald-800/80">
+            You can also re-download anytime from the ticket card after returning to the feed.
+          </p>
+        </div>
       ) : null}
 
       {/* Footer controls */}
@@ -399,19 +432,16 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
               variant="ghost"
               onClick={() => abandonMutation.mutate()}
               disabled={abandonMutation.isPending || isStreaming}
-              className="text-muted-foreground"
+              className="ml-auto text-muted-foreground"
+              title="Discard this iter session permanently"
             >
               Abandon
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onExit}
-              className="ml-auto text-muted-foreground"
-              title="Exit focus mode (the iter session keeps running in the background)"
-            >
-              <X className="h-3.5 w-3.5" /> Close
-            </Button>
+            {/* Note: there's no Close button here on purpose. "← Volver"
+                in the header is the single exit semantic — the iter
+                session stays alive in the background; "Abandon" is
+                the explicit kill. Keeping both made non-technical
+                users worry that "Close" was destructive. */}
           </div>
         </footer>
       ) : null}

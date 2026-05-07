@@ -53,7 +53,7 @@ import { useState as useState7 } from "react";
 
 // src/Canvas.tsx
 import { ChevronDown as ChevronDown2, ChevronUp, Sparkles as Sparkles2 } from "lucide-react";
-import { useCallback, useEffect as useEffect5, useRef as useRef2, useState as useState6 } from "react";
+import { useCallback, useEffect as useEffect5, useRef as useRef3, useState as useState6 } from "react";
 
 // src/Compose.tsx
 import { Send, Sparkles } from "lucide-react";
@@ -852,40 +852,21 @@ import { useMemo as useMemo3, useState as useState3 } from "react";
 var defaultForbiddenWords = [
   // Networking / API
   "endpoint",
-  "api",
-  "async",
   "asynchronous",
   "synchronous",
   "backend",
   "frontend",
   "middleware",
   "webhook",
-  "callback",
-  "listener",
-  "observer",
-  "subscriber",
-  "dispatcher",
   "websocket",
-  "polling",
-  "streaming",
-  "sse",
   "grpc",
-  "http",
-  "rest",
   // Caching / perf
-  "cache",
   "debounce",
   "throttle",
   "ttl",
-  "latency",
-  "throughput",
-  "bandwidth",
-  "payload",
   "gzip",
-  "encoding",
-  "parsing",
-  "serialization",
   "deserialization",
+  "serialization",
   // Auth / security
   "jwt",
   "oauth",
@@ -896,7 +877,6 @@ var defaultForbiddenWords = [
   "json",
   "yaml",
   "schema",
-  "database",
   "migration",
   "foreign key",
   "sql",
@@ -905,47 +885,34 @@ var defaultForbiddenWords = [
   // Concurrency
   "race condition",
   "mutex",
-  "queue",
-  "thread",
-  "promise",
   "coroutine",
   "event loop",
   // Frontend internals
   "dom",
-  "css",
-  "html",
   "query selector",
-  "lifecycle",
   "hydration",
   "ssr",
   "csr",
-  "prop",
-  "hook",
-  "ref",
   // Build / deploy
-  "dependency",
-  "package",
-  "library",
-  "module",
   "config file",
   "env var",
   "environment variable",
-  "build",
-  "bundle",
-  "deploy",
-  "ci",
-  "cd",
-  "pipeline",
-  "container",
+  "ci/cd",
   "kernel",
   "syscall"
 ];
 var _cachedRegex = null;
 var _cachedKey = null;
+var _NEVER_MATCHES = /a^/;
 function _buildRegex(words) {
   const sorted = [...words].filter((w) => w?.trim()).map((w) => w.trim().toLowerCase()).sort((a, b) => b.length - a.length);
+  if (sorted.length === 0) return _NEVER_MATCHES;
   const escaped = sorted.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(`(?<![A-Za-z0-9])(?:${escaped.join("|")})(?![A-Za-z0-9])`, "i");
+  try {
+    return new RegExp(`(?<![A-Za-z0-9])(?:${escaped.join("|")})(?![A-Za-z0-9])`, "i");
+  } catch {
+    return _NEVER_MATCHES;
+  }
 }
 function containsForbidden(text, words) {
   if (!text || words.length === 0) return false;
@@ -954,7 +921,11 @@ function containsForbidden(text, words) {
     _cachedRegex = _buildRegex(words);
     _cachedKey = key;
   }
-  return _cachedRegex.test(text);
+  try {
+    return _cachedRegex.test(text);
+  } catch {
+    return false;
+  }
 }
 
 // src/iter/InlineIterPane.tsx
@@ -1196,8 +1167,8 @@ ${a.rationale}`;
 
 // src/iter/IterFocusView.tsx
 import { useMutation as useMutation2, useQuery as useQuery2, useQueryClient as useQueryClient2 } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 as Loader22, X as X3 } from "lucide-react";
-import { useEffect as useEffect4, useMemo as useMemo4, useState as useState5 } from "react";
+import { ArrowLeft, Loader2 as Loader22 } from "lucide-react";
+import { useEffect as useEffect4, useMemo as useMemo4, useRef as useRef2, useState as useState5 } from "react";
 
 // src/iter/IterContextPanel.tsx
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -1383,13 +1354,17 @@ function IterFocusView({ sessionId, feedbackId, onExit }) {
     }
   }, [stream.state.status, stream.state.versionId, qc, sessionId]);
   const status = session.data?.status ?? "loading";
+  const onExitRef = useRef2(onExit);
   useEffect4(() => {
-    if (status === "finalized" || status === "abandoned") {
-      const id = window.setTimeout(() => onExit(), 1200);
+    onExitRef.current = onExit;
+  }, [onExit]);
+  useEffect4(() => {
+    if (status === "abandoned") {
+      const id = window.setTimeout(() => onExitRef.current(), 1200);
       return () => window.clearTimeout(id);
     }
     return void 0;
-  }, [status, onExit]);
+  }, [status]);
   const userFacing = useMemo4(
     () => (assumptions.data ?? []).filter((a) => a.kind !== "technical"),
     [assumptions.data]
@@ -1452,7 +1427,12 @@ ${a.rationale}`;
       ] }) : null,
       isComplete ? /* @__PURE__ */ jsx7(Badge, { className: "shrink-0 bg-emerald-100 text-emerald-900 hover:bg-emerald-200 text-[10px] uppercase tracking-wide", children: "Spec ready" }) : null
     ] }),
-    /* @__PURE__ */ jsx7(IterContextPanel, { feedback }),
+    session.error ? /* @__PURE__ */ jsxs6("div", { className: "rounded border border-destructive/60 bg-destructive/10 p-2 text-[11px] text-destructive", children: [
+      /* @__PURE__ */ jsx7("strong", { className: "font-semibold", children: "Couldn't load this session." }),
+      " ",
+      String(session.error.message ?? session.error)
+    ] }) : null,
+    /* @__PURE__ */ jsx7(IterContextPanel, { feedback, defaultOpen: !sess?.current_iteration_id }),
     isComplete && sess?.completion_reason ? /* @__PURE__ */ jsxs6("p", { className: "rounded border border-emerald-200 bg-emerald-50 p-2 text-[11px] text-emerald-900", children: [
       /* @__PURE__ */ jsx7("strong", { className: "font-semibold", children: "Why ready: " }),
       sess.completion_reason
@@ -1489,11 +1469,10 @@ ${a.rationale}`;
         ] }) : status !== "finalized" && status !== "abandoned" ? /* @__PURE__ */ jsx7("p", { className: "rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground", children: (versions.data?.length ?? 0) > 0 ? "All assumptions on this round are resolved. Run another iteration to refresh the spec, or mark it ready if you're happy with it." : "Run the first iteration to see the AI's draft and any assumptions it needs you to confirm." }) : null,
         /* @__PURE__ */ jsx7("div", { className: "flex-1 min-h-0 overflow-auto", children: isStreaming ? /* @__PURE__ */ jsx7(StreamingSkeleton, { activeSection: stream.state.activeSection, modelHint }) : renderedMarkdown ? /* @__PURE__ */ jsx7(RenderedMarkdown, { markdown: renderedMarkdown }) : /* @__PURE__ */ jsx7("div", { className: "rounded border border-input bg-muted/30 p-3 text-xs text-muted-foreground", children: "The spec document will appear here once you run the first iteration." }) })
       ] }),
-      /* @__PURE__ */ jsx7("aside", { className: "lg:w-60 lg:shrink-0", children: /* @__PURE__ */ jsxs6("details", { className: "rounded-md border border-input bg-card text-xs lg:open", open: true, children: [
-        /* @__PURE__ */ jsxs6("summary", { className: "cursor-pointer px-2 py-1.5 font-medium select-none", children: [
-          "Resueltas (",
-          otherAssumptions.length,
-          ")"
+      /* @__PURE__ */ jsx7("aside", { className: "lg:w-60 lg:shrink-0", children: /* @__PURE__ */ jsxs6("details", { className: "rounded-md border border-input bg-card text-xs", children: [
+        /* @__PURE__ */ jsxs6("summary", { className: "cursor-pointer px-2 py-1.5 font-medium select-none flex items-center gap-2", children: [
+          /* @__PURE__ */ jsx7("span", { children: "Resueltas" }),
+          /* @__PURE__ */ jsx7("span", { className: "rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-900", children: otherAssumptions.length })
         ] }),
         /* @__PURE__ */ jsx7("div", { className: "border-t border-input p-2 space-y-2 max-h-72 overflow-auto", children: otherAssumptions.length === 0 ? /* @__PURE__ */ jsx7("p", { className: "text-[11px] text-muted-foreground italic", children: "Nada resuelto todav\xEDa." }) : otherAssumptions.map((a) => /* @__PURE__ */ jsxs6(
           "div",
@@ -1512,15 +1491,19 @@ ${a.rationale}`;
       ] }) })
     ] }),
     (stream.state.errorMessage || streamBudgetExhausted) && stream.state.status === "error" ? /* @__PURE__ */ jsx7("div", { className: "rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900", children: streamBudgetExhausted ? "Has usado todas las rondas para este spec. Marca como listo o abandona la sesi\xF3n." : stream.state.errorMessage }) : null,
-    status === "finalized" && pkgQuery.data?.presigned_zip_url ? /* @__PURE__ */ jsx7(
-      "a",
-      {
-        href: pkgQuery.data.presigned_zip_url,
-        download: true,
-        className: "inline-block text-primary underline text-xs",
-        children: "Download package ZIP"
-      }
-    ) : null,
+    status === "finalized" && pkgQuery.data?.presigned_zip_url ? /* @__PURE__ */ jsxs6("div", { className: "rounded-md border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900 space-y-2", children: [
+      /* @__PURE__ */ jsx7("p", { className: "font-semibold", children: "Spec finalized \u2014 your package is ready." }),
+      /* @__PURE__ */ jsx7(
+        "a",
+        {
+          href: pkgQuery.data.presigned_zip_url,
+          download: true,
+          className: "inline-flex items-center gap-1 rounded bg-emerald-600 px-3 py-1.5 text-white text-[11px] font-semibold hover:bg-emerald-700",
+          children: "\u2B07 Download package ZIP"
+        }
+      ),
+      /* @__PURE__ */ jsx7("p", { className: "text-[10px] text-emerald-800/80", children: "You can also re-download anytime from the ticket card after returning to the feed." })
+    ] }) : null,
     status !== "finalized" && status !== "abandoned" ? /* @__PURE__ */ jsxs6("footer", { className: "space-y-2 border-t border-input pt-3", children: [
       !turnBudgetSpent && !isComplete ? /* @__PURE__ */ jsx7(
         Textarea,
@@ -1567,22 +1550,9 @@ ${a.rationale}`;
             variant: "ghost",
             onClick: () => abandonMutation.mutate(),
             disabled: abandonMutation.isPending || isStreaming,
-            className: "text-muted-foreground",
-            children: "Abandon"
-          }
-        ),
-        /* @__PURE__ */ jsxs6(
-          Button,
-          {
-            size: "sm",
-            variant: "ghost",
-            onClick: onExit,
             className: "ml-auto text-muted-foreground",
-            title: "Exit focus mode (the iter session keeps running in the background)",
-            children: [
-              /* @__PURE__ */ jsx7(X3, { className: "h-3.5 w-3.5" }),
-              " Close"
-            ]
+            title: "Discard this iter session permanently",
+            children: "Abandon"
           }
         )
       ] })
@@ -1630,7 +1600,7 @@ function Canvas({
   const [iterStartingId, setIterStartingId] = useState6(null);
   const [iterError, setIterError] = useState6(null);
   const [focusedFeedbackId, setFocusedFeedbackId] = useState6(null);
-  const cardRefs = useRef2({});
+  const cardRefs = useRef3({});
   const openIter = useCallback(
     async (feedbackId) => {
       setIterStartingId(feedbackId);
@@ -1881,7 +1851,7 @@ function Canvas({
 // src/FeedbackPanel.tsx
 import { jsx as jsx9, jsxs as jsxs8 } from "react/jsx-runtime";
 var _FEED_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-2xl xl:max-w-[560px]";
-var _FOCUS_WIDTH = "w-full sm:max-w-lg md:max-w-2xl lg:max-w-[800px] xl:max-w-[800px]";
+var _FOCUS_WIDTH = "w-full sm:max-w-lg md:max-w-2xl lg:max-w-[720px] xl:max-w-[800px]";
 function FeedbackPanel({
   open,
   onOpenChange,
@@ -1954,4 +1924,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-37CWKK3H.js.map
+//# sourceMappingURL=FeedbackPanel-23TIWH5R.js.map

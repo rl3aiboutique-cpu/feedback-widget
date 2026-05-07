@@ -450,56 +450,98 @@ def build_feedback_bundle(
                 missing.append(f"attachments/{safe_name}")
                 continue
 
-        # Iter artefacts — added in v0.4.1 so a single download
-        # captures the whole story (feedback + every iteration + final
-        # spec + clarifications). When the caller didn't pass a DB
-        # session, we write a status marker and skip the rest so the
-        # bundle still builds in tests / scripts that don't have one.
+        # Iter artefacts — added in v0.4.1, hardened in v0.4.2 so a
+        # transient DB blip on the iter side can't kill the entire
+        # bundle. Each render section is independently try/except'd;
+        # failures get logged + a `iter/STATUS.md` marker explaining
+        # what went missing so the admin sees a half-flagged ZIP
+        # instead of a 500 with no download at all.
         iter_session = None
         iter_files: dict[str, str] = {}
         iter_summary_block: str | None = None
         if db is not None:
-            iter_session = _resolve_active_iter_session(db, fb.id)
-            if iter_session is None:
+            try:
+                iter_session = _resolve_active_iter_session(db, fb.id)
+            except Exception as exc:
+                logger.exception(
+                    "feedback bundle: iter session lookup failed for ticket=%s: %s",
+                    fb.ticket_code or fb.id,
+                    exc,
+                )
                 iter_files["iter/STATUS.md"] = (
-                    "# Iter session\n\nNo AI iteration was run for this ticket.\n"
+                    "# Iter session\n\nIter session lookup failed; see backend logs for details.\n"
                 )
                 iter_summary_block = _render_iter_summary(None, 0, 0, 0)
             else:
-                iter_files = _render_iter_artifacts(db, iter_session)
-                # Counts for the summary block. Pull cheap stats here
-                # instead of re-running queries inside the renderer.
-                from sqlalchemy import select
-
-                versions_count = int(
-                    db.execute(
-                        select(FeedbackIterVersion).where(
-                            FeedbackIterVersion.session_id == iter_session.id
-                        )
+                if iter_session is None:
+                    iter_files["iter/STATUS.md"] = (
+                        "# Iter session\n\nNo AI iteration was run for this ticket.\n"
                     )
-                    .scalars()
-                    .all()
-                    .__len__()
-                )
-                latest_version_id = iter_session.current_iteration_id
-                open_count = 0
-                total_count = 0
-                if latest_version_id is not None:
-                    asm_on_latest = list(
-                        db.execute(
-                            select(FeedbackIterAssumption).where(
-                                FeedbackIterAssumption.version_id == latest_version_id
+                    iter_summary_block = _render_iter_summary(None, 0, 0, 0)
+                else:
+                    try:
+                        iter_files = _render_iter_artifacts(db, iter_session)
+                    except Exception as exc:
+                        logger.exception(
+                            "feedback bundle: iter artifact render failed for session=%s: %s",
+                            iter_session.id,
+                            exc,
+                        )
+                        iter_files = {
+                            "iter/STATUS.md": (
+                                "# Iter session\n\n"
+                                f"Session id: `{iter_session.id}` "
+                                f"(status `{iter_session.status.value}`)\n\n"
+                                "Rendering the iter artefacts failed; "
+                                "see backend logs for details.\n"
                             )
+                        }
+
+                    try:
+                        from sqlalchemy import func, select
+
+                        versions_count = int(
+                            db.execute(
+                                select(func.count())
+                                .select_from(FeedbackIterVersion)
+                                .where(FeedbackIterVersion.session_id == iter_session.id)
+                            ).scalar_one()
                         )
-                        .scalars()
-                        .all()
-                    )
-                    user_facing = [a for a in asm_on_latest if a.kind.value != "technical"]
-                    total_count = len(user_facing)
-                    open_count = sum(1 for a in user_facing if a.status.value == "open")
-                iter_summary_block = _render_iter_summary(
-                    iter_session, versions_count, open_count, total_count
-                )
+                        # Resolve "latest version id" from the version
+                        # table directly — `current_iteration_id` can
+                        # legitimately be None for ITERATING / DRAFT
+                        # sessions in some races.
+                        latest_version_id = db.execute(
+                            select(FeedbackIterVersion.id)
+                            .where(FeedbackIterVersion.session_id == iter_session.id)
+                            .order_by(FeedbackIterVersion.version_number.desc())
+                            .limit(1)
+                        ).scalar_one_or_none()
+                        open_count = 0
+                        total_count = 0
+                        if latest_version_id is not None:
+                            asm_on_latest = list(
+                                db.execute(
+                                    select(FeedbackIterAssumption).where(
+                                        FeedbackIterAssumption.version_id == latest_version_id
+                                    )
+                                )
+                                .scalars()
+                                .all()
+                            )
+                            user_facing = [a for a in asm_on_latest if a.kind.value != "technical"]
+                            total_count = len(user_facing)
+                            open_count = sum(1 for a in user_facing if a.status.value == "open")
+                        iter_summary_block = _render_iter_summary(
+                            iter_session, versions_count, open_count, total_count
+                        )
+                    except Exception as exc:
+                        logger.exception(
+                            "feedback bundle: iter summary count failed for session=%s: %s",
+                            iter_session.id,
+                            exc,
+                        )
+                        iter_summary_block = _render_iter_summary(iter_session, 0, 0, 0)
 
         for relpath, body in iter_files.items():
             archive.writestr(relpath, body)

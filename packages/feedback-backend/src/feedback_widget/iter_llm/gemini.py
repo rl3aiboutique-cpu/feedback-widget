@@ -64,7 +64,8 @@ def _resolve_model(settings: FeedbackSettings) -> str:
     if not model:
         raise LLMProviderError(
             "FEEDBACK_ITER_GEMINI_MODEL is empty. Set it in your .env "
-            "(default: gemma-4-26b-a4b-it)."
+            "(suggested: gemini-flash-lite-latest with "
+            "FEEDBACK_ITER_GEMINI_MODELS_FALLBACK=gemini-flash-latest)."
         )
     return model
 
@@ -268,6 +269,8 @@ class GeminiProvider:
         #      model gets its own full budget.
         # Fatal errors (auth, schema, etc.) skip retries and skip
         # fallback — they fail loudly so the user sees real bugs.
+        # asyncio.CancelledError is re-raised verbatim so structured
+        # concurrency stays intact when the SSE consumer disconnects.
         last_wrapped: LLMProviderError | None = None
         while True:
             response = None
@@ -282,6 +285,8 @@ class GeminiProvider:
                         timeout=timeout_seconds,
                     )
                     break
+                except asyncio.CancelledError:
+                    raise
                 except BaseException as exc:
                     wrapped = _wrap_provider_error(exc)
                     last_wrapped = wrapped
@@ -380,6 +385,7 @@ class GeminiProvider:
         # returns the iterator and the first chunk has been yielded
         # downstream, partial markdown is already on the SSE wire and
         # we can't replay it cleanly, so any error mid-stream is fatal.
+        # CancelledError re-raised verbatim so SSE disconnects propagate.
         last_wrapped: LLMProviderError | None = None
         stream_iter = None
         while True:
@@ -391,6 +397,8 @@ class GeminiProvider:
                         config=cfg,
                     )
                     break
+                except asyncio.CancelledError:
+                    raise
                 except BaseException as exc:
                     wrapped = _wrap_provider_error(exc)
                     last_wrapped = wrapped
@@ -425,13 +433,23 @@ class GeminiProvider:
                     raise last_wrapped
                 raise LLMProviderTransientError("all models in fallback chain failed")
 
-        # Setup succeeded — yield chunks. Mid-stream errors are fatal.
+        # Setup succeeded — yield chunks. Mid-stream errors are fatal:
+        # we can't replay already-yielded markdown without confusing
+        # the SSE consumer. Log loudly so ops see the abort even
+        # though the user just sees a truncated stream.
         try:
             async for chunk in stream_iter:
                 text = chunk.text
                 if text:
                     yield text
+        except asyncio.CancelledError:
+            raise
         except BaseException as exc:
+            logger.warning(
+                "iter llm stream aborted mid-flight on %s after first chunk: %s",
+                self._model,
+                exc,
+            )
             raise _wrap_provider_error(exc) from exc
 
     async def _fake_stream_via_generate(

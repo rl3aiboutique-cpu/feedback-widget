@@ -48,7 +48,7 @@ import {
 } from "./chunk-QB73WXKP.js";
 
 // src/version.ts
-var VERSION = "0.4.1";
+var VERSION = "0.4.2";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
@@ -745,7 +745,7 @@ function useMyPendingActionCount() {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-37CWKK3H.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-23TIWH5R.js"));
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
