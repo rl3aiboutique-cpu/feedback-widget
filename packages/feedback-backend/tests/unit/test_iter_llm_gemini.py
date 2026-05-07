@@ -23,6 +23,13 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+
+# `feedback_widget.iter_llm.gemini` imports `from google import genai` at
+# module load. CI runs `uv sync --all-packages --extra test --group dev`
+# (no iter-gemini extra), so the SDK isn't installed there. Skip the file
+# rather than collect-error so the rest of the suite still runs.
+pytest.importorskip("google.genai", reason="iter-gemini extra not installed")
+
 from feedback_widget.iter_llm.gemini import (
     GeminiProvider,
     _wrap_provider_error,
