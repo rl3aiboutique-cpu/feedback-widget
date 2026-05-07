@@ -443,8 +443,33 @@ class SSEEventHeartbeat(BaseModel):
     type: Literal["heartbeat"] = "heartbeat"
 
 
+class SSEEventProviderFallback(BaseModel):
+    """v0.4.6 — emitted once per fallback walk inside a single run.
+
+    Fires when the LLM provider's internal fallback chain switches
+    models mid-run (typically because the upstream model returned a
+    transient error like 503 UNAVAILABLE before any user-visible chunk).
+    The UI renders a small banner so the user knows their iteration is
+    being served by a different model than the chosen primary, instead
+    of silently swapping out — which feels like a bug when latency
+    profiles or output style differ between models.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["provider_fallback"] = "provider_fallback"
+    from_model: str
+    to_model: str
+    reason: str
+
+
 SSEEvent = Annotated[
-    SSEEventToken | SSEEventSection | SSEEventDone | SSEEventError | SSEEventHeartbeat,
+    SSEEventToken
+    | SSEEventSection
+    | SSEEventDone
+    | SSEEventError
+    | SSEEventHeartbeat
+    | SSEEventProviderFallback,
     Field(discriminator="type"),
 ]
 

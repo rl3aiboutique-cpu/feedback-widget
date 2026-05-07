@@ -236,6 +236,10 @@ class GeminiProvider:
         self._model = self._chain[0]
         self._client = genai.Client(api_key=_resolve_api_key(settings))
 
+    @property
+    def current_model(self) -> str:
+        return self._model
+
     def _try_next_model(self, after: str) -> str | None:
         """Return the next model in the chain after ``after``, or
         ``None`` if exhausted."""

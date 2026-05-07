@@ -23,6 +23,10 @@ export interface IterStreamState {
   versionNumber: number | null;
   errorCode: string | null;
   errorMessage: string | null;
+  /** v0.4.6 — set when the backend swaps models mid-run. Contains
+   * the most recent fallback so the UI banner can render context.
+   * Cleared on `reset()` / next `start()`. */
+  providerFallback: { fromModel: string; toModel: string; reason: string } | null;
 }
 
 const _INIT: IterStreamState = {
@@ -33,6 +37,7 @@ const _INIT: IterStreamState = {
   versionNumber: null,
   errorCode: null,
   errorMessage: null,
+  providerFallback: null,
 };
 
 export function useIterRunStream(
@@ -110,6 +115,15 @@ function _reduce(cur: IterStreamState, ev: IterStreamEvent): IterStreamState {
       };
     case "heartbeat":
       return cur;
+    case "provider_fallback":
+      return {
+        ...cur,
+        providerFallback: {
+          fromModel: ev.from_model,
+          toModel: ev.to_model,
+          reason: ev.reason,
+        },
+      };
     default:
       return cur;
   }

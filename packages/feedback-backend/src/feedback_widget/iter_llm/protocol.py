@@ -73,6 +73,17 @@ class LLMProvider(Protocol):
     """Short slug used in logs / DB rows: ``"gemini"``, ``"claude"``,
     ``"openai"``, ``"fake"``."""
 
+    @property
+    def current_model(self) -> str:
+        """The model id currently serving traffic.
+
+        Providers that maintain a fallback chain (gemini) flip this
+        property when they walk to the next model after a transient
+        error. The service layer reads it between streamed chunks so
+        it can emit a ``provider_fallback`` SSE event for the UI when
+        the value changes.
+        """
+
     async def generate(
         self,
         *,

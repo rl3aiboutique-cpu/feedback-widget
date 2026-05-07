@@ -118,6 +118,10 @@ class ClaudeProvider:
         self._model = _resolve_model(settings)
         self._client = AsyncAnthropic(api_key=_resolve_api_key(settings))
 
+    @property
+    def current_model(self) -> str:
+        return self._model
+
     async def generate(
         self,
         *,

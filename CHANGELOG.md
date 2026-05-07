@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-05-07
+
+Same-day patch on top of v0.4.5. v0.4.5 verified the early-stream
+fallback walks correctly, but the user-visible test exposed a second
+problem: with all three models in the chain on the Flash family,
+when Google's Flash infra saturated they all 503'd within a few
+seconds of each other and the chain failed visibly. v0.4.6 reshapes
+the chain to mix model families and surfaces the swap to the user.
+
+### Added
+
+- **`SSEEventProviderFallback`.** Backend emits a `provider_fallback`
+  SSE event the first time the LLM provider's internal chain walks
+  to a different model mid-run. Frontend renders a transient amber
+  banner ("Cambio de modelo en vuelo… saturación temporal en X;
+  tu iteración la está sirviendo Y como respaldo") so the user knows
+  why output tone or latency suddenly shifts instead of wondering
+  whether the system is broken.
+- **`current_model` property on the LLM provider protocol.** Lets
+  the service watch for fallback walks between chunks without
+  reaching into provider internals. Implemented on Gemini (returns
+  the live `_model`), Claude / OpenAI / Fake (return their fixed
+  model id since they don't carry chains today).
+
+### Changed
+
+- **Default chain now mixes families.** Primary is
+  `gemini-flash-latest` — stable Flash on paid-tier infra with a
+  lower 503 surface than the Preview models. Fallback is
+  `gemma-3-12b-it`, on a different infrastructure family from
+  Flash, so a Google Flash outage no longer cascades through the
+  whole chain. Today's evidence: a flash-family-only chain still
+  failed because the entire family saturated at once. The user
+  asked for medium / small models, not large — Gemma 3 12B is the
+  middle of the Gemma 3 line and finishes streaming comfortably
+  inside the iter timeout.
+
 ## [0.4.5] — 2026-05-07
 
 Same-day patch on top of v0.4.4. User feedback after one round of real

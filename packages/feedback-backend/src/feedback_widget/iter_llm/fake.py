@@ -158,6 +158,10 @@ class FakeLLMProvider:
 
     name = "fake"
 
+    @property
+    def current_model(self) -> str:
+        return "fake"
+
     async def generate(
         self,
         *,

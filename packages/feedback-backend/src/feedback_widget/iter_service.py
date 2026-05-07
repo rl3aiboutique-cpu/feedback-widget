@@ -86,6 +86,7 @@ from .iter_schemas import (
     SSEEvent,
     SSEEventDone,
     SSEEventError,
+    SSEEventProviderFallback,
     SSEEventSection,
     SSEEventToken,
 )
@@ -299,6 +300,12 @@ class IterService:
         buffer: list[str] = []
         loop = asyncio.get_running_loop()
         start = loop.time()
+        # v0.4.6 — track provider's active model between chunks. If the
+        # provider's internal fallback chain walks (e.g. primary 503's
+        # before any text reaches us), surface the swap as a SSE event
+        # so the user sees a banner instead of wondering why output
+        # tone or latency suddenly changed.
+        last_provider_model = provider.current_model
         try:
             async for chunk in provider.stream(
                 system_prompt=system_prompt,
@@ -307,6 +314,16 @@ class IterService:
                 timeout_seconds=self._settings.ITER_REQUEST_TIMEOUT_SECONDS,
                 max_output_tokens=self._settings.ITER_MAX_OUTPUT_TOKENS,
             ):
+                if provider.current_model != last_provider_model:
+                    yield SSEEventProviderFallback(
+                        from_model=last_provider_model,
+                        to_model=provider.current_model,
+                        reason=(
+                            f"Saturación temporal en {last_provider_model}; "
+                            f"cambiando a {provider.current_model}."
+                        ),
+                    )
+                    last_provider_model = provider.current_model
                 buffer.append(chunk)
                 for section in detector.feed(chunk):
                     yield SSEEventSection(section=section)  # type: ignore[arg-type]

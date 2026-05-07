@@ -234,7 +234,8 @@ var _INIT = {
   versionId: null,
   versionNumber: null,
   errorCode: null,
-  errorMessage: null
+  errorMessage: null,
+  providerFallback: null
 };
 function useIterRunStream(bindings, sessionId) {
   const [state, setState] = useState2(_INIT);
@@ -300,6 +301,15 @@ function _reduce(cur, ev) {
       };
     case "heartbeat":
       return cur;
+    case "provider_fallback":
+      return {
+        ...cur,
+        providerFallback: {
+          fromModel: ev.from_model,
+          toModel: ev.to_model,
+          reason: ev.reason
+        }
+      };
     default:
       return cur;
   }
@@ -540,4 +550,4 @@ export {
   modelLatencyHint,
   EditableSpecPanel
 };
-//# sourceMappingURL=chunk-RJFXDCKQ.js.map
+//# sourceMappingURL=chunk-XQBICIJA.js.map

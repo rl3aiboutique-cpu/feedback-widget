@@ -334,6 +334,32 @@ export function IterFocusView({ sessionId, feedbackId, onExit }: IterFocusViewPr
         </div>
       ) : null}
 
+      {/* v0.4.6 — provider fallback banner. Backend emits a
+          `provider_fallback` SSE event when its internal chain swaps
+          models mid-run (e.g. Flash 503 → Gemma). Surfacing it stops
+          the user wondering why output tone or latency suddenly
+          changed — and reassures them their iteration is still
+          progressing instead of failing silently. */}
+      {stream.state.providerFallback ? (
+        <output
+          aria-live="polite"
+          className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100"
+        >
+          <span aria-hidden="true">⚡</span>
+          <div className="flex-1 leading-relaxed">
+            <span className="font-semibold">Cambio de modelo en vuelo.</span> Saturación temporal en{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40">
+              {stream.state.providerFallback.fromModel}
+            </code>
+            ; tu iteración la está sirviendo{" "}
+            <code className="rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40">
+              {stream.state.providerFallback.toModel}
+            </code>{" "}
+            como respaldo. Estilo y latencia pueden variar.
+          </div>
+        </output>
+      ) : null}
+
       {/* Original-context disclosure — force-open on the very first
           entry to a session so the user sees their screenshot at
           least once before it tucks itself away. v0.4.5: also auto-

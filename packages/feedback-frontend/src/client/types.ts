@@ -259,4 +259,14 @@ export type IterStreamEvent =
     }
   | { type: "done"; version_id: string; version_number: number }
   | { type: "error"; error_code: string; message: string }
-  | { type: "heartbeat" };
+  | { type: "heartbeat" }
+  | {
+      // v0.4.6 — emitted when the backend's provider walks its
+      // fallback chain mid-run (e.g. Gemini 503 → Gemma). The UI
+      // surfaces a transient banner so the user knows the model
+      // serving their iteration changed.
+      type: "provider_fallback";
+      from_model: string;
+      to_model: string;
+      reason: string;
+    };

@@ -21,13 +21,13 @@ import {
   getErrorsTail,
   getNetworkSuccessTail,
   getNetworkTail
-} from "./chunk-DF65AWEM.js";
+} from "./chunk-DKSFCJYJ.js";
 import {
   AssumptionCard,
   EditableSpecPanel,
   modelLatencyHint,
   useIterRunStream
-} from "./chunk-RJFXDCKQ.js";
+} from "./chunk-XQBICIJA.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -1489,6 +1489,27 @@ ${a.rationale}`;
         }
       )
     ] }) : null,
+    stream.state.providerFallback ? /* @__PURE__ */ jsxs6(
+      "output",
+      {
+        "aria-live": "polite",
+        className: "flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-[11px] text-amber-900 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-100",
+        children: [
+          /* @__PURE__ */ jsx7("span", { "aria-hidden": "true", children: "\u26A1" }),
+          /* @__PURE__ */ jsxs6("div", { className: "flex-1 leading-relaxed", children: [
+            /* @__PURE__ */ jsx7("span", { className: "font-semibold", children: "Cambio de modelo en vuelo." }),
+            " Saturaci\xF3n temporal en",
+            " ",
+            /* @__PURE__ */ jsx7("code", { className: "rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40", children: stream.state.providerFallback.fromModel }),
+            "; tu iteraci\xF3n la est\xE1 sirviendo",
+            " ",
+            /* @__PURE__ */ jsx7("code", { className: "rounded bg-amber-100 px-1 font-mono text-[10px] dark:bg-amber-900/40", children: stream.state.providerFallback.toModel }),
+            " ",
+            "como respaldo. Estilo y latencia pueden variar."
+          ] })
+        ]
+      }
+    ) : null,
     /* @__PURE__ */ jsx7(
       IterContextPanel,
       {
@@ -2136,4 +2157,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-ABKLWWNW.js.map
+//# sourceMappingURL=FeedbackPanel-5JDPQND3.js.map
