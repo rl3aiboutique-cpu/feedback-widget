@@ -235,14 +235,26 @@ class GeminiProvider:
         # on fallback for the lifetime of one provider instance.
         self._model = self._chain[0]
         self._client = genai.Client(api_key=_resolve_api_key(settings))
+        # Pending (from, to, reason) tuples — drained by the service
+        # layer between chunks AND when the stream ends so the
+        # provider_fallback SSE event reaches the UI even when the
+        # whole chain fails before yielding anything.
+        self._fallback_queue: list[tuple[str, str, str]] = []
 
     @property
     def current_model(self) -> str:
         return self._model
 
-    def _try_next_model(self, after: str) -> str | None:
+    def consume_fallback_events(self) -> list[tuple[str, str, str]]:
+        out = self._fallback_queue[:]
+        self._fallback_queue.clear()
+        return out
+
+    def _try_next_model(self, after: str, reason: str = "") -> str | None:
         """Return the next model in the chain after ``after``, or
-        ``None`` if exhausted."""
+        ``None`` if exhausted. Records the (from, to, reason) tuple
+        on the fallback queue so the service can surface the swap
+        even when no chunk ever flows."""
         try:
             idx = self._chain.index(after)
         except ValueError:
@@ -250,6 +262,11 @@ class GeminiProvider:
         if idx + 1 >= len(self._chain):
             return None
         nxt = self._chain[idx + 1]
+        # User-friendly Spanish reason — surfaced in the SSE banner.
+        readable_reason = reason or (
+            f"Saturación temporal en {after}; cambiando a {nxt}."
+        )
+        self._fallback_queue.append((after, nxt, readable_reason))
         self._model = nxt
         return nxt
 

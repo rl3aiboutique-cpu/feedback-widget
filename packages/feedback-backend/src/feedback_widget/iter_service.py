@@ -300,12 +300,6 @@ class IterService:
         buffer: list[str] = []
         loop = asyncio.get_running_loop()
         start = loop.time()
-        # v0.4.6 — track provider's active model between chunks. If the
-        # provider's internal fallback chain walks (e.g. primary 503's
-        # before any text reaches us), surface the swap as a SSE event
-        # so the user sees a banner instead of wondering why output
-        # tone or latency suddenly changed.
-        last_provider_model = provider.current_model
         try:
             async for chunk in provider.stream(
                 system_prompt=system_prompt,
@@ -314,22 +308,32 @@ class IterService:
                 timeout_seconds=self._settings.ITER_REQUEST_TIMEOUT_SECONDS,
                 max_output_tokens=self._settings.ITER_MAX_OUTPUT_TOKENS,
             ):
-                if provider.current_model != last_provider_model:
+                # Drain pending fallback events emitted by the provider
+                # since the last chunk. Walks recorded on the queue
+                # (e.g. Flash 503 → Gemma 4) surface as
+                # ``provider_fallback`` SSE events so the UI can render
+                # the swap banner.
+                for from_m, to_m, reason in provider.consume_fallback_events():
                     yield SSEEventProviderFallback(
-                        from_model=last_provider_model,
-                        to_model=provider.current_model,
-                        reason=(
-                            f"Saturación temporal en {last_provider_model}; "
-                            f"cambiando a {provider.current_model}."
-                        ),
+                        from_model=from_m, to_model=to_m, reason=reason
                     )
-                    last_provider_model = provider.current_model
                 buffer.append(chunk)
                 for section in detector.feed(chunk):
                     yield SSEEventSection(section=section)  # type: ignore[arg-type]
                 yield SSEEventToken(chunk=chunk)
         except LLMProviderError as exc:
-            yield SSEEventError(error_code=type(exc).__name__, message=str(exc))
+            # Even on chain-exhaustion, surface every walk that happened
+            # before the final failure — gives the user context for why
+            # things took so long, and shows the system DID try fallbacks.
+            for from_m, to_m, reason in provider.consume_fallback_events():
+                yield SSEEventProviderFallback(
+                    from_model=from_m, to_model=to_m, reason=reason
+                )
+            # Friendly Spanish error message replacing the raw provider
+            # JSON. The structured exception still goes to logs + DB
+            # for ops; the user just sees a calm sentence.
+            friendly = _friendly_provider_error_es(exc)
+            yield SSEEventError(error_code=type(exc).__name__, message=friendly)
             await asyncio.to_thread(
                 self._persist_failed_call,
                 db,
@@ -1349,6 +1353,43 @@ def _map_provider_error(exc: Exception) -> FeedbackIterCallStatus:
     if "RateLimited" in name:
         return FeedbackIterCallStatus.PROVIDER_ERROR
     return FeedbackIterCallStatus.PROVIDER_ERROR
+
+
+def _friendly_provider_error_es(exc: Exception) -> str:
+    """Render a provider failure as a calm Spanish sentence the user
+    can act on, instead of leaking the raw provider JSON.
+
+    The structured exception (with the original message) still goes
+    to logs + the call audit row, so ops can debug; the user just
+    sees something legible. Today's pain point: the SSE error event
+    showed ``500 INTERNAL. {'error': {'code': 500, ...}}`` verbatim
+    when the entire fallback chain exhausted, which felt broken.
+    """
+    name = type(exc).__name__
+    if "Timeout" in name:
+        return (
+            "El modelo tardó demasiado en responder. Espera 30 s y vuelve a intentar."
+        )
+    if "RateLimited" in name:
+        return (
+            "Has alcanzado el límite de peticiones del modelo. Espera 60 s antes de "
+            "volver a iterar."
+        )
+    if "Transient" in name:
+        return (
+            "Los modelos de IA están temporalmente saturados (Google AI Studio). "
+            "Hemos intentado los modelos de respaldo pero todos fallaron. "
+            "Espera 1–2 min y pulsa Run iteration de nuevo."
+        )
+    if "Fatal" in name:
+        return (
+            "El modelo rechazó la petición (configuración o esquema). Si persiste, "
+            "avisa al equipo — los detalles técnicos quedaron registrados."
+        )
+    return (
+        "El proveedor de IA falló inesperadamente. Espera y vuelve a intentar; "
+        "si persiste, avisa al equipo."
+    )
 
 
 def _format_parse_error(exc: Exception, *, raw_text: str) -> str:

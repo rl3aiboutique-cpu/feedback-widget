@@ -84,6 +84,17 @@ class LLMProvider(Protocol):
         the value changes.
         """
 
+    def consume_fallback_events(self) -> list[tuple[str, str, str]]:
+        """Return + drain the queue of ``(from_model, to_model, reason)``
+        tuples recorded since the last drain. Lets the service emit
+        ``provider_fallback`` SSE events even when the entire chain
+        fails before yielding the first chunk — the
+        ``provider.current_model`` poll alone misses those because the
+        watch fires only when a chunk arrives. Default implementation
+        returns ``[]`` for providers that don't carry chains.
+        """
+        return []
+
     async def generate(
         self,
         *,
