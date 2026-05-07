@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.3] — 2026-05-07
+
+User feedback: *"mira los tickets anteriores si los pondría en otra
+pestaña, demasiado ruido visual"*. The single-canvas pattern from
+v0.4.0 (sticky compose at top + card feed below) turned out to be
+too cluttered — the feed of older tickets distracted from drafting
+a new one.
+
+### Changed
+
+- **`Canvas.tsx`** re-introduces a tab switcher at the top of the
+  panel: `✎ Nuevo feedback` and `📋 Mis feedbacks (N)`. The `Mis`
+  tab badge shows the count of "done" tickets in primary color
+  (so the user notices replies) or the total count in muted grey
+  when nothing is pending. Default tab is `Nuevo`. After a
+  successful submit the canvas auto-flips to `Mis` so the user
+  sees their fresh card without clicking — same v0.3.x semantic.
+- These tabs are NOT a return to v0.3.x's modal-over-Sheet pain.
+  The iter focus mode (v0.4.1) still takes over the whole panel
+  for iteration; tabs only gate the compose-vs-browse view at the
+  top level.
+- Compose is no longer sticky-pinned at the top of a long scroll —
+  when `tab === "compose"` it owns the viewport; when
+  `tab === "mine"` it's unmounted entirely. Cleaner mental model,
+  no scroll competition.
+
 ## [0.4.2] — 2026-05-07
 
 Patch on top of v0.4.1 driven by three independent subagent reviews

@@ -81,6 +81,13 @@ export function Canvas({
   // card feed and renders <IterFocusView> instead. Click "← Volver"
   // (or session terminal state) clears it back to the feed.
   const [focusedFeedbackId, setFocusedFeedbackId] = useState<string | null>(null);
+  // v0.4.3 — split compose vs feed into two tabs. The single-canvas
+  // pattern from v0.4.0 turned out to be too noisy on the compose
+  // surface (user explicitly: "demasiado ruido visual"). The tabs
+  // are NOT a return to v0.3.x's modal-over-Sheet — focus mode
+  // (v0.4.1) still takes over the whole panel for iter; the tabs
+  // only gate the compose-vs-browse view.
+  const [tab, setTab] = useState<"compose" | "mine">("compose");
 
   const cardRefs = useRef<Record<string, HTMLLIElement | null>>({});
 
@@ -110,6 +117,10 @@ export function Canvas({
       // Refresh the feed and snap-scroll to the new card.
       void query.refetch();
       setExpandedId(feedbackId);
+      // Auto-flip to "Mine" so the user sees their freshly-submitted
+      // card without having to click the tab. Same v0.3.x semantic;
+      // matches the user's mental model of "I sent it, where is it".
+      setTab("mine");
       // Defer scroll until the new row renders.
       setTimeout(() => {
         cardRefs.current[feedbackId]?.scrollIntoView({
@@ -159,20 +170,74 @@ export function Canvas({
     );
   }
 
+  const minePendingCount = (query.data ?? []).filter((r) => r.status === "done").length;
+  const mineTotalCount = (query.data ?? []).length;
+
   return (
     <div className="space-y-3">
-      {/* Sticky compose so it's always reachable as the user scrolls
-          older tickets. The Sheet itself is the overflow container. */}
-      <div className="sticky top-0 z-10 -mx-4 bg-background/95 px-4 pt-2 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      {/* v0.4.3 — tab switcher to keep compose noise-free. The
+          previous tickets live behind their own tab so the user
+          isn't staring at a feed of old tickets while drafting a
+          new one. The iter focus mode (v0.4.1) still takes over
+          the whole panel above this. */}
+      <div
+        className="grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium"
+        role="tablist"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "compose"}
+          onClick={() => setTab("compose")}
+          className={`px-3 py-1.5 rounded transition-colors ${
+            tab === "compose"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-feedback-id="feedback.tab.compose"
+        >
+          ✎ Nuevo feedback
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "mine"}
+          onClick={() => setTab("mine")}
+          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
+            tab === "mine"
+              ? "bg-background shadow-sm text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+          data-feedback-id="feedback.tab.mine"
+        >
+          <span>📋 Mis feedbacks</span>
+          {mineTotalCount > 0 ? (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                minePendingCount > 0
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted-foreground/15 text-muted-foreground"
+              }`}
+              title={
+                minePendingCount > 0
+                  ? `${minePendingCount} con respuesta del equipo`
+                  : `${mineTotalCount} en total`
+              }
+            >
+              {minePendingCount > 0 ? minePendingCount : mineTotalCount}
+            </span>
+          ) : null}
+        </button>
+      </div>
+
+      {tab === "compose" ? (
         <Compose
           locked={locked}
           onActivatePicker={onActivatePicker}
           onClearLocked={onClearLocked}
           onSubmitted={handleSubmitted}
         />
-      </div>
-
-      {query.isLoading ? (
+      ) : query.isLoading ? (
         <p className="text-sm text-muted-foreground">{t("feedback.mine.loading")}</p>
       ) : query.isError ? (
         <p className="text-sm text-destructive">{t("feedback.mine.error")}</p>

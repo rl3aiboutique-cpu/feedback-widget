@@ -1600,6 +1600,7 @@ function Canvas({
   const [iterStartingId, setIterStartingId] = useState6(null);
   const [iterError, setIterError] = useState6(null);
   const [focusedFeedbackId, setFocusedFeedbackId] = useState6(null);
+  const [tab, setTab] = useState6("compose");
   const cardRefs = useRef3({});
   const openIter = useCallback(
     async (feedbackId) => {
@@ -1625,6 +1626,7 @@ function Canvas({
     (feedbackId, opts) => {
       void query.refetch();
       setExpandedId(feedbackId);
+      setTab("mine");
       setTimeout(() => {
         cardRefs.current[feedbackId]?.scrollIntoView({
           behavior: "smooth",
@@ -1658,8 +1660,53 @@ function Canvas({
       }
     ) });
   }
+  const minePendingCount = (query.data ?? []).filter((r) => r.status === "done").length;
+  const mineTotalCount = (query.data ?? []).length;
   return /* @__PURE__ */ jsxs7("div", { className: "space-y-3", children: [
-    /* @__PURE__ */ jsx8("div", { className: "sticky top-0 z-10 -mx-4 bg-background/95 px-4 pt-2 pb-3 backdrop-blur supports-[backdrop-filter]:bg-background/80", children: /* @__PURE__ */ jsx8(
+    /* @__PURE__ */ jsxs7(
+      "div",
+      {
+        className: "grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium",
+        role: "tablist",
+        children: [
+          /* @__PURE__ */ jsx8(
+            "button",
+            {
+              type: "button",
+              role: "tab",
+              "aria-selected": tab === "compose",
+              onClick: () => setTab("compose"),
+              className: `px-3 py-1.5 rounded transition-colors ${tab === "compose" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
+              "data-feedback-id": "feedback.tab.compose",
+              children: "\u270E Nuevo feedback"
+            }
+          ),
+          /* @__PURE__ */ jsxs7(
+            "button",
+            {
+              type: "button",
+              role: "tab",
+              "aria-selected": tab === "mine",
+              onClick: () => setTab("mine"),
+              className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${tab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
+              "data-feedback-id": "feedback.tab.mine",
+              children: [
+                /* @__PURE__ */ jsx8("span", { children: "\u{1F4CB} Mis feedbacks" }),
+                mineTotalCount > 0 ? /* @__PURE__ */ jsx8(
+                  "span",
+                  {
+                    className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${minePendingCount > 0 ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"}`,
+                    title: minePendingCount > 0 ? `${minePendingCount} con respuesta del equipo` : `${mineTotalCount} en total`,
+                    children: minePendingCount > 0 ? minePendingCount : mineTotalCount
+                  }
+                ) : null
+              ]
+            }
+          )
+        ]
+      }
+    ),
+    tab === "compose" ? /* @__PURE__ */ jsx8(
       Compose,
       {
         locked,
@@ -1667,8 +1714,7 @@ function Canvas({
         onClearLocked,
         onSubmitted: handleSubmitted
       }
-    ) }),
-    query.isLoading ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : query.isError ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : (query.data ?? []).length === 0 ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") }) : /* @__PURE__ */ jsx8("ul", { className: "space-y-2", children: (query.data ?? []).map((r) => {
+    ) : query.isLoading ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : query.isError ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : (query.data ?? []).length === 0 ? /* @__PURE__ */ jsx8("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.empty") }) : /* @__PURE__ */ jsx8("ul", { className: "space-y-2", children: (query.data ?? []).map((r) => {
       const recentlyResolved = r.status === "done";
       const isOpen = expandedId === r.id;
       const iterSessionId = iterByFeedback[r.id] ?? null;
@@ -1924,4 +1970,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-23TIWH5R.js.map
+//# sourceMappingURL=FeedbackPanel-33HKWF4F.js.map
