@@ -31,6 +31,14 @@ export {
   FeedbackButton,
 } from "./FeedbackButton";
 
+// v1.0.0 — chat-first surface. Hosts that want to mount the chat
+// sheet directly (without the floating launcher) can import this.
+export { FeedbackChatSheet } from "./chat/FeedbackChatSheet";
+export type { FeedbackChatSheetProps } from "./chat/FeedbackChatSheet";
+export { SynthesisCard } from "./chat/SynthesisCard";
+export type { SynthesisCardProps } from "./chat/SynthesisCard";
+export type { Synthesis } from "./chat/types";
+
 export {
   type FeedbackConfig,
   type FeedbackPosition,

@@ -50,7 +50,7 @@ When two skills could fire, prefer the more specific one. When the intent is amb
 
 ---
 
-## Catalogue by domain (39 skills)
+## Catalogue by domain (40 skills)
 
 ### Vault / knowledge (11)
 `wiki`, `wiki-ingest`, `wiki-query`, `wiki-lint`, `wiki-fold`, `save`, `autoresearch`, `canvas`, `defuddle`, `obsidian-markdown`, `obsidian-bases`
@@ -63,6 +63,9 @@ When two skills could fire, prefer the more specific one. When the intent is amb
 
 ### Setup / chores (5)
 `setup-pre-commit`, `git-guardrails-claude-code`, `migrate-to-shoehorn`, `scaffold-exercises`, `edit-article`
+
+### Browser / UI testing (1)
+`agent-eyes-browser` — routing entre agent-browser (ojos del agente) y Playwright (E2E) en feedback-widget
 
 ### Communication mode (1)
 `caveman`

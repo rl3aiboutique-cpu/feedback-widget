@@ -1,5 +1,5 @@
+import { ReactElement, ReactNode } from 'react';
 import * as react_jsx_runtime from 'react/jsx-runtime';
-import { ReactNode } from 'react';
 
 /** Package version — keep in sync with package.json. */
 declare const VERSION = "0.7.0";
@@ -136,6 +136,66 @@ type Translator = (key: string, vars?: Record<string, string>) => string;
  */
 
 declare function FeedbackButton(): React.ReactElement | null;
+
+/**
+ * Chat-first feedback sheet — v1.0.0 (D-007, D-011, D-012, D-015).
+ *
+ * Single Sheet on the right with three regions:
+ *
+ *   header   — title + close affordance (provided by SheetContent)
+ *   timeline — scrolling chat history (auto-scrolls on new messages)
+ *   composer — textarea + send button, sticky bottom
+ *
+ * On open we:
+ *   1. capture an auto-screenshot client-side (D-007)
+ *   2. POST /chat/sessions to create a session
+ *   3. seed the timeline with the server-provided greeting
+ *
+ * Synthesis card + Ajustar flow + screenshot upload are Batch B.
+ */
+
+interface FeedbackChatSheetProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+declare function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps): ReactElement;
+
+/** Synthesis card payload (D-015, terminal turn). */
+interface Synthesis {
+    title: string;
+    summary: string;
+    user_story: string;
+    context: string;
+    user_need: string;
+    acceptance_criteria: string[];
+    open_questions: string[];
+}
+
+/**
+ * Final synthesis card for the chat-first feedback flow (D-015, D-012).
+ *
+ * Rendered once the backend emits the `synthesis` SSE event. Surfaces the
+ * structured turn payload (title / summary / user_story / acceptance
+ * criteria / open questions) and offers two terminal actions:
+ *
+ *   Confirmar — accept the synthesis → POST /confirm (Batch B stub).
+ *   Ajustar   — re-open the chat with a follow-up question (D-012).
+ *
+ * Type + severity are deliberately NOT rendered (D-008: admin-only).
+ * Inline edit forms are out of scope (D-012: Ajustar returns to chat).
+ *
+ * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts inherit
+ * that. Locale-aware copy lands later if a non-es host appears.
+ */
+
+interface SynthesisCardProps {
+    synthesis: Synthesis;
+    onConfirm: () => void;
+    onAdjust: () => void;
+    /** Disables both buttons while a confirm/adjust round-trip is in flight. */
+    busy?: boolean;
+}
+declare function SynthesisCard({ synthesis, onConfirm, onAdjust, busy, }: SynthesisCardProps): ReactElement;
 
 /**
  * Wire-shape types for the feedback widget.
@@ -497,4 +557,4 @@ declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptio
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

@@ -143,6 +143,67 @@ def _build_canned_output(prompt_digest: str, version_index: int) -> dict[str, ob
     }
 
 
+def _build_chat_capture_output(digest: str, user_prompt: str) -> dict[str, object]:
+    """Return a chat-shape turn payload for the S2 capture prompt.
+
+    Counts the user turns in the tagged prompt to decide between discover
+    (turns 1-2) and synthesize (turn 3+). Deterministic by digest.
+    """
+    user_turn_count = user_prompt.count("<user>")
+
+    if user_turn_count <= 2:
+        return {
+            "mode": "discover",
+            "reply": "Entiendo. ¿En qué pantalla te pasó esto?",
+            "covered": {
+                "problem": 0.6,
+                "context": 0.2,
+                "expectation": 0.0,
+                "reality": 0.3,
+                "impact": 0.1,
+                "change": 0.0,
+                "example": 0.0,
+                "importance": 0.0,
+            },
+            "active_branch": "2",
+            "inferred": {"type": "improvement", "severity": "minor"},
+            "synthesis": None,
+        }
+
+    return {
+        "mode": "synthesize",
+        "reply": "Perfecto, déjame resumirlo.",
+        "covered": {
+            "problem": 0.9,
+            "context": 0.9,
+            "expectation": 0.8,
+            "reality": 0.9,
+            "impact": 0.8,
+            "change": 0.9,
+            "example": 0.5,
+            "importance": 0.7,
+        },
+        "active_branch": "leaf",
+        "inferred": {"type": "improvement", "severity": "major"},
+        "synthesis": {
+            "title": f"Demo synthesis {digest[:6]}",
+            "summary": "Resumen canned por el fake provider para demos.",
+            "user_story": (
+                "Como usuario del sandbox, quiero ver el flujo chat end-to-end, "
+                "para validar S2 antes de tocar frontend."
+            ),
+            "context": "Sandbox demo, fake LLM provider.",
+            "user_need": "Validar el SSE pipeline sin API keys reales.",
+            "acceptance_criteria": [
+                "El endpoint POST /messages devuelve eventos SSE válidos",
+                "El parser acepta la respuesta del fake provider",
+                "La synthesis_json se persiste en feedback_chat_session",
+            ],
+            "open_questions": [],
+        },
+    }
+
+
 def _count_previous_versions(user_prompt: str) -> int:
     """Cheap parse of the tagged user prompt to count prior versions.
 
@@ -174,8 +235,14 @@ class FakeLLMProvider:
         del attachments, timeout_seconds, max_output_tokens  # canned reply
 
         digest = _digest(system_prompt + "\n" + user_prompt)
-        version_index = _count_previous_versions(user_prompt) + 1
-        payload = _build_canned_output(digest, version_index)
+
+        # Detect chat-mode (S2 capture prompt) vs iter-mode prompt and
+        # produce the shape the matching parser expects.
+        if "ÁRBOL DE DESCUBRIMIENTO" in system_prompt or "grill-me" in system_prompt:
+            payload = _build_chat_capture_output(digest, user_prompt)
+        else:
+            version_index = _count_previous_versions(user_prompt) + 1
+            payload = _build_canned_output(digest, version_index)
         raw = json.dumps(payload, ensure_ascii=False)
 
         return LLMResult(

@@ -16,7 +16,7 @@ COPY apps/sandbox-host/backend/app /app/app
 # (no pyproject for /app — it would resolve the workspace path that
 # only exists at the monorepo root).
 RUN pip install --no-cache-dir \
-    /pkg/feedback-backend \
+    "/pkg/feedback-backend[iter-gemini]" \
     "fastapi>=0.115" \
     "uvicorn[standard]>=0.32" \
     "psycopg[binary]>=3.2"

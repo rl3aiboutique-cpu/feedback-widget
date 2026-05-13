@@ -70,6 +70,7 @@ __all__ = [
     "get_storage_backend",
     "make_sync_engine",
     "mount_feedback_widget_for_async_host",
+    "register_feedback_chat_router",
     "register_feedback_iter_router",
     "register_feedback_router",
     "run_migrations",
@@ -149,6 +150,42 @@ def register_feedback_router(
         cfg.MULTI_TENANT_MODE,
         cfg.CSRF_REQUIRED,
     )
+
+
+def register_feedback_chat_router(
+    app: FastAPI,
+    *,
+    auth: FeedbackAuthAdapter,
+    engine: Engine,
+    settings: FeedbackSettings | None = None,
+    prefix: str = "/feedback",
+    storage: StorageBackend | None = None,
+) -> None:
+    """Mount the chat-first feedback router on a FastAPI app.
+
+    Sits parallel to :func:`register_feedback_router`. The host typically
+    calls both with the same ``prefix``; this one adds the v1.0.0 chat
+    endpoints under ``{prefix}/chat/*``.
+
+    ``storage`` is required by the SSE messages endpoint (it lazily
+    downloads any screenshot attachment referenced by ``auto_context``).
+    When ``None``, one is constructed from ``settings`` — mirrors
+    :func:`register_feedback_router`.
+    """
+    from feedback_widget.chat_router import build_chat_router
+    from feedback_widget.chat_service import ChatService
+
+    cfg = settings or get_settings()
+    if not cfg.ENABLED:
+        logger.info("feedback_widget: ENABLED=false — chat router NOT registered")
+        return
+
+    s3 = storage or get_storage_backend(cfg)
+    deps = build_dependencies(auth=auth, engine=engine, settings=cfg)
+    service = ChatService()
+    router = build_chat_router(deps=deps, service=service, settings=cfg, storage=s3)
+    app.include_router(router, prefix=prefix)
+    logger.info("feedback_widget: chat router mounted at %s/chat", prefix)
 
 
 def register_feedback_iter_router(

@@ -1,5 +1,4 @@
 import {
-  Badge,
   CommentThread,
   Input,
   Rl3Mark,
@@ -8,20 +7,23 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  VERSION,
+  getConsoleTail,
+  getErrorsTail,
+  getNetworkSuccessTail,
+  getNetworkTail
+} from "./chunk-NDEW5SME.js";
+import {
+  Badge,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  VERSION,
   captureElementScreenshot,
-  capturePageScreenshot,
-  getConsoleTail,
-  getErrorsTail,
-  getNetworkSuccessTail,
-  getNetworkTail
-} from "./chunk-26SMHHVL.js";
+  capturePageScreenshot
+} from "./chunk-QNP56VDF.js";
 import {
   AssumptionCard,
   DiagramPanel,
@@ -30,7 +32,7 @@ import {
   spliceSectionInMarkdown,
   splitMarkdownByH2,
   useIterRunStream
-} from "./chunk-22B4P52G.js";
+} from "./chunk-5B3IAQVQ.js";
 import {
   Button,
   SubmitFeedbackError,
@@ -50,7 +52,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyFeedbackQuery
-} from "./chunk-QB73WXKP.js";
+} from "./chunk-62ILORMJ.js";
 
 // src/FeedbackPanel.tsx
 import { useState as useState11 } from "react";
@@ -2947,4 +2949,4 @@ export {
   FeedbackPanel,
   FeedbackPanel_default as default
 };
-//# sourceMappingURL=FeedbackPanel-GBFQY4YV.js.map
+//# sourceMappingURL=FeedbackPanel-2ZYZC7DX.js.map

@@ -1,5 +1,4 @@
 import {
-  Badge,
   CommentThread,
   Input,
   Rl3Mark,
@@ -8,17 +7,24 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  VERSION,
+  installConsoleWrap,
+  installErrorWrap,
+  installNetworkWrap
+} from "./chunk-NDEW5SME.js";
+import {
+  FeedbackChatSheet,
+  SynthesisCard
+} from "./chunk-RRM3BEZN.js";
+import {
+  Badge,
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  VERSION,
-  describeElement,
-  installConsoleWrap,
-  installErrorWrap,
-  installNetworkWrap
-} from "./chunk-26SMHHVL.js";
+  describeElement
+} from "./chunk-QNP56VDF.js";
 import {
   Button,
   FeedbackProvider,
@@ -46,7 +52,7 @@ import {
   useFeedbackListQuery,
   useMyFeedbackQuery,
   useUpdateFeedbackStatusMutation
-} from "./chunk-QB73WXKP.js";
+} from "./chunk-62ILORMJ.js";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
@@ -743,7 +749,11 @@ function useMyPendingActionCount() {
 
 // src/FeedbackButton.tsx
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
-var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-GBFQY4YV.js"));
+var FeedbackPanelLazy = lazy(() => import("./FeedbackPanel-2ZYZC7DX.js"));
+var FeedbackChatSheetLazy = lazy(
+  () => import("./FeedbackChatSheet-GO3NO2RI.js").then((m) => ({ default: m.FeedbackChatSheet }))
+);
+var _CHAT_FIRST = (import.meta.env.VITE_FEEDBACK_CHAT_FIRST ?? "true").toString().toLowerCase() !== "false";
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
   bottom_left: "bottom-24 left-6",
@@ -810,7 +820,7 @@ function FeedbackButton() {
         ]
       }
     ),
-    open || pickerActive ? /* @__PURE__ */ jsx4(Suspense, { fallback: null, children: /* @__PURE__ */ jsx4(
+    _CHAT_FIRST ? open ? /* @__PURE__ */ jsx4(Suspense, { fallback: null, children: /* @__PURE__ */ jsx4(FeedbackChatSheetLazy, { open, onOpenChange: setOpen }) }) : null : open || pickerActive ? /* @__PURE__ */ jsx4(Suspense, { fallback: null, children: /* @__PURE__ */ jsx4(
       FeedbackPanelLazy,
       {
         open: open && !pickerActive,
@@ -831,7 +841,7 @@ var FeedbackButton_default = FeedbackButton;
 import { Suspense as Suspense2, lazy as lazy2 } from "react";
 import { jsx as jsx5 } from "react/jsx-runtime";
 var _Inner = lazy2(async () => {
-  const mod = await import("./IterWorkspace-HE2Q3VEQ.js");
+  const mod = await import("./IterWorkspace-UNTVW2US.js");
   return { default: mod.default };
 });
 function IterWorkspaceLazy(props) {
@@ -846,11 +856,13 @@ function IterWorkspaceLazy(props) {
 export {
   FeedbackButton,
   FeedbackButton_default as FeedbackButtonDefault,
+  FeedbackChatSheet,
   FeedbackProvider,
   FeedbackTriagePage,
   IterApiError,
   IterWorkspaceLazy as IterWorkspace,
   SubmitFeedbackError,
+  SynthesisCard,
   VERSION,
   abandonIterSession,
   createAdapter,

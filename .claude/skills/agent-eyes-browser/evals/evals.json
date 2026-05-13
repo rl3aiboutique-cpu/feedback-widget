@@ -1,0 +1,90 @@
+{
+  "skillName": "agent-eyes-browser",
+  "cases": [
+    {
+      "id": "positive-mira-la-ui",
+      "description": "User pide al agente que mire la UI directamente",
+      "prompt": "mira cómo se ve el chat del widget en localhost:9201",
+      "expectations": [
+        "Activates agent-eyes-browser skill",
+        "Uses agent-browser open + snapshot, NOT Playwright",
+        "Calls agent-browser close at end of flow",
+        "Does NOT write a .spec.ts file"
+      ]
+    },
+    {
+      "id": "positive-screenshot-widget",
+      "description": "User pide screenshot del widget para revisar visualmente",
+      "prompt": "haz un screenshot del widget abierto para que veas el render",
+      "expectations": [
+        "Activates agent-eyes-browser skill",
+        "Uses agent-browser screenshot command",
+        "Saves PNG to /tmp/ or similar non-committed path",
+        "Does NOT commit the screenshot to the repo"
+      ]
+    },
+    {
+      "id": "positive-write-e2e",
+      "description": "User pide escribir tests E2E mantenibles",
+      "prompt": "escribe un test E2E que valide que el chat envía un mensaje y aparece la respuesta",
+      "expectations": [
+        "Activates agent-eyes-browser skill",
+        "Creates a .spec.ts file under apps/sandbox-host/frontend/tests/e2e/",
+        "Uses @playwright/test, NOT agent-browser",
+        "Uses getByRole or getByTestId selectors, NOT raw CSS or nth-child",
+        "Includes await expect(...).toBeVisible() assertion with timeout"
+      ]
+    },
+    {
+      "id": "positive-codegen",
+      "description": "User pide grabar un flujo nuevo con codegen",
+      "prompt": "graba un nuevo flow E2E del chat usando playwright codegen",
+      "expectations": [
+        "Activates agent-eyes-browser skill",
+        "Runs pnpm exec playwright codegen http://localhost:9201",
+        "Targets apps/sandbox-host/frontend workspace, not feedback-frontend"
+      ]
+    },
+    {
+      "id": "positive-combined-explore-then-test",
+      "description": "User pide explorar primero y luego convertir en test",
+      "prompt": "explora el flow del chat con agent-browser y después convierte lo que aprendiste en un spec E2E",
+      "expectations": [
+        "Activates agent-eyes-browser skill",
+        "First uses agent-browser snapshot/screenshot for exploration",
+        "Then uses playwright codegen or writes spec by hand",
+        "Final spec lives in apps/sandbox-host/frontend/tests/e2e/"
+      ]
+    },
+    {
+      "id": "negative-backend-only",
+      "description": "Cambio solo en backend Python — no debe activar la skill",
+      "prompt": "corre los tests del backend después del cambio en chat_service.py",
+      "expectations": [
+        "Does NOT activate agent-eyes-browser skill",
+        "Uses uv run pytest, NOT playwright or agent-browser",
+        "Does NOT open any browser"
+      ]
+    },
+    {
+      "id": "negative-lint-typecheck",
+      "description": "Lint y type-check no requieren navegador",
+      "prompt": "corre el lint y el type-check del frontend del sandbox",
+      "expectations": [
+        "Does NOT activate agent-eyes-browser skill",
+        "Uses pnpm biome / pnpm tsc",
+        "Does NOT launch any browser"
+      ]
+    },
+    {
+      "id": "negative-conceptual-question",
+      "description": "Pregunta conceptual sin acción — no abre navegador",
+      "prompt": "qué diferencia hay entre snapshot y screenshot en agent-browser",
+      "expectations": [
+        "May reference the skill description, but does NOT execute browser commands",
+        "Does NOT open agent-browser daemon",
+        "Answers from the SKILL.md content"
+      ]
+    }
+  ]
+}

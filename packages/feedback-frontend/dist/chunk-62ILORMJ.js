@@ -850,6 +850,7 @@ function Textarea({ className, ...props }) {
 export {
   redactString,
   redactBundle,
+  DEFAULT_REDACTION_SELECTORS,
   SubmitFeedbackError,
   FeedbackApiError,
   useFeedbackListQuery,
@@ -881,4 +882,4 @@ export {
   Button,
   Textarea
 };
-//# sourceMappingURL=chunk-QB73WXKP.js.map
+//# sourceMappingURL=chunk-62ILORMJ.js.map
