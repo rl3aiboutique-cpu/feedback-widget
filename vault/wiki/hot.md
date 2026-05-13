@@ -2,7 +2,7 @@
 type: meta
 title: "Hot Cache"
 created: 2026-05-13
-updated: 2026-05-13
+updated: 2026-05-14
 tags:
   - meta
   - hot
@@ -12,32 +12,30 @@ status: developing
 # Recent Context
 
 ## Last Updated
-2026-05-13. S1 (Schema + sessions endpoint) IMPLEMENTED. Demo gate passed.
+2026-05-14. S3F shell-hybrid IMPLEMENTED + deployed to CBP. Visual smoke green via agent-browser.
 
 ## Key Recent Facts
-- Redesign chat-first del Feedback Widget en marcha. v1.0.0 big-bang PR, ~5 sem.
-- S1 done: migration 0007 + chat_models + chat_schemas + chat_service + chat_router + wiring (__init__, integration, sandbox-host main, conftest).
-- 13 archivos staged, 1231 LOC, 14 nuevos tests (10 unit + 4 integration chat-specific).
-- Single commit por fase (Iron Law 7 + user preference D-commit-end-of-flow).
+- Redesign chat-first v1.0.0 — shell-hybrid: OLD chrome (header + tabs Nuevo/Mis feedbacks + CAPTURE picker + footer) preserved verbatim; form fields replaced by chat (ChatTimeline + Composer + SynthesisCard).
+- Bottom buttons state-driven: hidden during discovery; [↺ Sigamos iterando] + [✓ Confirmar] when synthesis visible.
+- LLM arquitectura: single call per turn (Gemini-flash). LangGraph diferido a v1.1+ solo si métricas breach.
+- Workflow E2E: feedback-widget repo → git push branch → CBP repins lockfile → `make rebuild` → :3001 sirve nueva UI.
 
 ## Decisión master
-- [[2026-05-13_feedback-widget-v1-redesign]] — todas las 22 decisiones consolidadas.
-- [[2026-05-13_e2e-stack]] — agent-browser (eyes) + Playwright (E2E en `apps/sandbox-host/frontend`).
+- [[2026-05-13_feedback-widget-v1-redesign]] — 22 decisiones grilled
+- [[../../docs/specs/2026-05-14-feedback-widget-shell-hybrid-design]] — spec shell-hybrid
 
-## Stack dev nuevo
-- `agent-browser` 0.27.0 global + Chrome 148 (ojos del agente, refs `@e1`).
-- `@playwright/test` 1.60.0 dev-dep en `apps/sandbox-host/frontend` + chromium descargado.
-- Allowlist Bash añadida en `.claude/settings.local.json`.
+## Stack dev
+- `agent-browser` 0.27.0 global + Chrome 148 (ojos del agente, refs `@e1`)
+- CBP local: backend :8002, frontend :3001
+- CBP db: cbp-postgres :5433 user cbp_user db compliance_brain_dev
+- Real Gemini wiring: `GEMINI_API_KEY` en `apps/sandbox-host/.env`; CBP backend ya tiene su key en infra `.env`
 
 ## Active Threads
-- S1 IMPLEMENTED, esperando commit final con user `ok` (Iron Law 7).
-- Next: S2 (LLM messages SSE) → generar plan via writing-plans skill cuando S1 commiteado. Cuando UI nueva aparezca, scaffold E2E suite en `apps/sandbox-host/frontend/tests/`.
-
-## Pendientes infra (no bloquean S1)
-- `_truncate_each_test` ahora incluye `feedback_chat_session` (S1 fix).
-- Env-leak bug pre-existing: `tests/integration/conftest.py:75` setea `FEEDBACK_MULTI_TENANT_MODE=false` global → contamina unit `test_defaults_are_safe`. No es regresión, no de S1 scope.
-- DuplicateTable cross-session (iter_*, chat_*): el `_migrate_once` teardown solo dropea 4 tablas legacy. Pre-existing limitación; cleanup en S7 cuando borremos iter_*.
+- S3F shipped en commit `ed85564`, branch `feedback/lehidalgo/feedback-optimizations`, pushed remote.
+- CBP frontend lockfile pin actualizado a ed85564, rebuild + redeploy hecho. Smoke browser ✅.
+- Visual issues conocidos (no bloquean): greeting bubble se renderiza con estilo button; botón flotante "RL3 Feedback" sigue visible encima del Sheet abierto. Diferidos a polish slice.
+- Next: S5 (backend confirm + abandon endpoints) → S5b (frontend wire confirm) → S3E (comments inline) → S4 (voice Whisper) → S7 (cleanup legacy + v1.0.0 ship).
 
 ## Resume hints
-- Implementación: "Sigue con S2 — plan via writing-plans + LLM messages SSE."
-- Más grill: "Continuemos grill — observability y test strategy del feedback-widget chat."
+- Implementación: "Sigue con S5 — POST /chat/sessions/{sid}/confirm crea feedback row real + S5b wire frontend."
+- Visual polish: "fix greeting bubble como assistant chat bubble no button, y ocultar floating button cuando Sheet abierto."
