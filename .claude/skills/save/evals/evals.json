@@ -1,0 +1,32 @@
+{
+  "skill": "save",
+  "version": 1,
+  "description": "Trigger reliability cases for the save skill.",
+  "cases": [
+    {
+      "prompt": "guarda esta conversación al wiki",
+      "expect_skill": true,
+      "rationale": "explicit save-conversation-to-vault request"
+    },
+    {
+      "prompt": "file this answer so I can find it next session",
+      "expect_skill": true,
+      "rationale": "filing current insight to persistent vault"
+    },
+    {
+      "prompt": "/save",
+      "expect_skill": true,
+      "rationale": "slash command directly maps to save skill"
+    },
+    {
+      "prompt": "ingresa este PDF al wiki",
+      "expect_skill": false,
+      "rationale": "external source ingestion is wiki-ingest, not save"
+    },
+    {
+      "prompt": "investiga sobre OAuth2 PKCE y crea páginas en el wiki",
+      "expect_skill": false,
+      "rationale": "iterative web research is autoresearch, not save"
+    }
+  ]
+}

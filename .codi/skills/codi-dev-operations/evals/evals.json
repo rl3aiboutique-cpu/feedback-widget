@@ -1,0 +1,58 @@
+{
+  "skillName": "codi-dev-operations",
+  "cases": [
+    {
+      "id": "add-custom-rule",
+      "description": "Adding a custom rule triggers the skill",
+      "prompt": "add a new rule named my-coding-standard",
+      "expectations": [
+        "Activates dev-operations skill",
+        "Runs `codi add rule my-coding-standard`",
+        "Creates a blank skeleton with managed_by: user",
+        "Runs `codi generate` to propagate"
+      ]
+    },
+    {
+      "id": "resolve-generate-conflict",
+      "description": "Conflict resolution on `codi generate` exit 2 triggers the skill",
+      "prompt": "`codi generate` just exited with code 2 and printed a conflicts JSON",
+      "expectations": [
+        "Activates dev-operations skill Conflict Resolution flow",
+        "Parses the JSON payload from stdout",
+        "Offers Path A (agent merges) or Path B (manual with conflict markers)",
+        "Does NOT expose raw JSON or exit code to the user"
+      ]
+    },
+    {
+      "id": "self-dev-template-edit",
+      "description": "Source-layer edit triggers the clean+reinstall flow",
+      "prompt": "I edited src/templates/skills/my-skill/template.ts but `codi generate` didn't pick up the change",
+      "expectations": [
+        "Explains that `codi generate` reads .codi/, not src/templates/",
+        "Walks through pnpm build → rm -rf .codi/skills/codi-my-skill → delete artifact-manifest entry → codi add skill --template → codi generate --force",
+        "Reminds user to bump `version:` in the template frontmatter"
+      ]
+    },
+    {
+      "id": "drift-check",
+      "description": "Drift check triggers the skill",
+      "prompt": "check if my Codi setup has drift",
+      "expectations": [
+        "Activates dev-operations skill",
+        "Runs `codi status` and/or `codi doctor`",
+        "Reports drift findings",
+        "Proposes `codi generate` to resolve"
+      ]
+    },
+    {
+      "id": "negative-write-new-skill",
+      "description": "Writing a new skill does NOT trigger dev-operations",
+      "prompt": "help me write a new skill that wraps the OpenAI SDK",
+      "expectations": [
+        "Does NOT activate dev-operations skill",
+        "Routes to codi-skill-creator instead",
+        "Does NOT run `codi add skill` first without the skill-creator workflow"
+      ]
+    }
+  ]
+}

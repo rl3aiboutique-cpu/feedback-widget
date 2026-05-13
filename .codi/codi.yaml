@@ -1,0 +1,4 @@
+name: feedback-widget
+version: "1"
+agents:
+  - claude-code

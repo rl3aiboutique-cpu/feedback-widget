@@ -1,0 +1,32 @@
+{
+  "skill": "diagnose",
+  "version": 1,
+  "description": "Trigger reliability cases for the diagnose skill.",
+  "cases": [
+    {
+      "prompt": "diagnose this — the auth tests pass locally but fail in CI",
+      "expect_skill": true,
+      "rationale": "explicit 'diagnose' keyword + bug symptom + reproducibility gap"
+    },
+    {
+      "prompt": "el endpoint /orders devuelve 500 desde ayer y los logs no dicen nada útil",
+      "expect_skill": true,
+      "rationale": "bug report with broken behaviour and missing signal — classic diagnose entry"
+    },
+    {
+      "prompt": "the dashboard p95 latency jumped from 80ms to 600ms after the last deploy",
+      "expect_skill": true,
+      "rationale": "performance regression with a temporal pivot — diagnose handles perf regressions explicitly"
+    },
+    {
+      "prompt": "renómbrame esta variable de foo a bar en todos los archivos",
+      "expect_skill": false,
+      "rationale": "rename refactor, no bug; diagnose would be overkill"
+    },
+    {
+      "prompt": "explícame qué hace este reducer",
+      "expect_skill": false,
+      "rationale": "conceptual question, no failure to reproduce"
+    }
+  ]
+}

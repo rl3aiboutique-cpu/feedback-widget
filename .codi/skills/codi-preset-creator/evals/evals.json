@@ -1,0 +1,59 @@
+{
+  "skillName": "codi-preset-creator",
+  "cases": [
+    {
+      "id": "create-team-preset",
+      "description": "New team preset triggers the skill",
+      "prompt": "create a preset for our frontend team bundling our rules and skills",
+      "expectations": [
+        "Activates preset-creator skill",
+        "Walks through Identity → Artifacts → Flags → MCP → Scaffold → Output → Validate",
+        "Runs `codi preset create <name>`",
+        "Populates the preset directory with selected rules/skills/agents",
+        "Runs `codi preset validate <name>` at the end"
+      ]
+    },
+    {
+      "id": "export-preset-zip",
+      "description": "ZIP export of a preset triggers the skill",
+      "prompt": "package my 'strict-security' preset as a ZIP to share privately",
+      "expectations": [
+        "Activates preset-creator skill (or routes to the ZIP export path)",
+        "Runs `codi preset export strict-security --format zip`",
+        "Outputs a .zip file",
+        "Mentions recipient install command `codi preset install ./strict-security.zip`"
+      ]
+    },
+    {
+      "id": "fork-builtin-preset",
+      "description": "Forking a built-in preset triggers the skill",
+      "prompt": "customize the 'balanced' preset — start from it and add our 3 custom rules",
+      "expectations": [
+        "Activates preset-creator skill",
+        "Uses 'balanced' as reference preset (Step 1)",
+        "Copies the built-in artifacts into the new preset directory",
+        "Explains there is no inheritance — the fork is self-contained"
+      ]
+    },
+    {
+      "id": "negative-install-preset",
+      "description": "Installing an existing preset does NOT trigger preset-creator",
+      "prompt": "install the team-preset.zip into my project",
+      "expectations": [
+        "Does NOT activate preset-creator skill",
+        "Runs `codi preset install ./team-preset.zip` directly",
+        "Does NOT scaffold a new preset"
+      ]
+    },
+    {
+      "id": "negative-contribute-to-upstream",
+      "description": "Contributing an artifact to Codi upstream does NOT trigger preset-creator",
+      "prompt": "I want to contribute my custom rule back to the Codi repo",
+      "expectations": [
+        "Does NOT activate preset-creator skill",
+        "Routes to codi-artifact-contributor instead",
+        "Does NOT bundle into a preset"
+      ]
+    }
+  ]
+}

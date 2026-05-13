@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Bash(git push origin main*)",
+      "Bash(git push * main)",
+      "Bash(git push origin HEAD:main*)",
+      "Bash(git push origin develop*)",
+      "Bash(git push * develop)",
+      "Bash(git push origin HEAD:develop*)",
+      "Bash(git push --no-verify*)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git commit --no-verify*)",
+      "Bash(git commit -n *)",
+      "Bash(git checkout main)",
+      "Bash(git switch main)",
+      "Bash(git checkout develop)",
+      "Bash(git switch develop)",
+      "Bash(git rebase * develop)",
+      "Bash(git rebase * main)",
+      "Bash(git reset --hard *)",
+      "Bash(git config --global *)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~*)",
+      "Bash(chmod -R *)",
+      "Bash(pip install *)",
+      "Edit(.env)",
+      "Edit(.env.local)",
+      "Edit(.env.production)",
+      "Edit(.env.staging)",
+      "Edit(.env.development)",
+      "Edit(.env.test)",
+      "Write(.env)",
+      "Write(.env.local)",
+      "Write(.env.production)",
+      "Write(.env.staging)",
+      "Write(.env.development)",
+      "Write(.env.test)"
+    ],
+    "allow": [
+      "Bash(git push --force-with-lease origin feature/*)",
+      "Bash(git push --force-with-lease origin bugfix/*)",
+      "Bash(git push --force-with-lease origin chore/*)",
+      "Bash(git push --force-with-lease origin release/*)",
+      "Bash(git push --force-with-lease origin hotfix/*)",
+      "Bash(git checkout -b feature/*)",
+      "Bash(git checkout -b bugfix/*)",
+      "Bash(git checkout -b chore/*)",
+      "Bash(git checkout -b release/*)",
+      "Bash(git checkout -b hotfix/*)",
+      "Bash(git switch -c feature/*)",
+      "Bash(git switch -c bugfix/*)",
+      "Bash(git switch -c chore/*)",
+      "Bash(git switch -c release/*)",
+      "Bash(git switch -c hotfix/*)"
+    ]
+  },
+  "hooks": {
+    "InstructionsLoaded": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh \"${CLAUDE_PROJECT_DIR:-.}\"/.codi/hooks/_run-node \"${CLAUDE_PROJECT_DIR:-.}\"/.codi/hooks/codi-skill-tracker.cjs",
+            "timeout": 5,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f vault/wiki/hot.md ] && cat vault/wiki/hot.md || true"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f vault/wiki/hot.md ] && cat vault/wiki/hot.md || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && codi hook user-prompt-submit --agent claude-code",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "/bin/sh \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/inject-capability-prompt.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && codi hook pre-tool-use --agent claude-code",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && codi hook post-tool-use --agent claude-code",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -d .git ] && [ -d vault ]; then if ! git add vault/ 2>/dev/null; then echo 'vault auto-commit: git add failed' >&2; fi; if ! git diff --cached --quiet -- vault/; then if ! git commit -m \"vault: auto-commit $(date '+%Y-%m-%d %H:%M')\" --only -- vault/ 2>/dev/null; then echo 'vault auto-commit: git commit failed (check signing, hooks, recursion)' >&2; fi; fi; fi"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/append-memory-to-claudemd.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/sh \"${CLAUDE_PROJECT_DIR:-.}\"/.codi/hooks/_run-node \"${CLAUDE_PROJECT_DIR:-.}\"/.codi/hooks/codi-skill-observer.cjs",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-.}\" && codi hook stop --agent claude-code",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "cd \"$PWD\" && [ -d vault/wiki ] && [ -d .git ] && git diff --name-only HEAD 2>/dev/null | grep -q '^vault/wiki/' && echo 'VAULT_CHANGED: Vault pages were modified this session. Please update vault/wiki/hot.md with a brief summary of what changed (under 500 words). Use the hot cache format: Last Updated, Key Recent Facts, Recent Changes, Active Threads. Keep it factual. Overwrite the file completely. It is a cache, not a journal.' || true"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "skillName": "codi-skill-creator",
+  "cases": [
+    {
+      "id": "create-new-skill",
+      "description": "New skill creation request triggers interview then scaffolding",
+      "prompt": "create a new skill for generating changelogs from git history",
+      "expectations": [
+        "Asks clarifying questions about the skill's purpose and trigger words before scaffolding",
+        "Runs the scaffolding command after gathering requirements",
+        "Creates SKILL.md with valid frontmatter (name, description, category)",
+        "Writes at least 5 eval cases in evals/evals.json"
+      ]
+    },
+    {
+      "id": "improve-existing-skill",
+      "description": "Skill improvement request triggers the improve workflow",
+      "prompt": "improve the commit skill — it sometimes triggers when I just want to review git status",
+      "expectations": [
+        "Reads the current SKILL.md to understand the existing description",
+        "Identifies the trigger boundary issue",
+        "Proposes a more specific description or adds negative trigger keywords",
+        "Does NOT change behavior, only improves trigger precision"
+      ]
+    },
+    {
+      "id": "migrate-external-skill",
+      "description": "Importing a skill from an external source triggers the migration workflow",
+      "prompt": "import this skill from the GitHub repository at https://github.com/example/my-skill",
+      "expectations": [
+        "Clones or fetches the source before analyzing it",
+        "Runs the security scanner on the source skill",
+        "Validates the SKILL.md structure",
+        "Installs the skill only after security review passes"
+      ]
+    },
+    {
+      "id": "slash-command-trigger",
+      "description": "/codi-skill-creator activates the skill",
+      "prompt": "/codi-skill-creator I need a skill for generating API documentation",
+      "expectations": [
+        "Activates the skill-creator skill",
+        "Asks about the skill's trigger words and purpose"
+      ]
+    },
+    {
+      "id": "negative-create-agent",
+      "description": "Creating an agent should trigger agent-creator, not skill-creator",
+      "prompt": "create a new agent that reviews security vulnerabilities",
+      "expectations": [
+        "Does NOT invoke the skill-creator skill",
+        "Does NOT scaffold a SKILL.md file",
+        "Routes to agent-creator for agent creation"
+      ]
+    },
+    {
+      "id": "negative-create-rule",
+      "description": "Creating a rule should trigger rule-creator, not skill-creator",
+      "prompt": "create a new rule to enforce snake_case for Python variables",
+      "expectations": [
+        "Does NOT invoke the skill-creator skill",
+        "Does NOT scaffold a SKILL.md file",
+        "Routes to rule-creator for rule creation"
+      ]
+    }
+  ]
+}

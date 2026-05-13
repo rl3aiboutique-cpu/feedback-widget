@@ -1,0 +1,32 @@
+{
+  "skill": "tdd",
+  "version": 1,
+  "description": "Trigger reliability cases for the tdd skill.",
+  "cases": [
+    {
+      "prompt": "implementa el nuevo endpoint POST /users con TDD",
+      "expect_skill": true,
+      "rationale": "explicit TDD request on a new feature"
+    },
+    {
+      "prompt": "red-green-refactor para esta función de validación",
+      "expect_skill": true,
+      "rationale": "canonical TDD vocabulary"
+    },
+    {
+      "prompt": "antes de tocar nada, escribe el test que reproduce el bug del carrito vacío",
+      "expect_skill": true,
+      "rationale": "test-first for a bug fix — TDD discipline"
+    },
+    {
+      "prompt": "diagnose this — el carrito vacío rompe checkout",
+      "expect_skill": false,
+      "rationale": "bug diagnosis first, TDD comes after reproducing it (diagnose owns this)"
+    },
+    {
+      "prompt": "documenta este módulo",
+      "expect_skill": false,
+      "rationale": "documentation task, no code change"
+    }
+  ]
+}

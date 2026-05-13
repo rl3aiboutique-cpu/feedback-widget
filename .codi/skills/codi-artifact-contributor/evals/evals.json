@@ -1,0 +1,58 @@
+{
+  "skillName": "codi-artifact-contributor",
+  "cases": [
+    {
+      "id": "contribute-skill-to-codi",
+      "description": "Explicit contribution request triggers the skill",
+      "prompt": "I want to contribute my custom rule back to Codi",
+      "expectations": [
+        "Activates artifact-contributor skill",
+        "Checks `gh auth status` before proceeding",
+        "Proposes `codi contribute` as the default path",
+        "Lists artifacts under .codi/rules/, .codi/skills/, .codi/agents/",
+        "Targets the `develop` branch (not main) for the PR"
+      ]
+    },
+    {
+      "id": "share-as-zip",
+      "description": "Private ZIP sharing request triggers the skill",
+      "prompt": "export my skill as a ZIP so I can share it with my team",
+      "expectations": [
+        "Activates artifact-contributor skill",
+        "Runs `codi contribute` and selects the ZIP export path",
+        "Explains recipient installs via `codi preset install <path>`",
+        "Does NOT attempt to open a PR"
+      ]
+    },
+    {
+      "id": "custom-repo-contribution",
+      "description": "Contribution to a custom team repo triggers the skill",
+      "prompt": "push my preset to myorg/shared-presets",
+      "expectations": [
+        "Activates artifact-contributor skill",
+        "Runs `codi contribute --repo myorg/shared-presets`",
+        "Does NOT hardcode the official Codi repository"
+      ]
+    },
+    {
+      "id": "negative-ordinary-commit",
+      "description": "Ordinary code commit request does NOT trigger the skill",
+      "prompt": "commit my latest changes to src/utils.ts",
+      "expectations": [
+        "Does NOT activate artifact-contributor skill",
+        "Does NOT run `codi contribute`",
+        "Routes to the commit skill or a regular git flow instead"
+      ]
+    },
+    {
+      "id": "negative-install-preset",
+      "description": "Installing a preset (not contributing) does NOT trigger the skill",
+      "prompt": "install the preset at ./team-preset.zip",
+      "expectations": [
+        "Does NOT activate artifact-contributor skill",
+        "Runs `codi preset install ./team-preset.zip` instead",
+        "Does NOT attempt to open a PR or export a ZIP"
+      ]
+    }
+  ]
+}
