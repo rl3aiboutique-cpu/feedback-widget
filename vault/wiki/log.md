@@ -26,6 +26,20 @@ Append-only. New entries at the TOP.
 - Migration tenant_id corrected: nullable=True (was False) to match feedback table convention for single-tenant hosts.
 - 1231 LOC staged. Single S1 commit pending user `ok`.
 
+## 2026-05-14 — S3F shell-hybrid shipped + deployed CBP
+
+- Refactor FeedbackChatSheet: OLD chrome (header + tabs + CAPTURE picker + footer) preserved; only form-fields zone replaced by chat.
+- 4 new components: `chat/CapturePicker`, `chat/FeedbackTabs`, `chat/MineFeedTab`, `chat/FooterActions` (+ 8 vitest passing).
+- Bottom buttons state-driven via `FooterActions`. Hidden during discovery, `[↺ Sigamos iterando]` + `[✓ Confirmar]` during synthesis.
+- `useFeedbackChat` extended with `captureMode`, `lockedElement`, `activeTab` + handlers.
+- `SynthesisCard` adelgazado (buttons movieron al footer).
+- `VITE_FEEDBACK_CHAT_FIRST` flag removido — chat sheet ahora es el único path.
+- Commit `ed85564`, branch `feedback/lehidalgo/feedback-optimizations`, pushed.
+- CBP repinned + rebuilt frontend. Browser smoke via agent-browser ✅ en :3001.
+- Spec: docs/specs/2026-05-14-feedback-widget-shell-hybrid-design.md
+- Plan: docs/superpowers/plans/2026-05-14-feedback-widget-shell-hybrid.md
+- LLM architecture: single call per turn confirmed for v1.0.0. LangGraph deferred to v1.1+ pending metrics.
+
 ## 2026-05-13 — Decisions consolidated into single master doc
 
 - Las 13 páginas (9 individuales + 2 consolidated per-sesión + ... = 11 totales) fusionadas en [[2026-05-13_feedback-widget-v1-redesign]].
