@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SynthesisCard,
   describeElement
-} from "./chunk-VAENDLMR.js";
+} from "./chunk-DPYI7UJ3.js";
 import {
   Button,
   FeedbackApiError,
@@ -1171,7 +1171,7 @@ function useMyPendingActionCount() {
 // src/FeedbackButton.tsx
 import { jsx as jsx7, jsxs as jsxs5 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-3IENFY5H.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-5TKAK5R4.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",

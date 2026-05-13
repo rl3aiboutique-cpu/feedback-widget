@@ -137,7 +137,6 @@ export function FeedbackChatSheet({
     return () => window.clearTimeout(tid);
   }, [state, onOpenChange]);
 
-  const chatStarted = messages.length > 0;
   const showSynthesis = state === "confirming" && synthesis !== null;
 
   return (
@@ -174,7 +173,6 @@ export function FeedbackChatSheet({
                 onActivatePicker={onActivatePicker}
                 onClearLocked={onClearLocked}
                 onModeChange={setMode}
-                readOnly={chatStarted}
               />
             </div>
 

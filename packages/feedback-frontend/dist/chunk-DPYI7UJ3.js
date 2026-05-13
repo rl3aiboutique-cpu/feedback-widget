@@ -1193,7 +1193,6 @@ function FeedbackChatSheet({
     const tid = window.setTimeout(() => onOpenChange(false), 3e3);
     return () => window.clearTimeout(tid);
   }, [state, onOpenChange]);
-  const chatStarted = messages.length > 0;
   const showSynthesis = state === "confirming" && synthesis !== null;
   return /* @__PURE__ */ jsx12(Sheet, { open, onOpenChange, children: /* @__PURE__ */ jsxs10(
     SheetContent,
@@ -1225,8 +1224,7 @@ function FeedbackChatSheet({
               locked: lockedElement,
               onActivatePicker,
               onClearLocked,
-              onModeChange: setMode,
-              readOnly: chatStarted
+              onModeChange: setMode
             }
           ) }),
           /* @__PURE__ */ jsxs10("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
@@ -1280,4 +1278,4 @@ export {
   SynthesisCard,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-VAENDLMR.js.map
+//# sourceMappingURL=chunk-DPYI7UJ3.js.map
