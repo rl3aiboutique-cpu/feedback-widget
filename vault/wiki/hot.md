@@ -22,10 +22,16 @@ status: developing
 
 ## Decisión master
 - [[2026-05-13_feedback-widget-v1-redesign]] — todas las 22 decisiones consolidadas.
+- [[2026-05-13_e2e-stack]] — agent-browser (eyes) + Playwright (E2E en `apps/sandbox-host/frontend`).
+
+## Stack dev nuevo
+- `agent-browser` 0.27.0 global + Chrome 148 (ojos del agente, refs `@e1`).
+- `@playwright/test` 1.60.0 dev-dep en `apps/sandbox-host/frontend` + chromium descargado.
+- Allowlist Bash añadida en `.claude/settings.local.json`.
 
 ## Active Threads
 - S1 IMPLEMENTED, esperando commit final con user `ok` (Iron Law 7).
-- Next: S2 (LLM messages SSE) → generar plan via writing-plans skill cuando S1 commiteado.
+- Next: S2 (LLM messages SSE) → generar plan via writing-plans skill cuando S1 commiteado. Cuando UI nueva aparezca, scaffold E2E suite en `apps/sandbox-host/frontend/tests/`.
 
 ## Pendientes infra (no bloquean S1)
 - `_truncate_each_test` ahora incluye `feedback_chat_session` (S1 fix).
