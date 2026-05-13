@@ -12,31 +12,26 @@ status: developing
 # Recent Context
 
 ## Last Updated
-2026-05-13. /grill-me session 1 en progreso — 6 decisiones acordadas.
+2026-05-13. /grill-me session 1 CERRADA. 15 decisiones (D-001..D-015) consolidadas.
 
 ## Key Recent Facts
-- **Redesign chat-first del widget** decidido. Bump a v1.0.0.
-- Form-based flow se reemplaza por chat conversacional + voz (Whisper).
-- ~9k LOC del módulo Iter se borran; backend SSE/idempotency/LLM provider chain se reusan.
-- LLM = entrevistador GrillMe-style, 5 turnos max, salida temprana en covered≥0.7.
-- Transcripción: OpenAI Whisper via backend proxy, transcript editable.
-- Recording: tap-toggle universal (no PTT).
-- Data model: `feedback_chat_session` source of truth, `feedback` row se crea solo al confirm.
+- Redesign chat-first del Feedback Widget aprobado: v1.0.0 big-bang PR, ~5 sem.
+- Form actual fuera; `<FeedbackComposeLegacy/>` exportado deprecado 1 release.
+- Iter workspace (~9k LOC) eliminado; backend SSE/idempotency/LLM chain reusables como `chat_service`.
+- LLM = entrevistador grill-me-shaped, 5 turnos max + early exit, voz neutra sin nombre.
+- Voz: OpenAI Whisper backend proxy, tap-toggle universal, **audio NO se persiste** (solo transcript).
+- Data model: `feedback_chat_session` source of truth; `feedback` row se crea solo al confirm.
 
-## Decisiones acordadas (D-001..D-006)
-- D-001 [[2026-05-13_chat-first-replacement-strategy]] — v1.0.0 con legacy opt-in
-- D-002 [[2026-05-13_kill-iter-refine-via-chat]] — matar Iter, refinar via chat
-- D-003 [[2026-05-13_llm-turn-cap]] — 5 turnos + early exit
-- D-004 [[2026-05-13_whisper-backend-proxy]] — Whisper backend proxy
-- D-005 [[2026-05-13_voice-toggle-mode]] — toggle no PTT
-- D-006 [[2026-05-13_data-model-chat-session]] — chat_session + feedback at confirm
+## Resolved branches (D-001..D-015)
+- [[2026-05-13_grilled-feedback-widget-redesign]] — consolidated doc
+
+## Recent Changes
+- Created: vault scaffold + 15 detail decision pages + 1 consolidated grill doc.
+- Updated: hot.md (este).
+- Rule update during session: `dev-vault-discipline.md` ahora exige 1 doc consolidado por grill.
 
 ## Active Threads
-- /grill-me session 1 sigue. Próximas ramas: screenshot/multimodal, severidad visible, language strategy, phasing.
-- Ramas cerradas: estrategia, iter cleanup, llm cap, voz pipeline, voz UX, data model.
+- F1 implementation can start. Pending táctico (no grill): admin reopen-chat UI contract, bindings reduction 10→4, SSE reconnect window, magic-link scope check, per-host customizations.
 
-## Open Questions
-- ¿Multimodal screenshot solo en turno 1 o en todos?
-- ¿Severidad/tipo visibles al submitter o solo al admin?
-- ¿Idioma de respuesta: el del usuario o el del producto?
-- ¿Persona name del bot ("Feedback Assistant" vs custom)?
+## Resume hint
+> "Sigamos cerrando ramas tácticas del feedback-widget redesign — admin reopen-chat y bindings reduction."
