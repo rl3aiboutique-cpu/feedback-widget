@@ -208,22 +208,6 @@ function redactString(value) {
   }
   return out + _ZERO_WIDTH;
 }
-function redactBundle(value) {
-  if (typeof value === "string") {
-    return redactString(value);
-  }
-  if (Array.isArray(value)) {
-    return value.map(redactBundle);
-  }
-  if (value !== null && typeof value === "object") {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[k] = redactBundle(v);
-    }
-    return out;
-  }
-  return value;
-}
 var DEFAULT_REDACTION_SELECTORS = Object.freeze([
   'input[type="password"]',
   'input[autocomplete="one-time-code"]',
@@ -849,7 +833,6 @@ function Textarea({ className, ...props }) {
 
 export {
   redactString,
-  redactBundle,
   DEFAULT_REDACTION_SELECTORS,
   SubmitFeedbackError,
   FeedbackApiError,
@@ -882,4 +865,4 @@ export {
   Button,
   Textarea
 };
-//# sourceMappingURL=chunk-62ILORMJ.js.map
+//# sourceMappingURL=chunk-JOGE5WUF.js.map

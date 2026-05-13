@@ -137,28 +137,69 @@ type Translator = (key: string, vars?: Record<string, string>) => string;
 
 declare function FeedbackButton(): React.ReactElement | null;
 
+type CaptureMode = "page" | "element";
+interface LockedElementInfo {
+    selector: string;
+    xpath: string | null;
+    bounding_box: {
+        x: number;
+        y: number;
+        w: number;
+        h: number;
+    };
+}
+interface CapturePickerProps {
+    mode: CaptureMode;
+    locked: LockedElementInfo | null;
+    onActivatePicker: () => void;
+    onClearLocked: () => void;
+    onModeChange: (mode: CaptureMode) => void;
+    /** When `true`, the picker is in read-only "badge" mode (after the chat has started). */
+    readOnly?: boolean;
+}
+declare function CapturePicker({ mode, locked, onActivatePicker, onClearLocked, onModeChange, readOnly, }: CapturePickerProps): ReactElement;
+
 /**
- * Chat-first feedback sheet — v1.0.0 (D-007, D-011, D-012, D-015).
+ * Chat-first feedback sheet — v1.0.0 shell-hybrid (S3F).
  *
- * Single Sheet on the right with three regions:
+ * Re-architected per spec
+ * `docs/specs/2026-05-14-feedback-widget-shell-hybrid-design.md`:
+ * the OLD widget chrome (header + tabs + CAPTURE picker + footer) is
+ * preserved and now wraps the chat zone. The form-fields area is the
+ * only thing the chat replaces.
  *
- *   header   — title + close affordance (provided by SheetContent)
- *   timeline — scrolling chat history (auto-scrolls on new messages)
- *   composer — textarea + send button, sticky bottom
+ * Layout:
  *
- * On open we:
- *   1. capture an auto-screenshot client-side (D-007)
- *   2. POST /chat/sessions to create a session
- *   3. seed the timeline with the server-provided greeting
+ *   ┌─ SheetHeader (RL3 mark + title + description) ─────────┐
+ *   │ ┌─ FeedbackTabs (Nuevo feedback / Mis feedbacks) ────┐ │
+ *   │ ┌─ CapturePicker (Whole page / Select element) ────-─┐ │  ← compose tab only
+ *   │ ┌─ Chat scroll area (timeline + synthesis card) ─-───┐ │
+ *   │ ┌─ Composer (textarea + send) ────────────-──────────┐ │  ← discovery states
+ *   │ ┌─ FooterActions (Sigamos iterando / Confirmar) ─────┐ │  ← synthesis states
+ *   └────────────────────────────────────────────────────────┘
  *
- * Synthesis card + Ajustar flow + screenshot upload are Batch B.
+ * Bottom buttons live in `FooterActions`, NOT inside `SynthesisCard`.
+ * Visibility is purely state-driven by `useFeedbackChat.state`.
+ *
+ * The "Conversaciones previas" header (S3C `<PreviousConversations>`)
+ * is replaced by the Mis feedbacks tab + `<MineFeedTab>` (S3F).
  */
 
 interface FeedbackChatSheetProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** External locked element coming from `FeedbackButton`'s picker
+     * round-trip. Mirrored into the hook on every render so the
+     * CapturePicker badge and the auto_context payload stay in sync. */
+    locked: LockedElementInfo | null;
+    /** Hand control back to the parent so it can mount the ElementSelector
+     * overlay. The sheet closes (visually) while the picker is on. */
+    onActivatePicker: () => void;
+    /** Drop the external locked element. Called when the user clicks the
+     * ✕ next to the locked-element pill. */
+    onClearLocked: () => void;
 }
-declare function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps): ReactElement;
+declare function FeedbackChatSheet({ open, onOpenChange, locked, onActivatePicker, onClearLocked, }: FeedbackChatSheetProps): ReactElement;
 
 /** Synthesis card payload (D-015, terminal turn). */
 interface Synthesis {
@@ -170,19 +211,33 @@ interface Synthesis {
     acceptance_criteria: string[];
     open_questions: string[];
 }
+/**
+ * Top-level state machine for the chat panel.
+ *
+ * idle           — sheet closed, no session
+ * opening        — sheet opening; capturing screenshot + creating session
+ * awaiting_user  — bot finished a turn, waiting for the user
+ * user_typing    — user is composing (purely a UI hint, not load-bearing)
+ * bot_thinking   — request in-flight, streaming delta events
+ * synthesizing   — got `synthesizing` SSE event, awaiting `synthesis`
+ * confirming     — synthesis received, user reviewing the card
+ * finalizing     — user confirmed, POST /confirm in flight (Batch B)
+ * done           — feedback created; sheet about to close
+ * error          — terminal error state
+ */
+type ChatState = "idle" | "opening" | "awaiting_user" | "user_typing" | "bot_thinking" | "synthesizing" | "confirming" | "finalizing" | "done" | "error";
 
 /**
  * Final synthesis card for the chat-first feedback flow (D-015, D-012).
  *
  * Rendered once the backend emits the `synthesis` SSE event. Surfaces the
  * structured turn payload (title / summary / user_story / acceptance
- * criteria / open questions) and offers two terminal actions:
- *
- *   Confirmar — accept the synthesis → POST /confirm (Batch B stub).
- *   Ajustar   — re-open the chat with a follow-up question (D-012).
+ * criteria / open questions).
  *
  * Type + severity are deliberately NOT rendered (D-008: admin-only).
- * Inline edit forms are out of scope (D-012: Ajustar returns to chat).
+ *
+ * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet footer
+ * via `<FooterActions>` per S3F shell-hybrid — this card is content-only.
  *
  * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts inherit
  * that. Locale-aware copy lands later if a non-es host appears.
@@ -190,12 +245,32 @@ interface Synthesis {
 
 interface SynthesisCardProps {
     synthesis: Synthesis;
+}
+declare function SynthesisCard({ synthesis }: SynthesisCardProps): ReactElement;
+
+type FeedbackTab = "compose" | "mine";
+interface FeedbackTabsProps {
+    activeTab: FeedbackTab;
+    mineTotalCount: number;
+    /** Count of feedback rows where the admin posted since user's last view. */
+    unreadAdminRepliesCount?: number;
+    onTabChange: (tab: FeedbackTab) => void;
+}
+declare function FeedbackTabs({ activeTab, mineTotalCount, unreadAdminRepliesCount, onTabChange, }: FeedbackTabsProps): ReactElement;
+
+interface FooterActionsProps {
+    state: ChatState;
     onConfirm: () => void;
     onAdjust: () => void;
-    /** Disables both buttons while a confirm/adjust round-trip is in flight. */
-    busy?: boolean;
+    onRetry?: () => void;
 }
-declare function SynthesisCard({ synthesis, onConfirm, onAdjust, busy, }: SynthesisCardProps): ReactElement;
+declare function FooterActions({ state, onConfirm, onAdjust, onRetry, }: FooterActionsProps): ReactElement | null;
+
+interface MineFeedTabProps {
+    /** Called when user clicks a row. Future S3E will open inline comments. */
+    onSelectFeedback?: (feedbackId: string) => void;
+}
+declare function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElement;
 
 /**
  * Wire-shape types for the feedback widget.
@@ -557,4 +632,4 @@ declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptio
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

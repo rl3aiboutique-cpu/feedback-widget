@@ -39,6 +39,23 @@ export { SynthesisCard } from "./chat/SynthesisCard";
 export type { SynthesisCardProps } from "./chat/SynthesisCard";
 export type { Synthesis } from "./chat/types";
 
+// S3F shell-hybrid building blocks — exported so hosts can compose
+// their own surface (admin views, embedded mounts) without re-binding
+// the chrome by hand.
+export {
+  CapturePicker,
+  type CapturePickerProps,
+  type CaptureMode,
+  type LockedElementInfo,
+} from "./chat/CapturePicker";
+export {
+  FeedbackTabs,
+  type FeedbackTabsProps,
+  type FeedbackTab,
+} from "./chat/FeedbackTabs";
+export { FooterActions, type FooterActionsProps } from "./chat/FooterActions";
+export { MineFeedTab, type MineFeedTabProps } from "./chat/MineFeedTab";
+
 export {
   type FeedbackConfig,
   type FeedbackPosition,

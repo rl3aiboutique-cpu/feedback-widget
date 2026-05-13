@@ -1,56 +1,61 @@
 /**
- * Chat-first feedback sheet — v1.0.0 (D-007, D-011, D-012, D-015).
+ * Chat-first feedback sheet — v1.0.0 shell-hybrid (S3F).
  *
- * Single Sheet on the right with three regions:
+ * Re-architected per spec
+ * `docs/specs/2026-05-14-feedback-widget-shell-hybrid-design.md`:
+ * the OLD widget chrome (header + tabs + CAPTURE picker + footer) is
+ * preserved and now wraps the chat zone. The form-fields area is the
+ * only thing the chat replaces.
  *
- *   header   — title + close affordance (provided by SheetContent)
- *   timeline — scrolling chat history (auto-scrolls on new messages)
- *   composer — textarea + send button, sticky bottom
+ * Layout:
  *
- * On open we:
- *   1. capture an auto-screenshot client-side (D-007)
- *   2. POST /chat/sessions to create a session
- *   3. seed the timeline with the server-provided greeting
+ *   ┌─ SheetHeader (RL3 mark + title + description) ─────────┐
+ *   │ ┌─ FeedbackTabs (Nuevo feedback / Mis feedbacks) ────┐ │
+ *   │ ┌─ CapturePicker (Whole page / Select element) ────-─┐ │  ← compose tab only
+ *   │ ┌─ Chat scroll area (timeline + synthesis card) ─-───┐ │
+ *   │ ┌─ Composer (textarea + send) ────────────-──────────┐ │  ← discovery states
+ *   │ ┌─ FooterActions (Sigamos iterando / Confirmar) ─────┐ │  ← synthesis states
+ *   └────────────────────────────────────────────────────────┘
  *
- * Synthesis card + Ajustar flow + screenshot upload are Batch B.
+ * Bottom buttons live in `FooterActions`, NOT inside `SynthesisCard`.
+ * Visibility is purely state-driven by `useFeedbackChat.state`.
+ *
+ * The "Conversaciones previas" header (S3C `<PreviousConversations>`)
+ * is replaced by the Mis feedbacks tab + `<MineFeedTab>` (S3F).
  */
 
 import { type ReactElement, useEffect } from "react";
 
+import { useFeedbackAdapter } from "../FeedbackProvider";
+import { Rl3Mark } from "../Rl3Mark";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
+
+import { CapturePicker, type LockedElementInfo } from "./CapturePicker";
 import { ChatTimeline } from "./ChatTimeline";
 import { Composer } from "./Composer";
-import { PreviousConversations } from "./PreviousConversations";
+import { FeedbackTabs } from "./FeedbackTabs";
+import { FooterActions } from "./FooterActions";
+import { MineFeedTab } from "./MineFeedTab";
 import { SynthesisCard } from "./SynthesisCard";
-import type { ChatState, PreviousConversationItem } from "./types";
+import type { ChatState } from "./types";
 import { useFeedbackChat } from "./useFeedbackChat";
-import { useMyConversations } from "./useMyConversations";
 
 export interface FeedbackChatSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** External locked element coming from `FeedbackButton`'s picker
+   * round-trip. Mirrored into the hook on every render so the
+   * CapturePicker badge and the auto_context payload stay in sync. */
+  locked: LockedElementInfo | null;
+  /** Hand control back to the parent so it can mount the ElementSelector
+   * overlay. The sheet closes (visually) while the picker is on. */
+  onActivatePicker: () => void;
+  /** Drop the external locked element. Called when the user clicks the
+   * ✕ next to the locked-element pill. */
+  onClearLocked: () => void;
 }
 
-const _SHEET_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-[480px]";
-
-function _isComposerDisabled(state: ChatState): boolean {
-  return (
-    state === "opening" ||
-    state === "bot_thinking" ||
-    state === "synthesizing" ||
-    state === "confirming" ||
-    state === "finalizing" ||
-    state === "done"
-  );
-}
-
-/** Composer is hidden (not just disabled) while the user is reviewing
- * the synthesis card so the only choice is Confirmar / Ajustar. The
- * thank-you state (done) also hides the composer so it doesn't flash
- * before the sheet auto-closes. */
-function _isComposerHidden(state: ChatState): boolean {
-  return state === "confirming" || state === "finalizing" || state === "done";
-}
+const _SHEET_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-[520px]";
 
 function _thinkingLabel(state: ChatState): string | undefined {
   if (state === "synthesizing") return "Sintetizando…";
@@ -62,24 +67,28 @@ function _isThinking(state: ChatState): boolean {
   return state === "bot_thinking" || state === "synthesizing" || state === "opening";
 }
 
-/** Decide whether the "Conversaciones previas" header should open
- * automatically when the sheet appears. Per F1 in the task brief, the
- * header is collapsed by default unless we have a strong cue:
- *
- *  - any item has unread admin replies (red badge), OR
- *  - the most recent item is an in-progress chat the user can resume.
- *
- * Computed off the items list AT the moment of opening — using
- * useState's initialiser pattern in the consumer is overkill, so we
- * just derive a key from the open state. */
-function _shouldExpand(items: PreviousConversationItem[]): boolean {
-  if (items.some((it) => (it.unread_admin_replies ?? 0) > 0)) return true;
-  const first = items[0];
-  if (first && first.kind === "in_progress") return true;
-  return false;
+function _showFooter(state: ChatState): boolean {
+  return (
+    state === "confirming" ||
+    state === "synthesizing" ||
+    state === "finalizing" ||
+    state === "error"
+  );
 }
 
-export function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps): ReactElement {
+function _showComposer(state: ChatState): boolean {
+  return state === "awaiting_user" || state === "user_typing" || state === "bot_thinking";
+}
+
+export function FeedbackChatSheet({
+  open,
+  onOpenChange,
+  locked,
+  onActivatePicker,
+  onClearLocked,
+}: FeedbackChatSheetProps): ReactElement {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
   const chat = useFeedbackChat();
   const {
     openSheet,
@@ -87,19 +96,22 @@ export function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps
     sendUserMessage,
     confirmSynthesis,
     adjustSynthesis,
-    loadConversation,
+    newConversation,
     state,
     messages,
     error,
     synthesis,
+    captureMode,
+    lockedElement,
+    activeTab,
+    setMode,
+    clearLocked: clearHookLocked,
+    acceptLocked,
+    selectTab,
   } = chat;
-  const conversations = useMyConversations();
 
-  // Drive the session lifecycle from the open prop. We intentionally
-  // only fire openSheet on the open→true edge; openSheet itself guards
-  // against re-entry via openingRef so re-renders are harmless, but we
-  // still don't want it in the deps array because that would re-fire on
-  // every render of the parent.
+  // Drive the session lifecycle from the open prop. openSheet itself
+  // guards against re-entry via openingRef so re-renders are harmless.
   // biome-ignore lint/correctness/useExhaustiveDependencies: openSheet/closeSheet are stable callbacks; firing only on the `open` edge is intentional
   useEffect(() => {
     if (open) {
@@ -109,13 +121,24 @@ export function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps
     }
   }, [open]);
 
+  // Mirror the external `locked` prop coming from FeedbackButton into
+  // the hook so CapturePicker + auto_context see the same value.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: hook setters are stable; mirroring fires only on locked-prop change
+  useEffect(() => {
+    if (locked) acceptLocked(locked);
+    else clearHookLocked();
+  }, [locked]);
+
   // Auto-dismiss when the bot says goodbye. 3 s gives the user time to
   // read the thank-you turn before the sheet vanishes.
   useEffect(() => {
     if (state !== "done") return;
-    const t = window.setTimeout(() => onOpenChange(false), 3000);
-    return () => window.clearTimeout(t);
+    const tid = window.setTimeout(() => onOpenChange(false), 3000);
+    return () => window.clearTimeout(tid);
   }, [state, onOpenChange]);
+
+  const chatStarted = messages.length > 0;
+  const showSynthesis = state === "confirming" && synthesis !== null;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -124,42 +147,74 @@ export function FeedbackChatSheet({ open, onOpenChange }: FeedbackChatSheetProps
         className={`${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`}
         data-feedback-widget-root="true"
       >
-        <SheetHeader className="border-b border-input">
-          <SheetTitle>Feedback</SheetTitle>
-          <SheetDescription className="text-xs">
-            Cuéntame qué tienes en mente. Pulsa Enter para enviar.
-          </SheetDescription>
+        <SheetHeader className="border-b border-input px-4 pt-4 pb-2">
+          <SheetTitle className="flex items-center gap-2">
+            <Rl3Mark className="h-6 w-6 shrink-0" />
+            <span>{t("feedback.panel_title")}</span>
+          </SheetTitle>
+          <SheetDescription className="text-xs">{t("feedback.panel_description")}</SheetDescription>
         </SheetHeader>
 
-        <PreviousConversations
-          items={conversations.items}
-          onSelectItem={(it) => void loadConversation(it)}
-          defaultExpanded={_shouldExpand(conversations.items)}
-        />
-
-        <div className="flex-1 overflow-y-auto">
-          <ChatTimeline
-            messages={messages}
-            isThinking={_isThinking(state)}
-            thinkingLabel={_thinkingLabel(state)}
+        <div className="px-4 pt-3 pb-2">
+          <FeedbackTabs
+            activeTab={activeTab}
+            // MineFeedTab queries its own count for the empty/loaded UI;
+            // the tab badge stays neutral until S3E lands a real count.
+            mineTotalCount={0}
+            onTabChange={selectTab}
           />
-          {error ? (
-            <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {error}
-            </div>
-          ) : null}
-          {state === "confirming" && synthesis !== null ? (
-            <SynthesisCard
-              synthesis={synthesis}
-              onConfirm={() => void confirmSynthesis()}
-              onAdjust={adjustSynthesis}
-              busy={false}
-            />
-          ) : null}
         </div>
 
-        {_isComposerHidden(state) ? null : (
-          <Composer onSend={sendUserMessage} disabled={_isComposerDisabled(state)} />
+        {activeTab === "compose" ? (
+          <>
+            <div className="px-4 pb-2">
+              <CapturePicker
+                mode={captureMode}
+                locked={lockedElement}
+                onActivatePicker={onActivatePicker}
+                onClearLocked={onClearLocked}
+                onModeChange={setMode}
+                readOnly={chatStarted}
+              />
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ChatTimeline
+                messages={messages}
+                isThinking={_isThinking(state)}
+                thinkingLabel={_thinkingLabel(state)}
+              />
+              {error ? (
+                <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {error}
+                </div>
+              ) : null}
+              {showSynthesis ? <SynthesisCard synthesis={synthesis} /> : null}
+            </div>
+
+            {_showComposer(state) ? (
+              <Composer onSend={sendUserMessage} disabled={state === "bot_thinking"} />
+            ) : null}
+
+            {_showFooter(state) ? (
+              <FooterActions
+                state={state}
+                onConfirm={() => void confirmSynthesis()}
+                onAdjust={adjustSynthesis}
+                onRetry={() => void newConversation()}
+              />
+            ) : null}
+          </>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
+            <MineFeedTab
+              onSelectFeedback={(_fid) => {
+                // S3E will open inline comments. For S3F we just bounce
+                // back to compose so the user keeps moving.
+                selectTab("compose");
+              }}
+            />
+          </div>
         )}
       </SheetContent>
     </Sheet>

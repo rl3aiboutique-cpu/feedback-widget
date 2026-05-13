@@ -3,38 +3,26 @@
  *
  * Rendered once the backend emits the `synthesis` SSE event. Surfaces the
  * structured turn payload (title / summary / user_story / acceptance
- * criteria / open questions) and offers two terminal actions:
- *
- *   Confirmar — accept the synthesis → POST /confirm (Batch B stub).
- *   Ajustar   — re-open the chat with a follow-up question (D-012).
+ * criteria / open questions).
  *
  * Type + severity are deliberately NOT rendered (D-008: admin-only).
- * Inline edit forms are out of scope (D-012: Ajustar returns to chat).
+ *
+ * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet footer
+ * via `<FooterActions>` per S3F shell-hybrid — this card is content-only.
  *
  * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts inherit
  * that. Locale-aware copy lands later if a non-es host appears.
  */
 
-import { Check, Pencil } from "lucide-react";
 import type { ReactElement } from "react";
 
-import { Button } from "../ui/button";
 import type { Synthesis } from "./types";
 
 export interface SynthesisCardProps {
   synthesis: Synthesis;
-  onConfirm: () => void;
-  onAdjust: () => void;
-  /** Disables both buttons while a confirm/adjust round-trip is in flight. */
-  busy?: boolean;
 }
 
-export function SynthesisCard({
-  synthesis,
-  onConfirm,
-  onAdjust,
-  busy = false,
-}: SynthesisCardProps): ReactElement {
+export function SynthesisCard({ synthesis }: SynthesisCardProps): ReactElement {
   return (
     <div
       className="mx-4 my-3 flex flex-col gap-3 rounded-lg border border-input bg-card p-4 shadow-sm"
@@ -73,30 +61,6 @@ export function SynthesisCard({
           </ul>
         </div>
       ) : null}
-
-      <div className="mt-1 flex items-center justify-end gap-2 border-t border-input pt-3">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={onAdjust}
-          disabled={busy}
-          data-feedback-id="feedback.chat_synthesis_adjust"
-        >
-          <Pencil className="mr-1 h-4 w-4" aria-hidden="true" />
-          Ajustar
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={onConfirm}
-          disabled={busy}
-          data-feedback-id="feedback.chat_synthesis_confirm"
-        >
-          <Check className="mr-1 h-4 w-4" aria-hidden="true" />
-          Confirmar
-        </Button>
-      </div>
     </div>
   );
 }

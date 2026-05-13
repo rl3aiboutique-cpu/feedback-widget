@@ -16,6 +16,8 @@ import { useCallback, useRef, useState } from "react";
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import { capturePageScreenshot } from "../capture/screenshot";
 import { DEFAULT_REDACTION_SELECTORS } from "../redactors";
+import type { CaptureMode, LockedElementInfo } from "./CapturePicker";
+import type { FeedbackTab } from "./FeedbackTabs";
 import type {
   AutoContextPayload,
   ChatMessage,
@@ -54,12 +56,23 @@ export interface UseFeedbackChatResult {
    * messages, synthesis, error) and re-runs the open flow so a new
    * server-side session is created. */
   newConversation: () => Promise<void>;
+  // S3F shell-hybrid additions — capture-mode + locked-element + tab state
+  // exposed so the OLD chrome (CapturePicker + FeedbackTabs) wrapping
+  // the chat zone is fully driven from this single hook.
+  captureMode: CaptureMode;
+  lockedElement: LockedElementInfo | null;
+  activeTab: FeedbackTab;
+  setMode: (mode: CaptureMode) => void;
+  clearLocked: () => void;
+  acceptLocked: (info: LockedElementInfo) => void;
+  selectTab: (tab: FeedbackTab) => void;
 }
 
 function _buildAutoContext(args: {
   appVersion: string;
   gitSha: string;
   userRole: string | null;
+  locked: LockedElementInfo | null;
 }): AutoContextPayload {
   const url =
     typeof window !== "undefined"
@@ -85,6 +98,13 @@ function _buildAutoContext(args: {
     // adds the multipart/form-data upload → returns attachment_id →
     // wires it through this field. TODO(S3-B).
     screenshot_attachment_id: null,
+    // S3F shell-hybrid: forward the locked element so backend can hang
+    // turn context (and downstream feedback row) off the right DOM node.
+    // Backend pydantic config ignores unknown fields today (S5 lands
+    // first-class support).
+    element_selector: args.locked?.selector ?? null,
+    element_xpath: args.locked?.xpath ?? null,
+    element_bounding_box: args.locked?.bounding_box ?? null,
   };
 }
 
@@ -98,6 +118,32 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const [openError, setOpenError] = useState<string | null>(null);
   /** Prevents double-open on rapid sheet toggles. */
   const openingRef = useRef(false);
+
+  // S3F shell-hybrid — capture-mode + locked element + active tab.
+  // Lifted up from the OLD chrome so the new sheet drives both the
+  // CAPTURE picker (Whole page / Select element) and the tab strip
+  // (Nuevo feedback / Mis feedbacks) from this hook.
+  const [captureMode, setCaptureMode] = useState<CaptureMode>("page");
+  const [lockedElement, setLockedElement] = useState<LockedElementInfo | null>(null);
+  const [activeTab, setActiveTab] = useState<FeedbackTab>("compose");
+
+  const setMode = useCallback((mode: CaptureMode) => {
+    setCaptureMode(mode);
+  }, []);
+
+  const clearLocked = useCallback(() => {
+    setLockedElement(null);
+    setCaptureMode("page");
+  }, []);
+
+  const acceptLocked = useCallback((info: LockedElementInfo) => {
+    setLockedElement(info);
+    setCaptureMode("element");
+  }, []);
+
+  const selectTab = useCallback((tab: FeedbackTab) => {
+    setActiveTab(tab);
+  }, []);
 
   const openSheet = useCallback(async () => {
     if (openingRef.current) return;
@@ -126,6 +172,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         appVersion: adapter.appVersion,
         gitSha: adapter.gitSha,
         userRole: user?.role ?? null,
+        locked: lockedElement,
       });
 
       const base = bindings.apiBaseUrl.replace(/\/$/, "");
@@ -167,7 +214,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     } finally {
       openingRef.current = false;
     }
-  }, [adapter.appVersion, adapter.gitSha, bindings, stream, user?.role]);
+  }, [adapter.appVersion, adapter.gitSha, bindings, stream, user?.role, lockedElement]);
 
   const closeSheet = useCallback(() => {
     stream.reset();
@@ -342,5 +389,12 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     adjustSynthesis,
     loadConversation,
     newConversation,
+    captureMode,
+    lockedElement,
+    activeTab,
+    setMode,
+    clearLocked,
+    acceptLocked,
+    selectTab,
   };
 }

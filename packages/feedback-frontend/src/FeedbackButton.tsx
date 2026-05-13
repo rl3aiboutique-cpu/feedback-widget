@@ -28,23 +28,15 @@ import { useFeedbackAdapter, useFeedbackConfig } from "./FeedbackProvider";
 import { useMyPendingActionCount } from "./MyTicketsPanel";
 import { Rl3Mark } from "./Rl3Mark";
 import type { SelectedElementInfo } from "./capture/metadata";
-import { type ScreenshotResult, describeElement } from "./capture/screenshot";
+import { describeElement } from "./capture/screenshot";
 
-const FeedbackPanelLazy = lazy(() => import("./FeedbackPanel"));
 const FeedbackChatSheetLazy = lazy(() =>
   import("./chat/FeedbackChatSheet").then((m) => ({ default: m.FeedbackChatSheet })),
 );
 
-/**
- * v1.0.0 — chat-first redesign feature flag.
- *
- * When true (default), the floating button opens the new
- * `FeedbackChatSheet` instead of the legacy Compose panel. Hosts can
- * opt out by setting `VITE_FEEDBACK_CHAT_FIRST=false`, which keeps the
- * legacy form-based UX intact until the chat path is fully rolled out.
- */
-const _CHAT_FIRST =
-  (import.meta.env.VITE_FEEDBACK_CHAT_FIRST ?? "true").toString().toLowerCase() !== "false";
+// v1.0.0 (S3F shell-hybrid) — the chat sheet is now the only path; the
+// legacy `VITE_FEEDBACK_CHAT_FIRST` flag is removed. `FeedbackPanel`
+// stays on disk until S7 physically deletes it.
 
 const POSITION_CLASSES: Record<string, string> = {
   bottom_right: "bottom-24 right-6",
@@ -133,28 +125,19 @@ export function FeedbackButton(): React.ReactElement | null {
         <span className="text-sm font-semibold">{t("feedback.button_label")}</span>
       </button>
 
-      {/* v1.0.0 — chat-first sheet by default; legacy panel when the
-          knob is flipped off. The legacy branch keeps the picker
-          round-trip semantics intact (panel stays mounted while
-          `pickerActive` is true so form state survives). The chat
-          branch has no picker, so it just tracks `open`. */}
-      {_CHAT_FIRST ? (
-        open ? (
-          <Suspense fallback={null}>
-            <FeedbackChatSheetLazy open={open} onOpenChange={setOpen} />
-          </Suspense>
-        ) : null
-      ) : open || pickerActive ? (
+      {/* v1.0.0 (S3F shell-hybrid) — the chat sheet is the only path.
+          The sheet stays mounted while `pickerActive` is true so the
+          in-flight chat session and locked-element state survive the
+          element-picker round-trip; visibility is driven by the
+          `open` prop. */}
+      {open || pickerActive ? (
         <Suspense fallback={null}>
-          <FeedbackPanelLazy
+          <FeedbackChatSheetLazy
             open={open && !pickerActive}
             onOpenChange={setOpen}
-            locked={locked}
+            locked={locked?.info ?? null}
             onActivatePicker={handleActivatePicker}
             onClearLocked={handleClearLocked}
-            onScreenshotCaptured={(_: ScreenshotResult | null) => {
-              /* future v2 hook — annotation overlay would go here */
-            }}
           />
         </Suspense>
       ) : null}
