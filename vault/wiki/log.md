@@ -15,6 +15,13 @@ Append-only. New entries at the TOP.
 
 ---
 
+## 2026-05-13 — /grill-me session 2 closed
+
+- 7 decisiones (D-016..D-022) sobre pending táctico de s1: admin reopen-chat completo, bindings (unchanged), SSE defaults, magic-link (unchanged).
+- Consolidated doc: [[2026-05-13_grilled-feedback-widget-redesign-s2]].
+- Combined index s1+s2 = 22 decisiones totales.
+- F1 implementation ready to start.
+
 ## 2026-05-13 — /grill-me session 1 closed
 
 - 15 decisiones (D-001..D-015) resueltas sobre el redesign chat-first del Feedback Widget.
