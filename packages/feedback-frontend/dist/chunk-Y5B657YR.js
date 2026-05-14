@@ -1,5 +1,5 @@
 // src/chat/FeedbackChatSheet.tsx
-import { useCallback as useCallback5, useEffect as useEffect4, useState as useState7 } from "react";
+import { useCallback as useCallback5, useEffect as useEffect6, useState as useState6 } from "react";
 
 // src/FeedbackProvider.tsx
 import { createContext, useContext, useMemo as useMemo2 } from "react";
@@ -868,7 +868,12 @@ function _ThinkingIndicator({ label }) {
 
 // src/chat/Composer.tsx
 import { Mic, SendHorizontal } from "lucide-react";
-import { useCallback as useCallback2, useState as useState2 } from "react";
+import {
+  useCallback as useCallback2,
+  useEffect as useEffect3,
+  useRef as useRef3,
+  useState as useState2
+} from "react";
 
 // src/ui/textarea.tsx
 import { jsx as jsx8 } from "react/jsx-runtime";
@@ -892,6 +897,8 @@ function Textarea({ className, ...props }) {
 import { useCallback, useEffect as useEffect2, useRef as useRef2, useState } from "react";
 var _MAX_DURATION_MS = 3e4;
 var _TICK_INTERVAL_MS = 250;
+var AUDIO_LEVEL_BARS = 40;
+var _LEVEL_FRAME_INTERVAL_MS = 1e3 / 30;
 var _PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
   "audio/webm",
@@ -915,6 +922,11 @@ function _pickMimeType() {
   }
   return "audio/webm";
 }
+function _getAudioContextCtor() {
+  if (typeof window === "undefined") return null;
+  const w = window;
+  return w.AudioContext ?? w.webkitAudioContext ?? null;
+}
 function useVoiceCapture() {
   const [state, setState] = useState("idle");
   const [duration_ms, setDurationMs] = useState(0);
@@ -926,6 +938,49 @@ function useVoiceCapture() {
   const tickTimerRef = useRef2(null);
   const autoStopTimerRef = useRef2(null);
   const stopResolverRef = useRef2(null);
+  const audioCtxRef = useRef2(null);
+  const analyserRef = useRef2(null);
+  const sourceRef = useRef2(null);
+  const levelsRef = useRef2(new Float32Array(AUDIO_LEVEL_BARS));
+  const levelsCursorRef = useRef2(0);
+  const levelRafRef = useRef2(null);
+  const levelLastTsRef = useRef2(0);
+  const analyserBufRef = useRef2(null);
+  const _stopLevelLoop = useCallback(() => {
+    if (levelRafRef.current !== null) {
+      if (typeof window !== "undefined") {
+        window.cancelAnimationFrame(levelRafRef.current);
+      }
+      levelRafRef.current = null;
+    }
+    levelLastTsRef.current = 0;
+  }, []);
+  const _resetLevels = useCallback(() => {
+    levelsRef.current.fill(0);
+    levelsCursorRef.current = 0;
+  }, []);
+  const _disposeAudioGraph = useCallback(() => {
+    _stopLevelLoop();
+    try {
+      sourceRef.current?.disconnect();
+    } catch {
+    }
+    sourceRef.current = null;
+    try {
+      analyserRef.current?.disconnect();
+    } catch {
+    }
+    analyserRef.current = null;
+    const ctx = audioCtxRef.current;
+    if (ctx) {
+      try {
+        void ctx.close();
+      } catch {
+      }
+    }
+    audioCtxRef.current = null;
+    analyserBufRef.current = null;
+  }, [_stopLevelLoop]);
   const _cleanup = useCallback(() => {
     if (tickTimerRef.current !== null) {
       window.clearInterval(tickTimerRef.current);
@@ -935,6 +990,8 @@ function useVoiceCapture() {
       window.clearTimeout(autoStopTimerRef.current);
       autoStopTimerRef.current = null;
     }
+    _disposeAudioGraph();
+    _resetLevels();
     if (streamRef.current) {
       for (const track of streamRef.current.getTracks()) {
         try {
@@ -947,7 +1004,59 @@ function useVoiceCapture() {
     recorderRef.current = null;
     chunksRef.current = [];
     startedAtRef.current = 0;
+  }, [_disposeAudioGraph, _resetLevels]);
+  const _tickLevel = useCallback((ts) => {
+    const analyser = analyserRef.current;
+    const buf = analyserBufRef.current;
+    if (!analyser || !buf) {
+      levelRafRef.current = null;
+      return;
+    }
+    const last = levelLastTsRef.current;
+    if (last !== 0 && ts - last < _LEVEL_FRAME_INTERVAL_MS) {
+      levelRafRef.current = window.requestAnimationFrame(_tickLevel);
+      return;
+    }
+    levelLastTsRef.current = ts;
+    analyser.getByteTimeDomainData(buf);
+    let sumSquares = 0;
+    const bufLen = buf.length;
+    for (let i = 0; i < bufLen; i++) {
+      const sample = ((buf[i] ?? 128) - 128) / 128;
+      sumSquares += sample * sample;
+    }
+    const rms = Math.sqrt(sumSquares / bufLen);
+    const normalised = Math.min(1, Math.max(0, rms * 1.8));
+    const cursor = levelsCursorRef.current;
+    levelsRef.current[cursor] = normalised;
+    levelsCursorRef.current = (cursor + 1) % AUDIO_LEVEL_BARS;
+    levelRafRef.current = window.requestAnimationFrame(_tickLevel);
   }, []);
+  const _startLevelLoop = useCallback(
+    (stream) => {
+      const Ctor = _getAudioContextCtor();
+      if (!Ctor) return;
+      try {
+        const ctx = new Ctor();
+        const src = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        analyser.smoothingTimeConstant = 0.6;
+        src.connect(analyser);
+        audioCtxRef.current = ctx;
+        sourceRef.current = src;
+        analyserRef.current = analyser;
+        analyserBufRef.current = new Uint8Array(new ArrayBuffer(analyser.fftSize));
+        _resetLevels();
+        levelLastTsRef.current = 0;
+        levelRafRef.current = window.requestAnimationFrame(_tickLevel);
+      } catch {
+        _disposeAudioGraph();
+      }
+    },
+    [_disposeAudioGraph, _resetLevels, _tickLevel]
+  );
+  const getAudioLevels = useCallback(() => levelsRef.current, []);
   useEffect2(() => {
     return () => {
       _cleanup();
@@ -1032,6 +1141,7 @@ function useVoiceCapture() {
       return;
     }
     setState("recording");
+    _startLevelLoop(stream);
     tickTimerRef.current = window.setInterval(() => {
       const elapsed = Date.now() - startedAtRef.current;
       setDurationMs(elapsed);
@@ -1046,7 +1156,7 @@ function useVoiceCapture() {
         }
       }
     }, _MAX_DURATION_MS);
-  }, [_cleanup, state]);
+  }, [_cleanup, _startLevelLoop, state]);
   const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder || recorder.state === "inactive") {
@@ -1087,7 +1197,8 @@ function useVoiceCapture() {
     error,
     startRecording,
     stopRecording,
-    cancelRecording
+    cancelRecording,
+    getAudioLevels
   };
 }
 
@@ -1098,17 +1209,41 @@ function Composer({
   onSend,
   disabled = false,
   placeholder,
-  onVoiceToggle
+  onVoiceToggle,
+  value: valueProp,
+  onValueChange,
+  autoFocus = false
 }) {
-  const [value, setValue] = useState2("");
+  const [localValue, setLocalValue] = useState2("");
+  const isControlled = valueProp !== void 0;
+  const value = isControlled ? valueProp : localValue;
+  const textareaRef = useRef3(null);
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
+  useEffect3(() => {
+    if (!autoFocus) return;
+    const el = textareaRef.current;
+    if (!el) return;
+    el.focus();
+    const len = el.value.length;
+    try {
+      el.setSelectionRange(len, len);
+    } catch {
+    }
+  }, [autoFocus]);
+  const setValue = useCallback2(
+    (next) => {
+      if (isControlled) onValueChange?.(next);
+      else setLocalValue(next);
+    },
+    [isControlled, onValueChange]
+  );
   const submit = useCallback2(async () => {
     const trimmed = value.trim();
     if (!trimmed || disabled) return;
     setValue("");
     await onSend(trimmed);
-  }, [disabled, onSend, value]);
+  }, [disabled, onSend, setValue, value]);
   const handleKeyDown = useCallback2(
     (e) => {
       if (e.key === "Enter" && !e.shiftKey) {
@@ -1122,6 +1257,7 @@ function Composer({
     /* @__PURE__ */ jsx9(
       Textarea,
       {
+        ref: textareaRef,
         value,
         onChange: (e) => setValue(e.target.value),
         onKeyDown: handleKeyDown,
@@ -1471,87 +1607,13 @@ function TicketDetail({ feedbackId, onBack }) {
   ] });
 }
 
-// src/chat/TranscriptionPreview.tsx
-import { Check as Check2, X } from "lucide-react";
-import { useEffect as useEffect3, useState as useState4 } from "react";
-import { jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
-function TranscriptionPreview({
-  transcript,
-  lang,
-  onSend,
-  onCancel,
-  disabled = false
-}) {
-  const [value, setValue] = useState4(transcript);
-  useEffect3(() => {
-    setValue(transcript);
-  }, [transcript]);
-  const trimmed = value.trim();
-  const canSend = !disabled && trimmed.length > 0;
-  return /* @__PURE__ */ jsxs12(
-    "section",
-    {
-      className: "m-3 rounded-md border border-input bg-card p-3 shadow-sm",
-      "aria-label": "Revisar transcripci\xF3n",
-      "data-feedback-id": "feedback.voice_preview",
-      children: [
-        /* @__PURE__ */ jsx16("div", { className: "mb-2 flex items-center justify-between", children: /* @__PURE__ */ jsxs12("span", { className: "text-xs font-medium text-muted-foreground", children: [
-          "Revisa la transcripci\xF3n",
-          lang ? ` \xB7 ${lang}` : ""
-        ] }) }),
-        /* @__PURE__ */ jsx16(
-          Textarea,
-          {
-            value,
-            onChange: (e) => setValue(e.target.value),
-            rows: 3,
-            className: "resize-none text-sm",
-            disabled,
-            "data-feedback-id": "feedback.voice_preview_text"
-          }
-        ),
-        /* @__PURE__ */ jsxs12("div", { className: "mt-2 flex items-center justify-end gap-2", children: [
-          /* @__PURE__ */ jsxs12(
-            Button,
-            {
-              type: "button",
-              variant: "ghost",
-              size: "sm",
-              onClick: onCancel,
-              disabled,
-              "aria-label": "Descartar transcripci\xF3n",
-              "data-feedback-id": "feedback.voice_preview_cancel",
-              children: [
-                /* @__PURE__ */ jsx16(X, { className: "mr-1 h-4 w-4" }),
-                "Descartar"
-              ]
-            }
-          ),
-          /* @__PURE__ */ jsxs12(
-            Button,
-            {
-              type: "button",
-              size: "sm",
-              onClick: () => void onSend(trimmed),
-              disabled: !canSend,
-              "aria-label": "Enviar transcripci\xF3n",
-              "data-feedback-id": "feedback.voice_preview_send",
-              children: [
-                /* @__PURE__ */ jsx16(Check2, { className: "mr-1 h-4 w-4" }),
-                "Enviar"
-              ]
-            }
-          )
-        ] })
-      ]
-    }
-  );
-}
-
 // src/chat/VoiceRecorder.tsx
-import { Square, X as X2 } from "lucide-react";
-import { jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
+import { Check as Check2, Loader2 as Loader22, X } from "lucide-react";
+import { useEffect as useEffect4, useRef as useRef4 } from "react";
+import { Fragment as Fragment2, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 3e4;
+var _BAR_MIN_PX = 3;
+var _BAR_MAX_PX = 26;
 function _formatMs(ms) {
   const clamped = Math.max(0, Math.min(ms, _MAX_DURATION_MS2));
   const seconds = Math.floor(clamped / 1e3);
@@ -1559,15 +1621,51 @@ function _formatMs(ms) {
   const ss = String(seconds % 60).padStart(2, "0");
   return `${mm}:${ss}`;
 }
-function _Waveform({ active }) {
-  return /* @__PURE__ */ jsx17("div", { className: "flex items-end gap-1 h-6", "aria-hidden": "true", children: [0, 1, 2, 3, 4].map((i) => /* @__PURE__ */ jsx17(
+function _Waveform({
+  active,
+  getAudioLevels
+}) {
+  const barRefs = useRef4([]);
+  const rafRef = useRef4(null);
+  useEffect4(() => {
+    if (!active) {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+    const loop = () => {
+      const levels = getAudioLevels();
+      const bars = barRefs.current;
+      for (let i = 0; i < bars.length; i++) {
+        const bar = bars[i];
+        if (!bar) continue;
+        const level = levels[i] ?? 0;
+        const px = Math.max(
+          _BAR_MIN_PX,
+          Math.round(_BAR_MIN_PX + level * (_BAR_MAX_PX - _BAR_MIN_PX))
+        );
+        bar.style.height = `${px}px`;
+      }
+      rafRef.current = window.requestAnimationFrame(loop);
+    };
+    rafRef.current = window.requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [active, getAudioLevels]);
+  return /* @__PURE__ */ jsx16("div", { className: "flex flex-1 items-center justify-center gap-[2px] h-8 px-2", "aria-hidden": "true", children: Array.from({ length: AUDIO_LEVEL_BARS }).map((_, i) => /* @__PURE__ */ jsx16(
     "span",
     {
-      className: "w-1 rounded-sm bg-destructive",
-      style: {
-        height: active ? `${30 + i * 17 % 70}%` : "20%",
-        animation: active ? `feedback-voice-bar 0.9s ease-in-out ${i * 0.12}s infinite alternate` : void 0
-      }
+      ref: (el) => {
+        barRefs.current[i] = el;
+      },
+      className: "w-[2px] rounded-full bg-foreground/80 transition-[height] duration-75",
+      style: { height: `${_BAR_MIN_PX}px` }
     },
     i
   )) });
@@ -1575,58 +1673,61 @@ function _Waveform({ active }) {
 function VoiceRecorder({
   state,
   duration_ms,
+  getAudioLevels,
   onStop,
   onCancel
 }) {
-  if (state !== "recording" && state !== "stopping") return null;
-  const isStopping = state === "stopping";
+  if (state !== "recording" && state !== "stopping" && state !== "transcribing") return null;
+  const isRecording = state === "recording";
+  const isWorking = state === "stopping" || state === "transcribing";
   const timer = _formatMs(duration_ms);
-  return /* @__PURE__ */ jsxs13(
+  return /* @__PURE__ */ jsxs12(
     "output",
     {
-      className: "flex items-center gap-3 border-t border-input bg-background px-3 py-3",
-      "aria-label": isStopping ? "Procesando grabaci\xF3n" : "Grabando",
+      "aria-live": "polite",
+      "aria-label": isRecording ? "Grabando" : "Transcribiendo",
       "data-feedback-id": "feedback.voice_recorder",
+      className: "flex items-center gap-2 border-t border-input bg-background px-3 py-3",
       children: [
-        /* @__PURE__ */ jsx17("style", { children: `@keyframes feedback-voice-bar {
-            0% { height: 18%; }
-            50% { height: 80%; }
-            100% { height: 32%; }
-          }` }),
-        /* @__PURE__ */ jsx17(_Waveform, { active: !isStopping }),
-        /* @__PURE__ */ jsxs13("div", { className: "flex flex-col text-xs leading-tight", children: [
-          /* @__PURE__ */ jsx17("span", { className: "font-medium text-foreground", children: isStopping ? "Procesando\u2026" : "Grabando" }),
-          /* @__PURE__ */ jsxs13("span", { className: "tabular-nums text-muted-foreground", children: [
-            timer,
-            " / 00:30"
-          ] })
-        ] }),
-        /* @__PURE__ */ jsx17("div", { className: "flex-1" }),
-        /* @__PURE__ */ jsx17(
+        /* @__PURE__ */ jsx16(
           Button,
           {
             type: "button",
             variant: "ghost",
             size: "sm",
             onClick: onCancel,
-            disabled: isStopping,
+            disabled: isWorking,
             "aria-label": "Descartar grabaci\xF3n",
             "data-feedback-id": "feedback.voice_cancel",
-            children: /* @__PURE__ */ jsx17(X2, { className: "h-4 w-4" })
+            className: "rounded-full",
+            children: /* @__PURE__ */ jsx16(X, { className: "h-4 w-4" })
           }
         ),
-        /* @__PURE__ */ jsx17(
+        /* @__PURE__ */ jsx16("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs12("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
+          /* @__PURE__ */ jsx16(Loader22, { className: "h-4 w-4 animate-spin" }),
+          /* @__PURE__ */ jsx16("span", { children: "Transcribiendo\u2026" })
+        ] }) : /* @__PURE__ */ jsxs12(Fragment2, { children: [
+          /* @__PURE__ */ jsx16(_Waveform, { active: isRecording, getAudioLevels }),
+          /* @__PURE__ */ jsx16(
+            "span",
+            {
+              className: "shrink-0 pr-1 text-[10px] tabular-nums text-muted-foreground",
+              "aria-hidden": "true",
+              children: timer
+            }
+          )
+        ] }) }),
+        /* @__PURE__ */ jsx16(
           Button,
           {
             type: "button",
-            variant: "destructive",
             size: "sm",
             onClick: onStop,
-            disabled: isStopping,
-            "aria-label": "Detener grabaci\xF3n",
+            disabled: isWorking,
+            "aria-label": "Detener y enviar",
             "data-feedback-id": "feedback.voice_stop",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx17(Square, { className: "h-4 w-4 fill-current" })
+            children: /* @__PURE__ */ jsx16(Check2, { className: "h-4 w-4" })
           }
         )
       ]
@@ -1635,7 +1736,7 @@ function VoiceRecorder({
 }
 
 // src/chat/useFeedbackChat.ts
-import { useCallback as useCallback4, useRef as useRef4, useState as useState6 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect5, useRef as useRef6, useState as useState5 } from "react";
 
 // src/capture/screenshot.ts
 var DEFAULT_MAX_PIXELS = 1920 * 1080 * 2;
@@ -1780,7 +1881,7 @@ function _xpathOf(el) {
 }
 
 // src/chat/useChatRunStream.ts
-import { useCallback as useCallback3, useRef as useRef3, useState as useState5 } from "react";
+import { useCallback as useCallback3, useRef as useRef5, useState as useState4 } from "react";
 
 // src/client/iter.ts
 var IterApiError = class extends Error {
@@ -1990,12 +2091,12 @@ function _parseSseFrame(raw) {
 }
 function useChatRunStream(args) {
   const { bindings, sessionId } = args;
-  const [state, setState] = useState5("idle");
-  const [messages, setMessages] = useState5([]);
-  const [partial_text, setPartialText] = useState5("");
-  const [synthesis, setSynthesis] = useState5(null);
-  const [error, setError] = useState5(null);
-  const abortRef = useRef3(null);
+  const [state, setState] = useState4("idle");
+  const [messages, setMessages] = useState4([]);
+  const [partial_text, setPartialText] = useState4("");
+  const [synthesis, setSynthesis] = useState4(null);
+  const [error, setError] = useState4(null);
+  const abortRef = useRef5(null);
   const reset = useCallback3(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -2193,19 +2294,22 @@ function useFeedbackChat() {
   const bindings = useFeedbackBindings();
   const adapter = useFeedbackAdapter();
   const user = adapter.useCurrentUser();
-  const [sessionId, setSessionId] = useState6(null);
+  const [sessionId, setSessionId] = useState5(null);
   const stream = useChatRunStream({ bindings, sessionId });
-  const [overrideState, setOverrideState] = useState6(null);
-  const [openError, setOpenError] = useState6(null);
-  const openingRef = useRef4(false);
-  const [captureMode, setCaptureMode] = useState6("page");
-  const [lockedElement, setLockedElement] = useState6(null);
-  const [activeTab, setActiveTab] = useState6("compose");
+  const [overrideState, setOverrideState] = useState5(null);
+  const [openError, setOpenError] = useState5(null);
+  const openingRef = useRef6(false);
+  const [captureMode, setCaptureMode] = useState5("page");
+  const [lockedElement, setLockedElement] = useState5(null);
+  const [activeTab, setActiveTab] = useState5("compose");
   const voiceCapture = useVoiceCapture();
-  const [voiceState, setVoiceState] = useState6("idle");
-  const [voiceTranscript, setVoiceTranscript] = useState6("");
-  const [voiceLang, setVoiceLang] = useState6("");
-  const [voiceError, setVoiceError] = useState6(null);
+  const [voiceState, setVoiceState] = useState5("idle");
+  const [voiceTranscript, setVoiceTranscript] = useState5("");
+  const [voiceLang, setVoiceLang] = useState5("");
+  const [voiceError, setVoiceError] = useState5(null);
+  const [composerValue, setComposerValue] = useState5("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState5(false);
+  const composerFromVoiceRef = useRef6(false);
   const setMode = useCallback4((mode) => {
     setCaptureMode(mode);
   }, []);
@@ -2283,11 +2387,20 @@ function useFeedbackChat() {
     setSessionId(null);
     setOverrideState(null);
     setOpenError(null);
+    setComposerValue("");
+    setComposerAutoFocus(false);
+    setVoiceTranscript("");
+    setVoiceLang("");
+    setVoiceError(null);
+    setVoiceState("idle");
     openingRef.current = false;
   }, [stream]);
   const sendUserMessage = useCallback4(
     async (content) => {
-      await stream.sendMessage(content);
+      const via = composerFromVoiceRef.current ? "voice" : "text";
+      composerFromVoiceRef.current = false;
+      setComposerValue("");
+      await stream.sendMessage(content, via);
     },
     [stream]
   );
@@ -2543,9 +2656,19 @@ function useFeedbackChat() {
         return;
       }
       const body = await resp.json();
-      setVoiceTranscript(body.transcript ?? "");
-      setVoiceLang(body.lang ?? "");
-      setVoiceState("preview");
+      const transcript = body.transcript ?? "";
+      const lang = body.lang ?? "";
+      setVoiceTranscript(transcript);
+      setVoiceLang(lang);
+      if (transcript.length > 0) {
+        setComposerValue((current) => {
+          if (current.trim().length === 0) return transcript;
+          return `${current.replace(/\s+$/, "")} ${transcript}`;
+        });
+        setComposerAutoFocus(true);
+        composerFromVoiceRef.current = true;
+      }
+      setVoiceState("idle");
     } catch (err) {
       const msg = String(err.message ?? err);
       setVoiceError(msg);
@@ -2566,6 +2689,21 @@ function useFeedbackChat() {
     },
     [stream]
   );
+  const setComposerValueCb = useCallback4((next) => {
+    setComposerValue((current) => {
+      if (next !== current) {
+        composerFromVoiceRef.current = false;
+      }
+      return next;
+    });
+  }, []);
+  useEffect5(() => {
+    if (!composerAutoFocus) return;
+    const id = window.requestAnimationFrame(() => {
+      setComposerAutoFocus(false);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [composerAutoFocus]);
   const effectiveState = overrideState ?? stream.state;
   const effectiveError = openError ?? stream.error;
   return {
@@ -2594,15 +2732,19 @@ function useFeedbackChat() {
     voiceTranscript,
     voiceLang,
     voiceError,
+    getVoiceAudioLevels: voiceCapture.getAudioLevels,
     startVoice,
     stopVoice,
     confirmVoiceTranscript,
-    cancelVoice
+    cancelVoice,
+    composerValue,
+    setComposerValue: setComposerValueCb,
+    composerAutoFocus
   };
 }
 
 // src/chat/FeedbackChatSheet.tsx
-import { Fragment as Fragment2, jsx as jsx18, jsxs as jsxs14 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
 var _SHEET_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-[520px]";
 function _thinkingLabel(state) {
   if (state === "synthesizing") return "Sintetizando\u2026";
@@ -2649,30 +2791,31 @@ function FeedbackChatSheet({
     selectTab,
     voiceState,
     voiceDurationMs,
-    voiceTranscript,
-    voiceLang,
     voiceError,
+    getVoiceAudioLevels,
     startVoice,
     stopVoice,
-    confirmVoiceTranscript,
-    cancelVoice
+    cancelVoice,
+    composerValue,
+    setComposerValue,
+    composerAutoFocus
   } = chat;
-  const [selectedFeedbackId, setSelectedFeedbackId] = useState7(null);
-  useEffect4(() => {
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState6(null);
+  useEffect6(() => {
     if (activeTab !== "mine") setSelectedFeedbackId(null);
   }, [activeTab]);
-  useEffect4(() => {
+  useEffect6(() => {
     if (open) {
       void openSheet();
     } else {
       closeSheet();
     }
   }, [open]);
-  useEffect4(() => {
+  useEffect6(() => {
     if (locked) acceptLocked(locked);
     else clearHookLocked();
   }, [locked]);
-  useEffect4(() => {
+  useEffect6(() => {
     if (state !== "done") return;
     const tid = window.setTimeout(() => onOpenChange(false), 3e3);
     return () => window.clearTimeout(tid);
@@ -2687,21 +2830,21 @@ function FeedbackChatSheet({
     [state, abandonSession, onOpenChange]
   );
   const showSynthesis = state === "confirming" && synthesis !== null;
-  return /* @__PURE__ */ jsx18(Sheet, { open, onOpenChange: handleOpenChange, children: /* @__PURE__ */ jsxs14(
+  return /* @__PURE__ */ jsx17(Sheet, { open, onOpenChange: handleOpenChange, children: /* @__PURE__ */ jsxs13(
     SheetContent,
     {
       side: "right",
       className: `${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`,
       "data-feedback-widget-root": "true",
       children: [
-        /* @__PURE__ */ jsxs14(SheetHeader, { className: "border-b border-input px-4 pt-4 pb-2", children: [
-          /* @__PURE__ */ jsxs14(SheetTitle, { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx18(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
-            /* @__PURE__ */ jsx18("span", { children: t("feedback.panel_title") })
+        /* @__PURE__ */ jsxs13(SheetHeader, { className: "border-b border-input px-4 pt-4 pb-2", children: [
+          /* @__PURE__ */ jsxs13(SheetTitle, { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx17(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
+            /* @__PURE__ */ jsx17("span", { children: t("feedback.panel_title") })
           ] }),
-          /* @__PURE__ */ jsx18(SheetDescription, { className: "text-xs", children: t("feedback.panel_description") })
+          /* @__PURE__ */ jsx17(SheetDescription, { className: "text-xs", children: t("feedback.panel_description") })
         ] }),
-        /* @__PURE__ */ jsx18("div", { className: "px-4 pt-3 pb-2", children: /* @__PURE__ */ jsx18(
+        /* @__PURE__ */ jsx17("div", { className: "px-4 pt-3 pb-2", children: /* @__PURE__ */ jsx17(
           FeedbackTabs,
           {
             activeTab,
@@ -2709,8 +2852,8 @@ function FeedbackChatSheet({
             onTabChange: selectTab
           }
         ) }),
-        activeTab === "compose" ? /* @__PURE__ */ jsxs14(Fragment2, { children: [
-          /* @__PURE__ */ jsx18("div", { className: "px-4 pb-2", children: /* @__PURE__ */ jsx18(
+        activeTab === "compose" ? /* @__PURE__ */ jsxs13(Fragment3, { children: [
+          /* @__PURE__ */ jsx17("div", { className: "px-4 pb-2", children: /* @__PURE__ */ jsx17(
             CapturePicker,
             {
               mode: captureMode,
@@ -2720,8 +2863,8 @@ function FeedbackChatSheet({
               onModeChange: setMode
             }
           ) }),
-          /* @__PURE__ */ jsxs14("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
-            /* @__PURE__ */ jsx18(
+          /* @__PURE__ */ jsxs13("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
+            /* @__PURE__ */ jsx17(
               ChatTimeline,
               {
                 messages,
@@ -2729,37 +2872,31 @@ function FeedbackChatSheet({
                 thinkingLabel: voiceState === "transcribing" ? "Transcribiendo\u2026" : _thinkingLabel(state)
               }
             ),
-            error ? /* @__PURE__ */ jsx18("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: error }) : null,
-            voiceError ? /* @__PURE__ */ jsx18("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: voiceError }) : null,
-            showSynthesis ? /* @__PURE__ */ jsx18(SynthesisCard, { synthesis }) : null,
-            voiceState === "preview" ? /* @__PURE__ */ jsx18(
-              TranscriptionPreview,
-              {
-                transcript: voiceTranscript,
-                lang: voiceLang,
-                onSend: (text) => void confirmVoiceTranscript(text),
-                onCancel: cancelVoice,
-                disabled: state === "bot_thinking"
-              }
-            ) : null
+            error ? /* @__PURE__ */ jsx17("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: error }) : null,
+            voiceError ? /* @__PURE__ */ jsx17("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: voiceError }) : null,
+            showSynthesis ? /* @__PURE__ */ jsx17(SynthesisCard, { synthesis }) : null
           ] }),
-          voiceState === "recording" || voiceState === "transcribing" ? /* @__PURE__ */ jsx18(
+          voiceState === "recording" || voiceState === "transcribing" ? /* @__PURE__ */ jsx17(
             VoiceRecorder,
             {
-              state: voiceState === "transcribing" ? "stopping" : "recording",
+              state: voiceState === "transcribing" ? "transcribing" : "recording",
               duration_ms: voiceDurationMs,
+              getAudioLevels: getVoiceAudioLevels,
               onStop: () => void stopVoice(),
               onCancel: cancelVoice
             }
-          ) : _showComposer(state) && (voiceState === "idle" || voiceState === "error") ? /* @__PURE__ */ jsx18(
+          ) : _showComposer(state) ? /* @__PURE__ */ jsx17(
             Composer,
             {
               onSend: sendUserMessage,
               disabled: state === "bot_thinking",
-              onVoiceToggle: () => void startVoice()
+              onVoiceToggle: () => void startVoice(),
+              value: composerValue,
+              onValueChange: setComposerValue,
+              autoFocus: composerAutoFocus
             }
           ) : null,
-          _showFooter(state) ? /* @__PURE__ */ jsx18(
+          _showFooter(state) ? /* @__PURE__ */ jsx17(
             FooterActions,
             {
               state,
@@ -2768,13 +2905,13 @@ function FeedbackChatSheet({
               onRetry: () => void newConversation()
             }
           ) : null
-        ] }) : /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-4", children: selectedFeedbackId ? /* @__PURE__ */ jsx18(
+        ] }) : /* @__PURE__ */ jsx17("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-4", children: selectedFeedbackId ? /* @__PURE__ */ jsx17(
           TicketDetail,
           {
             feedbackId: selectedFeedbackId,
             onBack: () => setSelectedFeedbackId(null)
           }
-        ) : /* @__PURE__ */ jsx18(MineFeedTab, { onSelectFeedback: (fid) => setSelectedFeedbackId(fid) }) })
+        ) : /* @__PURE__ */ jsx17(MineFeedTab, { onSelectFeedback: (fid) => setSelectedFeedbackId(fid) }) })
       ]
     }
   ) });
@@ -2827,4 +2964,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-ADSW44RC.js.map
+//# sourceMappingURL=chunk-Y5B657YR.js.map

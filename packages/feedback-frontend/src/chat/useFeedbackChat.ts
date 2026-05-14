@@ -11,7 +11,7 @@
  * Delegates streaming + message history to `useChatRunStream`.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import type { FeedbackHostBindings } from "../adapter";
@@ -58,7 +58,13 @@ export function _buildVoiceUrl(bindings: FeedbackHostBindings, sessionId: string
  *   idle          — no voice activity
  *   recording     — mic is hot, MediaRecorder running
  *   transcribing  — blob uploaded to /voice, awaiting Whisper response
- *   preview       — Whisper returned; user reviews/edits the transcript
+ *   preview       — DEPRECATED in v1.0.0 chat-first: Whisper output now
+ *                   lands directly in the Composer textarea, no separate
+ *                   confirmation card. Kept in the type for backwards
+ *                   compatibility with hosts that still introspect this
+ *                   value; the hook itself no longer transitions into
+ *                   `preview` — it goes idle the moment the transcript
+ *                   is written into `composerValue`.
  *   error         — terminal voice error (mic denied / Whisper 5xx)
  */
 export type VoiceFlowState = "idle" | "recording" | "transcribing" | "preview" | "error";
@@ -106,21 +112,39 @@ export interface UseFeedbackChatResult {
   selectTab: (tab: FeedbackTab) => void;
 
   // S4 voice flow — exposed so FeedbackChatSheet can mount the
-  // VoiceRecorder + TranscriptionPreview overlays.
+  // VoiceRecorder in place of the Composer while recording.
   voiceState: VoiceFlowState;
   voiceDurationMs: number;
   voiceTranscript: string;
   voiceLang: string;
   voiceError: string | null;
+  /** Snapshot the current 40-slot waveform buffer (0..1 amplitudes).
+   * Same array each call — read inside requestAnimationFrame. */
+  getVoiceAudioLevels: () => Float32Array;
   /** Start a recording session (mic permission + MediaRecorder start). */
   startVoice: () => Promise<void>;
-  /** Stop the recording → upload → preview the transcript. */
+  /** Stop the recording → upload → write transcript into composer. */
   stopVoice: () => Promise<void>;
   /** Send the (possibly edited) transcript into the chat as a normal
-   * user turn with `via: "voice"`. */
+   * user turn with `via: "voice"`. Retained for backwards compatibility
+   * — no longer called by the new flow (transcript edit happens inline
+   * in the Composer textarea). */
   confirmVoiceTranscript: (text: string) => Promise<void>;
-  /** Discard the recording or transcript and bounce back to text. */
+  /** Discard the recording and bounce back to text. */
   cancelVoice: () => void;
+
+  // ── Controlled Composer (Claude-AI voice pattern) ────────────────
+  /** Current composer textarea value. The Composer is rendered as a
+   * controlled input — the hook owns the buffer so the voice flow can
+   * write transcripts into it. */
+  composerValue: string;
+  /** Update the composer value (parent → child during typing, hook
+   * → composer during voice transcribed). */
+  setComposerValue: (next: string) => void;
+  /** Flips true for one render after `stopVoice` writes a transcript
+   * into `composerValue` — the sheet forwards this as `autoFocus` so
+   * the textarea receives focus + caret-at-end. */
+  composerAutoFocus: boolean;
 }
 
 function _buildAutoContext(args: {
@@ -183,13 +207,29 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const [activeTab, setActiveTab] = useState<FeedbackTab>("compose");
 
   // S4 — voice capture flow. The browser-side recorder lives in
-  // `useVoiceCapture`; this hook orchestrates the upload + preview +
-  // send sequence on top of it.
+  // `useVoiceCapture`; this hook orchestrates the upload + write-to-
+  // composer sequence on top of it. In v1.0.0 chat-first the transcript
+  // lands directly in the Composer textarea (no separate preview card),
+  // so the user edits inline and sends with the normal send button.
   const voiceCapture = useVoiceCapture();
   const [voiceState, setVoiceState] = useState<VoiceFlowState>("idle");
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceLang, setVoiceLang] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  // Controlled Composer — the hook owns the buffer so the voice flow
+  // can pre-fill it with a Whisper transcript. `composerAutoFocus`
+  // pulses true for the render after the transcript lands and gets
+  // cleared once the Composer's autoFocus effect has run.
+  const [composerValue, setComposerValue] = useState("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState(false);
+  // `composerFromVoice` flips true the moment a transcript lands in
+  // the composer and flips back to false the moment the user touches
+  // the textarea (or after a successful send). When true at send time
+  // we forward `via: "voice"` to the backend; otherwise the send is
+  // treated as typed text. This keeps the legacy analytics contract
+  // intact through the new inline-edit flow.
+  const composerFromVoiceRef = useRef(false);
 
   const setMode = useCallback((mode: CaptureMode) => {
     setCaptureMode(mode);
@@ -285,12 +325,24 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     setSessionId(null);
     setOverrideState(null);
     setOpenError(null);
+    setComposerValue("");
+    setComposerAutoFocus(false);
+    setVoiceTranscript("");
+    setVoiceLang("");
+    setVoiceError(null);
+    setVoiceState("idle");
     openingRef.current = false;
   }, [stream]);
 
   const sendUserMessage = useCallback(
     async (content: string) => {
-      await stream.sendMessage(content);
+      // The Composer trims + clears its own buffer via the controlled
+      // value path — but defence-in-depth: also clear here so a
+      // programmatic send from elsewhere doesn't leave a stale draft.
+      const via = composerFromVoiceRef.current ? "voice" : "text";
+      composerFromVoiceRef.current = false;
+      setComposerValue("");
+      await stream.sendMessage(content, via);
     },
     [stream],
   );
@@ -594,6 +646,16 @@ export function useFeedbackChat(): UseFeedbackChatResult {
           ? "ogg"
           : "webm";
       form.append("audio", result.blob, `clip.${ext}`);
+      // Whisper language strategy (matches ChatGPT / Claude AI):
+      // - 1st clip in a session: no hint → Whisper auto-detects.
+      // - Subsequent clips: pass the previously-detected ISO-639-1 code
+      //   as `language_hint` so Whisper locks faster + more accurately
+      //   and code-switching to gibberish is less likely.
+      // `voiceLang` is cleared on session reset / cancel, so a fresh
+      // session always starts with auto-detect again.
+      if (voiceLang) {
+        form.append("language_hint", voiceLang);
+      }
 
       const resp = await fetch(url, {
         method: "POST",
@@ -615,9 +677,26 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         return;
       }
       const body = (await resp.json()) as { transcript: string; lang: string };
-      setVoiceTranscript(body.transcript ?? "");
-      setVoiceLang(body.lang ?? "");
-      setVoiceState("preview");
+      const transcript = body.transcript ?? "";
+      const lang = body.lang ?? "";
+      setVoiceTranscript(transcript);
+      setVoiceLang(lang);
+      // Claude-AI voice pattern: write the transcript directly into the
+      // composer and flip back to idle. The user edits + sends inline
+      // via the normal send button — no separate confirmation card.
+      if (transcript.length > 0) {
+        // Append rather than overwrite so a user who started typing
+        // before recording finished doesn't lose their draft. A single
+        // space joiner keeps the result readable.
+        setComposerValue((current) => {
+          if (current.trim().length === 0) return transcript;
+          return `${current.replace(/\s+$/, "")} ${transcript}`;
+        });
+        setComposerAutoFocus(true);
+        // Tag the next send as voice unless the user edits the buffer.
+        composerFromVoiceRef.current = true;
+      }
+      setVoiceState("idle");
     } catch (err) {
       const msg = String((err as Error).message ?? err);
       setVoiceError(msg);
@@ -627,13 +706,15 @@ export function useFeedbackChat(): UseFeedbackChatResult {
 
   const confirmVoiceTranscript = useCallback(
     async (text: string) => {
+      // Backwards-compatible path — retained for hosts that still wire
+      // the deprecated preview surface. The new flow writes the
+      // transcript into composerValue and the user sends via the normal
+      // send button; this helper is no longer called by the sheet.
       const trimmed = text.trim();
       if (!trimmed) {
         setVoiceState("idle");
         return;
       }
-      // Reset voice state BEFORE firing the send so the preview overlay
-      // disappears immediately; the chat stream takes over.
       setVoiceTranscript("");
       setVoiceLang("");
       setVoiceState("idle");
@@ -641,6 +722,33 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     },
     [stream],
   );
+
+  // Controlled-Composer plumbing. When the user edits the textarea,
+  // clear the "from voice" tag so the next send is correctly classified
+  // as typed text. A no-op change (same content) keeps the tag intact.
+  const setComposerValueCb = useCallback((next: string) => {
+    setComposerValue((current) => {
+      if (next !== current) {
+        composerFromVoiceRef.current = false;
+      }
+      return next;
+    });
+  }, []);
+
+  // Clear the autoFocus pulse after one render — the Composer's
+  // useEffect picks up the truthy value, focuses the textarea, and we
+  // reset to false on the next paint so subsequent state changes don't
+  // grab focus unexpectedly.
+  useEffect(() => {
+    if (!composerAutoFocus) return;
+    // RAF defers the reset until after the Composer's autoFocus effect
+    // runs — setting it back to false synchronously would race the
+    // child effect.
+    const id = window.requestAnimationFrame(() => {
+      setComposerAutoFocus(false);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [composerAutoFocus]);
 
   const effectiveState: ChatState = overrideState ?? stream.state;
   const effectiveError = openError ?? stream.error;
@@ -671,9 +779,13 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     voiceTranscript,
     voiceLang,
     voiceError,
+    getVoiceAudioLevels: voiceCapture.getAudioLevels,
     startVoice,
     stopVoice,
     confirmVoiceTranscript,
     cancelVoice,
+    composerValue,
+    setComposerValue: setComposerValueCb,
+    composerAutoFocus,
   };
 }

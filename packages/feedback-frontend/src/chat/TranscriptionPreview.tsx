@@ -1,15 +1,16 @@
 /**
- * TranscriptionPreview — editable card that surfaces Whisper output
- * before it lands in the chat (S4).
+ * TranscriptionPreview — DEPRECATED in v1.0.0 chat-first.
  *
- * The user just dictated a clip; the backend transcribed it; now they
- * see the text in a textarea and either ✓ confirm (send into the chat
- * as a normal user turn with `via: "voice"`) or ✕ discard (drop the
- * transcript and bounce back to the composer without sending anything).
+ * @deprecated Voice transcripts now land directly in the Composer
+ * textarea (Claude-AI voice pattern). The user edits + sends inline via
+ * the normal send button — no separate confirmation card. This file is
+ * retained on disk so external hosts that still import it keep
+ * compiling; it is NOT mounted by `FeedbackChatSheet` anymore. Physical
+ * delete is scheduled for v1.1.0.
  *
- * Whisper occasionally misrecognises product names or homophones, so
- * the textarea is fully editable — `onSend` receives whatever the user
- * has at the moment they click Enviar.
+ * Original v0 behaviour: the user just dictated a clip; the backend
+ * transcribed it; the textarea surfaced the result and the user either
+ * confirmed (sending into the chat with `via: "voice"`) or discarded.
  */
 
 import { Check, X } from "lucide-react";

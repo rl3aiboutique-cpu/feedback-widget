@@ -38,7 +38,6 @@ import { FooterActions } from "./FooterActions";
 import { MineFeedTab } from "./MineFeedTab";
 import { SynthesisCard } from "./SynthesisCard";
 import { TicketDetail } from "./TicketDetail";
-import { TranscriptionPreview } from "./TranscriptionPreview";
 import { VoiceRecorder } from "./VoiceRecorder";
 import type { ChatState } from "./types";
 import { useFeedbackChat } from "./useFeedbackChat";
@@ -114,13 +113,14 @@ export function FeedbackChatSheet({
     selectTab,
     voiceState,
     voiceDurationMs,
-    voiceTranscript,
-    voiceLang,
     voiceError,
+    getVoiceAudioLevels,
     startVoice,
     stopVoice,
-    confirmVoiceTranscript,
     cancelVoice,
+    composerValue,
+    setComposerValue,
+    composerAutoFocus,
   } = chat;
 
   // S3E — when the user picks a row in Mis feedbacks, the right pane
@@ -233,29 +233,24 @@ export function FeedbackChatSheet({
                 </div>
               ) : null}
               {showSynthesis ? <SynthesisCard synthesis={synthesis} /> : null}
-              {voiceState === "preview" ? (
-                <TranscriptionPreview
-                  transcript={voiceTranscript}
-                  lang={voiceLang}
-                  onSend={(text) => void confirmVoiceTranscript(text)}
-                  onCancel={cancelVoice}
-                  disabled={state === "bot_thinking"}
-                />
-              ) : null}
             </div>
 
             {voiceState === "recording" || voiceState === "transcribing" ? (
               <VoiceRecorder
-                state={voiceState === "transcribing" ? "stopping" : "recording"}
+                state={voiceState === "transcribing" ? "transcribing" : "recording"}
                 duration_ms={voiceDurationMs}
+                getAudioLevels={getVoiceAudioLevels}
                 onStop={() => void stopVoice()}
                 onCancel={cancelVoice}
               />
-            ) : _showComposer(state) && (voiceState === "idle" || voiceState === "error") ? (
+            ) : _showComposer(state) ? (
               <Composer
                 onSend={sendUserMessage}
                 disabled={state === "bot_thinking"}
                 onVoiceToggle={() => void startVoice()}
+                value={composerValue}
+                onValueChange={setComposerValue}
+                autoFocus={composerAutoFocus}
               />
             ) : null}
 
