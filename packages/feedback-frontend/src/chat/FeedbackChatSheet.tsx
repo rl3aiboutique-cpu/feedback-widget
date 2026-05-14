@@ -217,10 +217,8 @@ export function FeedbackChatSheet({
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ChatTimeline
                 messages={messages}
-                isThinking={_isThinking(state) || voiceState === "transcribing"}
-                thinkingLabel={
-                  voiceState === "transcribing" ? "Transcribiendo…" : _thinkingLabel(state)
-                }
+                isThinking={_isThinking(state)}
+                thinkingLabel={_thinkingLabel(state)}
               />
               {error ? (
                 <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">

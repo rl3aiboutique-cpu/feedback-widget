@@ -25,9 +25,49 @@ from __future__ import annotations
 
 import asyncio
 import io
+import logging
+import re
 from dataclasses import dataclass
 
 from .settings import FeedbackSettings
+
+logger = logging.getLogger(__name__)
+
+
+# Whisper-1 hallucinations on silence / sub-second audio. When the model
+# can't find speech it often emits these canned strings (training-data
+# artefacts from YouTube-style content). Filter aggressively — false
+# positives mean the user has to type, false negatives mean Russian /
+# Korean gibberish in a Spanish chat.
+_HALLUCINATION_PATTERNS = (
+    re.compile(r"^продолжение\s+следует", re.IGNORECASE),
+    re.compile(r"^thanks?\s+for\s+watching", re.IGNORECASE),
+    re.compile(r"^thank\s+you\s+for\s+watching", re.IGNORECASE),
+    re.compile(r"subtitles?\s+by\s+(the\s+)?amara", re.IGNORECASE),
+    re.compile(r"^please\s+subscribe", re.IGNORECASE),
+    re.compile(r"请订阅"),
+    re.compile(r"이\s*영상은"),
+    re.compile(r"^bye[\s.!]*$", re.IGNORECASE),
+    re.compile(r"^you[\s.!]*$", re.IGNORECASE),
+    re.compile(r"^yeah[\s.!]*$", re.IGNORECASE),
+    re.compile(r"^mm[-\s]?hmm[\s.!]*$", re.IGNORECASE),
+    re.compile(r"^♪+\s*$"),
+)
+
+# Audio under ~3 KB at opus 32 kbps is < 0.75 s — Whisper hallucinates
+# almost certainly. Reject before round-tripping to the API.
+_MIN_AUDIO_BYTES = 3_000
+
+
+def _is_hallucination(text: str) -> bool:
+    """Return True when ``text`` matches a known Whisper silence-output."""
+    t = text.strip()
+    if not t:
+        return True
+    for pat in _HALLUCINATION_PATTERNS:
+        if pat.search(t):
+            return True
+    return False
 
 
 class WhisperConfigError(RuntimeError):
@@ -130,6 +170,16 @@ async def transcribe_audio(
     """
     api_key = _resolve_api_key(settings)
 
+    # Min-size guard: opus at 32 kbps yields ~4 KB/s. Anything under
+    # _MIN_AUDIO_BYTES is effectively silence + hallucination bait.
+    if len(audio_bytes) < _MIN_AUDIO_BYTES:
+        logger.info(
+            "whisper: rejecting %d-byte clip (< %d) as silence",
+            len(audio_bytes),
+            _MIN_AUDIO_BYTES,
+        )
+        return WhisperTranscript(transcript="", lang=language_hint or "")
+
     # Import lazily so hosts that did not install the [iter-openai] extra
     # still load the package — the helper only fails when actually called.
     try:
@@ -145,16 +195,25 @@ async def transcribe_audio(
 
     prompt = _glossary_to_prompt(glossary)
 
+    logger.info(
+        "whisper: transcribing %d bytes (mime=%s, file=%s, lang_hint=%r)",
+        len(audio_bytes),
+        content_type,
+        filename,
+        language_hint,
+    )
+
     try:
         # response_format="verbose_json" so we get .language alongside
-        # .text. The newer SDK shapes this as a Pydantic model; we read
-        # attributes defensively to stay forward-compatible.
+        # .text. temperature=0 makes the decoder deterministic, which
+        # also reduces the hallucination rate on quiet audio.
         resp = await client.audio.transcriptions.create(
             model="whisper-1",
             file=buf,
             language=language_hint or None,
             prompt=prompt,
             response_format="verbose_json",
+            temperature=0,
         )
     except asyncio.CancelledError:
         raise
@@ -163,4 +222,18 @@ async def transcribe_audio(
 
     transcript = str(getattr(resp, "text", "") or "").strip()
     lang = str(getattr(resp, "language", "") or language_hint or "").strip()
+
+    # Hallucination filter: when Whisper emits the canned silence-output
+    # strings, return empty so the frontend stays in voice-idle and the
+    # user can retry. Logged so we can tune the patterns if false-positive
+    # rate creeps up.
+    if _is_hallucination(transcript):
+        logger.info(
+            "whisper: discarding hallucinated transcript=%r (lang=%r, bytes=%d)",
+            transcript,
+            lang,
+            len(audio_bytes),
+        )
+        return WhisperTranscript(transcript="", lang=lang)
+
     return WhisperTranscript(transcript=transcript, lang=lang)
