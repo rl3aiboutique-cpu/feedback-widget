@@ -136,11 +136,9 @@ export interface AutoContextPayload {
   git_commit_sha: string | null;
   user_role: string | null;
   console_tail: string[];
-  /** Set once Batch B implements screenshot upload — null for now. */
-  screenshot_attachment_id: string | null;
-  /** CSS selector of the user-locked element (S3F shell-hybrid). Null when
-   * the user is filing whole-page feedback. Backend currently ignores
-   * these fields (pydantic `extra=ignore`); S5 adds first-class support. */
+  /** CSS selector of the user-locked element (S3F shell-hybrid). Null
+   * when the user is filing whole-page feedback. Sprint A Phase 2
+   * promotes these to feedback.element_* columns on confirm. */
   element_selector?: string | null;
   element_xpath?: string | null;
   element_bounding_box?: { x: number; y: number; w: number; h: number } | null;

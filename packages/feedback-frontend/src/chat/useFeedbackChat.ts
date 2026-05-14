@@ -3,9 +3,9 @@
  *
  * Owns:
  *   - Session lifecycle (POST /chat/sessions on open)
- *   - Auto-screenshot capture per D-007 (captured client-side; upload
- *     to backend deferred to Batch B once `screenshot_attachment_id`
- *     plumbing lands)
+ *   - Auto-screenshot capture per D-007 (captured client-side, base64
+ *     sent in /confirm body → backend uploads to S3 + creates
+ *     FeedbackAttachment row in Sprint A Phase 5)
  *   - State machine transitions (idle → opening → awaiting_user → ...)
  *
  * Delegates streaming + message history to `useChatRunStream`.
@@ -173,18 +173,24 @@ function _buildAutoContext(args: {
     git_commit_sha: args.gitSha || null,
     user_role: args.userRole,
     console_tail: [],
-    // Batch A: client captures screenshot but does NOT upload. Batch B
-    // adds the multipart/form-data upload → returns attachment_id →
-    // wires it through this field. TODO(S3-B).
-    screenshot_attachment_id: null,
     // S3F shell-hybrid: forward the locked element so backend can hang
     // turn context (and downstream feedback row) off the right DOM node.
-    // Backend pydantic config ignores unknown fields today (S5 lands
-    // first-class support).
+    // Sprint A Phase 2 promotes these to feedback.element_* columns.
     element_selector: args.locked?.selector ?? null,
     element_xpath: args.locked?.xpath ?? null,
     element_bounding_box: args.locked?.bounding_box ?? null,
   };
+}
+
+async function _blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 export function useFeedbackChat(): UseFeedbackChatResult {
@@ -195,6 +201,9 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const stream = useChatRunStream({ bindings, sessionId });
   const [overrideState, setOverrideState] = useState<ChatState | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
+  // Phase 5: auto-captured PNG blob held in state until confirm() wires
+  // it into the request body as base64 → backend S3 upload.
+  const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
   /** Prevents double-open on rapid sheet toggles. */
   const openingRef = useRef(false);
 
@@ -258,14 +267,16 @@ export function useFeedbackChat(): UseFeedbackChatResult {
       // Auto-screenshot — D-007. The widget is excluded from the capture
       // via the `data-feedback-widget-root="true"` filter inside
       // `capturePageScreenshot`. Failures are non-fatal: log and proceed
-      // so the user can still file the feedback.
+      // so the user can still file the feedback. Phase 5: the resulting
+      // blob is kept in component state until `confirmSynthesis` sends
+      // it as base64 in the /confirm body.
       try {
-        await capturePageScreenshot({
+        const result = await capturePageScreenshot({
           redactionSelectors: DEFAULT_REDACTION_SELECTORS,
         });
-        // Screenshot blob is discarded for now — Batch B will upload it
-        // via multipart and pass the resulting attachment_id through
-        // auto_context.screenshot_attachment_id.
+        if (result?.blob) {
+          setScreenshotBlob(result.blob);
+        }
       } catch (err) {
         if (typeof console !== "undefined") {
           console.warn("[feedback-chat] screenshot capture failed", err);
@@ -331,6 +342,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     setVoiceLang("");
     setVoiceError(null);
     setVoiceState("idle");
+    setScreenshotBlob(null);
     openingRef.current = false;
   }, [stream]);
 
@@ -374,11 +386,25 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         }
       }
 
+      let screenshotB64: string | null = null;
+      if (screenshotBlob) {
+        try {
+          screenshotB64 = await _blobToBase64(screenshotBlob);
+        } catch (err) {
+          if (typeof console !== "undefined") {
+            console.warn("[feedback-chat] screenshot encode failed", err);
+          }
+        }
+      }
       const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
         headers,
-        body: JSON.stringify({ synthesis_override: null }),
+        body: JSON.stringify({
+          synthesis_override: null,
+          screenshot_b64: screenshotB64,
+          screenshot_content_type: screenshotB64 ? "image/png" : null,
+        }),
       });
       if (!resp.ok) {
         let detail = resp.statusText;
@@ -415,7 +441,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         /* ignore */
       }
     }
-  }, [bindings, stream, sessionId, adapter]);
+  }, [bindings, stream, sessionId, adapter, screenshotBlob]);
 
   const abandonSession = useCallback(async () => {
     // Fire-and-forget: user closed the sheet mid-conversation. The

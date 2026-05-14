@@ -56,10 +56,19 @@ from feedback_widget.iter_llm.protocol import (
 from feedback_widget.iter_scrubber import scrub_questions
 from feedback_widget.models import (
     Feedback,
+    FeedbackAttachmentKind,
     FeedbackSeverity,
     FeedbackStatus,
     FeedbackType,
 )
+from feedback_widget.redaction import redact_bundle, redact_string
+from feedback_widget.service import (
+    check_user_rate_limit,
+    generate_ticket_code,
+    upload_feedback_attachment,
+)
+from feedback_widget.settings import FeedbackSettings, get_settings
+from feedback_widget.storage import StorageBackend
 
 GREETING_CAPTURE = "Cuéntame qué tienes en mente."
 GREETING_REFINE = "Tienes este ticket. ¿Qué quieres ajustar?"
@@ -410,6 +419,10 @@ class ChatService:
         tenant_id: uuid.UUID | None,
         user_id: uuid.UUID,
         synthesis_override: dict[str, Any] | None = None,
+        settings: FeedbackSettings | None = None,
+        storage: StorageBackend | None = None,
+        screenshot_b64: str | None = None,
+        screenshot_content_type: str | None = None,
     ) -> tuple[uuid.UUID, str]:
         """Confirm a chat session — create the ``feedback`` row (D-006).
 
@@ -442,6 +455,19 @@ class ChatService:
         if not isinstance(synthesis, dict) or not synthesis:
             raise ChatSessionMissingSynthesisError(str(chat_session_id))
 
+        # Rate limit (paridad con legacy POST /feedback). The unit
+        # rate-limited is "feedback row created" — chat sessions that
+        # never reach confirm cost nothing. Raise BEFORE any write so
+        # the chat session stays AWAITING_CONFIRM and the caller can
+        # retry once the window slides.
+        resolved_settings = settings or get_settings()
+        check_user_rate_limit(
+            session,
+            user_id=user_id,
+            tenant_id=tenant_id,
+            settings=resolved_settings,
+        )
+
         # tenant_id on the Feedback Python model is typed required but
         # the DB column is nullable (migration 0001) — single-tenant
         # hosts (sapphira) run with NULL tenant. The legacy multipart
@@ -454,17 +480,29 @@ class ChatService:
         # the LLM may omit any of these; fall back to safe defaults so
         # the row can still be inserted.
         title_raw = str(synthesis.get("title") or "Feedback sin título")
-        title = title_raw[:_FEEDBACK_TITLE_MAX]
         summary = str(synthesis.get("summary") or "").strip()
         user_story = str(synthesis.get("user_story") or "").strip()
         user_need = synthesis.get("user_need")
-        description = (
+        description_raw = (
             "\n\n".join(part for part in (summary, user_story) if part)
             or "(synthesis sin contenido)"
         )
-        expected_outcome = (
+        expected_outcome_raw = (
             str(user_need).strip() if isinstance(user_need, str) and user_need.strip() else None
         )
+
+        # Server-side redaction (defence-in-depth) — parity with the
+        # legacy multipart path (service.FeedbackService.create). The
+        # LLM may echo back JWTs / bearer tokens / cookies that the user
+        # pasted in chat; scrub every free-text field plus the JSONB
+        # blobs before they hit the database.
+        title = redact_string(title_raw)[:_FEEDBACK_TITLE_MAX]
+        description = redact_string(description_raw)
+        expected_outcome = (
+            redact_string(expected_outcome_raw) if expected_outcome_raw else None
+        )
+        redacted_auto = redact_bundle(chat_row.auto_context or {})
+        redacted_synthesis = redact_bundle(synthesis)
 
         # ``inferred`` is optional — the synthesize prompt sometimes ships
         # it nested under the synthesis, sometimes alongside. Look in
@@ -475,16 +513,25 @@ class ChatService:
         feedback_type = _coerce_type(type_raw)
         severity = _coerce_severity(severity_raw)
 
-        auto = chat_row.auto_context or {}
-        url_raw = str(auto.get("url") or "")
+        url_raw = str(redacted_auto.get("url") or "")
         url_captured = url_raw[:_FEEDBACK_URL_MAX] or "about:blank"
-        route_raw = auto.get("route")
+        route_raw = redacted_auto.get("route")
         route_name = (
             str(route_raw)[:_FEEDBACK_ROUTE_MAX] if isinstance(route_raw, str) else None
         )
-        app_version = _opt_str(auto.get("app_version"), 64)
-        git_commit_sha = _opt_str(auto.get("git_commit_sha"), 40)
-        user_agent = _opt_str(auto.get("user_agent"), 512)
+        app_version = _opt_str(redacted_auto.get("app_version"), 64)
+        git_commit_sha = _opt_str(redacted_auto.get("git_commit_sha"), 40)
+        user_agent = _opt_str(redacted_auto.get("user_agent"), 512)
+
+        # Element-mode metadata (D-009): when the user locked an element
+        # via the CapturePicker, the selector / xpath / bounding-box are
+        # already in auto_context. Promote them to the dedicated columns
+        # so admin queries that filter on element_selector return chat
+        # rows too — paridad con el endpoint legacy multipart.
+        element_selector = _opt_str(redacted_auto.get("element_selector"), 1024)
+        element_xpath = _opt_str(redacted_auto.get("element_xpath"), 2048)
+        bbox_raw = redacted_auto.get("element_bounding_box")
+        element_bounding_box = bbox_raw if isinstance(bbox_raw, dict) else None
 
         feedback = Feedback(
             tenant_id=feedback_tenant,
@@ -496,18 +543,19 @@ class ChatService:
             expected_outcome=expected_outcome,
             url_captured=url_captured,
             route_name=route_name,
-            metadata_bundle=auto,
+            element_selector=element_selector,
+            element_xpath=element_xpath,
+            element_bounding_box=element_bounding_box,
+            metadata_bundle=redacted_auto,
             app_version=app_version,
             git_commit_sha=git_commit_sha,
             user_agent=user_agent,
             severity=severity,
-            synthesis_json=synthesis,
+            synthesis_json=redacted_synthesis,
             chat_session_id=chat_row.id,
         )
 
-        ticket_code = _generate_ticket_code_for_tenant(
-            session=session, tenant_id=feedback_tenant
-        )
+        ticket_code = generate_ticket_code(session, tenant_id=feedback_tenant)
         feedback.ticket_code = ticket_code
 
         # Bounded retry for the per-tenant ``ticket_code`` UNIQUE
@@ -526,9 +574,58 @@ class ChatService:
                 attempts += 1
                 if attempts >= _TICKET_CODE_RETRIES:
                     raise
-                feedback.ticket_code = _generate_ticket_code_for_tenant(
-                    session=session, tenant_id=feedback_tenant
+                feedback.ticket_code = generate_ticket_code(
+                    session, tenant_id=feedback_tenant
                 )
+
+        # Screenshot upload (paridad con legacy POST /feedback). The blob
+        # auto-captured client-side at openSheet arrives base64-encoded
+        # in ``screenshot_b64``; decode, sanity-cap, push to the
+        # configured bucket via ``upload_feedback_attachment`` (which
+        # also creates the matching FeedbackAttachment row), and store
+        # the attachment id back inside ``metadata_bundle`` so the email
+        # template + admin UI can resolve it.
+        if (
+            screenshot_b64
+            and storage is not None
+            and resolved_settings is not None
+        ):
+            try:
+                import base64
+
+                raw_bytes = base64.b64decode(screenshot_b64, validate=True)
+            except (ValueError, TypeError):
+                logger.warning(
+                    "chat confirm: screenshot_b64 not valid base64 — skipping upload"
+                )
+            else:
+                cap = resolved_settings.MAX_SCREENSHOT_BYTES
+                if len(raw_bytes) > cap:
+                    logger.warning(
+                        "chat confirm: screenshot exceeds cap (%d > %d) — skipping",
+                        len(raw_bytes),
+                        cap,
+                    )
+                else:
+                    attachment = upload_feedback_attachment(
+                        session,
+                        storage,
+                        feedback_id=feedback.id,
+                        tenant_id=feedback_tenant,
+                        content=raw_bytes,
+                        content_type=screenshot_content_type or "image/png",
+                        filename=None,
+                        kind=FeedbackAttachmentKind.SCREENSHOT,
+                        width=None,
+                        height=None,
+                        settings=resolved_settings,
+                    )
+                    session.flush()
+                    bundle = dict(feedback.metadata_bundle or {})
+                    bundle["screenshot_attachment_id"] = str(attachment.id)
+                    feedback.metadata_bundle = bundle
+                    session.add(feedback)
+                    session.flush()
 
         # Flip the chat session to confirmed and link the new feedback id.
         chat_row.status = ChatSessionStatus.CONFIRMED
@@ -621,44 +718,6 @@ def _coerce_severity(raw: Any) -> FeedbackSeverity | None:
         except ValueError:
             return None
     return None
-
-
-def _generate_ticket_code_for_tenant(
-    *, session: Session, tenant_id: uuid.UUID | None
-) -> str:
-    """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
-
-    Mirrors :py:meth:`feedback_widget.service.FeedbackService._generate_ticket_code`
-    so confirm flows produce the same shape and respect the per-tenant
-    UNIQUE index. Kept here rather than imported because the legacy
-    service is instance-scoped on ``self.session`` — duplicating the
-    13-line helper is cheaper than constructing a throwaway service
-    instance that also expects a StorageBackend.
-
-    Single-tenant hosts call with ``tenant_id=None``; the SQL filter
-    becomes ``IS NULL`` so all single-tenant feedback rows share the
-    same sequence (mirroring the legacy multipart flow).
-    """
-    from sqlmodel import func
-
-    year = datetime.now(UTC).year
-    prefix = f"FB-{year}-"
-    stmt = select(func.max(Feedback.ticket_code)).where(
-        Feedback.ticket_code.like(f"{prefix}%")  # type: ignore[attr-defined]
-    )
-    if tenant_id is None:
-        stmt = stmt.where(Feedback.tenant_id.is_(None))  # type: ignore[attr-defined]
-    else:
-        stmt = stmt.where(Feedback.tenant_id == tenant_id)
-    max_code = session.exec(stmt).one_or_none()
-    if max_code:
-        try:
-            next_seq = int(max_code.split("-")[-1]) + 1
-        except (ValueError, IndexError):
-            next_seq = 1
-    else:
-        next_seq = 1
-    return f"{prefix}{next_seq:04d}"
 
 
 def _serialise_user_payload(turns: list[dict[str, Any]]) -> str:

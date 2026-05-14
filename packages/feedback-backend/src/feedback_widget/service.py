@@ -88,34 +88,12 @@ class FeedbackService:
 
     def check_rate_limit(self, user_id: uuid.UUID) -> None:
         """Raise FeedbackRateLimitExceededError if the user has hit the cap."""
-        cap = self.settings.RATE_LIMIT_PER_HOUR
-        window = timedelta(hours=1)
-        now = datetime.now(UTC)
-        cutoff = now - window
-
-        count_stmt = (
-            select(func.count(Feedback.id))
-            .where(Feedback.user_id == user_id)
-            .where(Feedback.created_at >= cutoff)
+        check_user_rate_limit(
+            self.session,
+            user_id=user_id,
+            tenant_id=self.tenant_id,
+            settings=self.settings,
         )
-        oldest_stmt = (
-            select(func.min(Feedback.created_at))
-            .where(Feedback.user_id == user_id)
-            .where(Feedback.created_at >= cutoff)
-        )
-        if self.tenant_id is not None:
-            count_stmt = count_stmt.where(Feedback.tenant_id == self.tenant_id)
-            oldest_stmt = oldest_stmt.where(Feedback.tenant_id == self.tenant_id)
-        run_query = self.session.exec
-        count = run_query(count_stmt).one()
-        if count < cap:
-            return
-
-        oldest = run_query(oldest_stmt).one()
-        if oldest is None:
-            raise FeedbackRateLimitExceededError(retry_after_seconds=int(window.total_seconds()))
-        retry_after = int((oldest + window - now).total_seconds())
-        raise FeedbackRateLimitExceededError(retry_after_seconds=max(retry_after, 1))
 
     # ------------------------------------------------------------------
     # Create
@@ -188,72 +166,39 @@ class FeedbackService:
                     raise
 
         if screenshot is not None:
-            object_key = self._screenshot_object_key(feedback.id)
-            self.storage.upload(
-                key=object_key,
-                data=screenshot.content,
+            upload_feedback_attachment(
+                self.session,
+                self.storage,
+                feedback_id=feedback.id,
+                tenant_id=tenant_id,
+                content=screenshot.content,
                 content_type=screenshot.content_type,
-                bucket=self.settings.BUCKET,
-            )
-            self.session.add(
-                FeedbackAttachment(
-                    feedback_id=feedback.id,
-                    tenant_id=tenant_id,
-                    kind=FeedbackAttachmentKind.SCREENSHOT,
-                    bucket=self.settings.BUCKET,
-                    object_key=object_key,
-                    content_type=screenshot.content_type,
-                    byte_size=len(screenshot.content),
-                    width=screenshot.width,
-                    height=screenshot.height,
-                )
+                filename=None,
+                kind=FeedbackAttachmentKind.SCREENSHOT,
+                width=screenshot.width,
+                height=screenshot.height,
+                settings=self.settings,
             )
 
         for upload in attachments:
-            object_key = self._attachment_object_key(feedback.id, upload.filename)
-            self.storage.upload(
-                key=object_key,
-                data=upload.content,
+            upload_feedback_attachment(
+                self.session,
+                self.storage,
+                feedback_id=feedback.id,
+                tenant_id=tenant_id,
+                content=upload.content,
                 content_type=upload.content_type,
-                bucket=self.settings.BUCKET,
-            )
-            self.session.add(
-                FeedbackAttachment(
-                    feedback_id=feedback.id,
-                    tenant_id=tenant_id,
-                    kind=upload.kind,
-                    bucket=self.settings.BUCKET,
-                    object_key=object_key,
-                    content_type=upload.content_type,
-                    byte_size=len(upload.content),
-                    filename=upload.filename,
-                    width=upload.width,
-                    height=upload.height,
-                )
+                filename=upload.filename,
+                kind=upload.kind,
+                width=upload.width,
+                height=upload.height,
+                settings=self.settings,
             )
 
         if screenshot is not None or attachments:
             self.session.flush()
 
         return feedback
-
-    @staticmethod
-    def _screenshot_object_key(feedback_id: uuid.UUID) -> str:
-        """``feedback/yyyy/mm/dd/{feedback_id}/{uuid}.png``."""
-        now = datetime.now(UTC)
-        return (
-            f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
-            f"{feedback_id}/{uuid.uuid4()}.png"
-        )
-
-    @staticmethod
-    def _attachment_object_key(feedback_id: uuid.UUID, safe_filename: str) -> str:
-        """``feedback/yyyy/mm/dd/{feedback_id}/attachments/{uuid}-{safe_filename}``."""
-        now = datetime.now(UTC)
-        return (
-            f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
-            f"{feedback_id}/attachments/{uuid.uuid4()}-{safe_filename}"
-        )
 
     # ------------------------------------------------------------------
     # Ticketing helpers
@@ -262,27 +207,11 @@ class FeedbackService:
     def _generate_ticket_code(self, *, tenant_id: uuid.UUID) -> str:
         """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
 
-        Race-safe: if two concurrent INSERTs see the same max, the
-        UNIQUE index ``ix_feedback_tenant_ticket_code`` raises and the
-        caller can retry.
+        Thin wrapper over :func:`generate_ticket_code` kept for ABI
+        stability; the legacy multipart endpoint always passes a real
+        ``tenant_id`` so single-tenant behavior is irrelevant here.
         """
-        year = datetime.now(UTC).year
-        prefix = f"FB-{year}-"
-        stmt = (
-            select(func.max(Feedback.ticket_code))
-            .where(Feedback.tenant_id == tenant_id)
-            .where(Feedback.ticket_code.like(f"{prefix}%"))  # type: ignore[attr-defined]
-        )
-        run_query = self.session.exec
-        max_code = run_query(stmt).one_or_none()
-        if max_code:
-            try:
-                next_seq = int(max_code.split("-")[-1]) + 1
-            except (ValueError, IndexError):
-                next_seq = 1
-        else:
-            next_seq = 1
-        return f"{prefix}{next_seq:04d}"
+        return generate_ticket_code(self.session, tenant_id=tenant_id)
 
     # ------------------------------------------------------------------
     # Reads
@@ -545,3 +474,147 @@ class FeedbackService:
     @staticmethod
     def comment_to_read(comment: FeedbackComment) -> FeedbackCommentRead:
         return FeedbackCommentRead.model_validate(comment)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Module-level helpers
+#
+# These functions are the single source of truth for cross-flow
+# concerns (ticket code generation, rate limiting, attachment upload).
+# Both the legacy multipart endpoint (FeedbackService.create) and the
+# chat-first confirm path (chat_service.confirm_session) call into
+# them, so behavior stays identical regardless of how the feedback
+# row was produced.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _screenshot_object_key(feedback_id: uuid.UUID) -> str:
+    """``feedback/yyyy/mm/dd/{feedback_id}/{uuid}.png``."""
+    now = datetime.now(UTC)
+    return (
+        f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
+        f"{feedback_id}/{uuid.uuid4()}.png"
+    )
+
+
+def _attachment_object_key(feedback_id: uuid.UUID, safe_filename: str) -> str:
+    """``feedback/yyyy/mm/dd/{feedback_id}/attachments/{uuid}-{safe_filename}``."""
+    now = datetime.now(UTC)
+    return (
+        f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
+        f"{feedback_id}/attachments/{uuid.uuid4()}-{safe_filename}"
+    )
+
+
+def generate_ticket_code(
+    session: Session,
+    *,
+    tenant_id: uuid.UUID | None,
+) -> str:
+    """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
+
+    ``tenant_id=None`` maps to ``IS NULL`` so single-tenant hosts share
+    one sequence. Race-safe: the UNIQUE index
+    ``ix_feedback_tenant_ticket_code`` raises on collision and the
+    caller can retry.
+    """
+    year = datetime.now(UTC).year
+    prefix = f"FB-{year}-"
+    stmt = select(func.max(Feedback.ticket_code)).where(
+        Feedback.ticket_code.like(f"{prefix}%")  # type: ignore[attr-defined]
+    )
+    if tenant_id is None:
+        stmt = stmt.where(Feedback.tenant_id.is_(None))  # type: ignore[attr-defined]
+    else:
+        stmt = stmt.where(Feedback.tenant_id == tenant_id)
+    max_code = session.exec(stmt).one_or_none()
+    if max_code:
+        try:
+            next_seq = int(max_code.split("-")[-1]) + 1
+        except (ValueError, IndexError):
+            next_seq = 1
+    else:
+        next_seq = 1
+    return f"{prefix}{next_seq:04d}"
+
+
+def check_user_rate_limit(
+    session: Session,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    settings: FeedbackSettings,
+) -> None:
+    """Raise :class:`FeedbackRateLimitExceededError` if the user has
+    hit ``settings.RATE_LIMIT_PER_HOUR`` in the trailing hour."""
+    cap = settings.RATE_LIMIT_PER_HOUR
+    window = timedelta(hours=1)
+    now = datetime.now(UTC)
+    cutoff = now - window
+    count_stmt = (
+        select(func.count(Feedback.id))
+        .where(Feedback.user_id == user_id)
+        .where(Feedback.created_at >= cutoff)
+    )
+    oldest_stmt = (
+        select(func.min(Feedback.created_at))
+        .where(Feedback.user_id == user_id)
+        .where(Feedback.created_at >= cutoff)
+    )
+    if tenant_id is not None:
+        count_stmt = count_stmt.where(Feedback.tenant_id == tenant_id)
+        oldest_stmt = oldest_stmt.where(Feedback.tenant_id == tenant_id)
+    count = session.exec(count_stmt).one()
+    if count < cap:
+        return
+    oldest = session.exec(oldest_stmt).one()
+    if oldest is None:
+        raise FeedbackRateLimitExceededError(
+            retry_after_seconds=int(window.total_seconds())
+        )
+    retry_after = int((oldest + window - now).total_seconds())
+    raise FeedbackRateLimitExceededError(retry_after_seconds=max(retry_after, 1))
+
+
+def upload_feedback_attachment(
+    session: Session,
+    storage: StorageBackend,
+    *,
+    feedback_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    content: bytes,
+    content_type: str,
+    filename: str | None,
+    kind: FeedbackAttachmentKind,
+    width: int | None,
+    height: int | None,
+    settings: FeedbackSettings,
+) -> FeedbackAttachment:
+    """Upload bytes to the configured bucket and create the matching
+    :class:`FeedbackAttachment` row. The row is added to the session;
+    caller flushes."""
+    if kind == FeedbackAttachmentKind.SCREENSHOT:
+        object_key = _screenshot_object_key(feedback_id)
+    else:
+        safe = filename or "attachment"
+        object_key = _attachment_object_key(feedback_id, safe)
+    storage.upload(
+        key=object_key,
+        data=content,
+        content_type=content_type,
+        bucket=settings.BUCKET,
+    )
+    row = FeedbackAttachment(
+        feedback_id=feedback_id,
+        tenant_id=tenant_id,
+        kind=kind,
+        bucket=settings.BUCKET,
+        object_key=object_key,
+        content_type=content_type,
+        byte_size=len(content),
+        filename=filename,
+        width=width,
+        height=height,
+    )
+    session.add(row)
+    return row

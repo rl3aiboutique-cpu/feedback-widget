@@ -30,6 +30,7 @@ from typing import Annotated, Any
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -60,6 +61,10 @@ from feedback_widget.chat_service import (
     ChatSessionMissingSynthesisError,
     ChatSessionNotFoundError,
 )
+from feedback_widget.email.render import build_feedback_email
+from feedback_widget.exceptions import FeedbackRateLimitExceededError
+from feedback_widget.helpers import enqueue_notification
+from feedback_widget.models import Feedback as FeedbackModel
 from feedback_widget.chat_whisper import (
     WhisperConfigError,
     WhisperTranscriptionError,
@@ -417,6 +422,7 @@ def build_chat_router(
     def confirm_chat_session(
         session_id: uuid.UUID,
         payload: ConfirmChatSessionRequest,
+        background: BackgroundTasks,
         user: CurrentUserSnapshot = UserDep,
         db: Session = SessionDep,
     ) -> ConfirmChatSessionResponse:
@@ -428,6 +434,10 @@ def build_chat_router(
                 tenant_id=user.tenant_id,
                 user_id=user.user_id,
                 synthesis_override=payload.synthesis_override,
+                settings=settings,
+                storage=storage,
+                screenshot_b64=payload.screenshot_b64,
+                screenshot_content_type=payload.screenshot_content_type,
             )
         except ChatSessionNotFoundError as exc:
             raise HTTPException(
@@ -438,6 +448,12 @@ def build_chat_router(
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="chat session has no synthesis to confirm",
+            ) from exc
+        except FeedbackRateLimitExceededError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(exc),
+                headers={"Retry-After": str(exc.retry_after_seconds)},
             ) from exc
         except Exception as exc:
             logger.exception("chat confirm failed: session=%s", session_id)
@@ -456,6 +472,66 @@ def build_chat_router(
             feedback_id,
             ticket_code,
         )
+
+        # Email notification (paridad con legacy POST /feedback). If
+        # Phase 5 produced a screenshot attachment, re-read its bytes
+        # from storage and pass them inline so the admin email renders
+        # the visual evidence — paridad final con la solución original.
+        # No-op when FEEDBACK_NOTIFY_EMAILS is empty (early return
+        # inside the helper). Failures here must NEVER block confirm.
+        try:
+            feedback_row = db.get(FeedbackModel, feedback_id)
+            if feedback_row is not None:
+                from sqlmodel import select as _select_attachment
+
+                from feedback_widget.models import (
+                    FeedbackAttachment,
+                    FeedbackAttachmentKind,
+                )
+
+                screenshot_bytes: bytes | None = None
+                screenshot_ct: str | None = None
+                screenshot_row = db.exec(
+                    _select_attachment(FeedbackAttachment)
+                    .where(FeedbackAttachment.feedback_id == feedback_id)
+                    .where(FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT)
+                ).first()
+                if screenshot_row is not None:
+                    try:
+                        screenshot_bytes = storage.download(
+                            screenshot_row.object_key,
+                            bucket=screenshot_row.bucket,
+                        )
+                        screenshot_ct = screenshot_row.content_type
+                    except Exception:
+                        logger.exception(
+                            "chat confirm: screenshot re-read failed (feedback=%s)",
+                            feedback_id,
+                        )
+
+                subject, html, text_body = build_feedback_email(
+                    feedback=feedback_row,
+                    submitter_email=getattr(user, "email", None) or "(unknown)",
+                    presigned_url=None,
+                    extra_attachment_count=0,
+                    settings=settings,
+                )
+                enqueue_notification(
+                    background,
+                    feedback_id=feedback_id,
+                    feedback_snapshot_subject=subject,
+                    html=html,
+                    text=text_body,
+                    screenshot_bytes=screenshot_bytes,
+                    screenshot_content_type=screenshot_ct,
+                    settings=settings,
+                )
+        except Exception:
+            # Email enqueue must NEVER block confirm — log and swallow.
+            logger.exception(
+                "chat confirm email enqueue failed: feedback=%s", feedback_id
+            )
+
         return ConfirmChatSessionResponse(
             feedback_id=feedback_id, ticket_code=ticket_code
         )

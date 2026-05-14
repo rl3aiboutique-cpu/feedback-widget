@@ -85,9 +85,17 @@ class ConfirmChatSessionRequest(BaseModel):
     (D-012 — Ajustar returns to chat, but the admin/user can also patch
     the synthesis here for direct edits). When ``None`` the persisted
     synthesis on the session row is used as-is.
+
+    ``screenshot_b64`` carries the auto-captured page screenshot as base64
+    PNG so the backend can upload it to the feedback bucket and create
+    the matching :class:`FeedbackAttachment` row — paridad con el endpoint
+    legacy multipart. ``None`` when capture failed client-side; the
+    confirm still succeeds but without the visual evidence.
     """
 
     synthesis_override: dict[str, Any] | None = None
+    screenshot_b64: str | None = Field(default=None, max_length=16_777_216)
+    screenshot_content_type: str | None = Field(default=None, max_length=64)
 
 
 class ConfirmChatSessionResponse(BaseModel):
