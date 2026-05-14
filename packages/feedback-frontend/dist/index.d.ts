@@ -267,10 +267,62 @@ interface FooterActionsProps {
 declare function FooterActions({ state, onConfirm, onAdjust, onRetry, }: FooterActionsProps): ReactElement | null;
 
 interface MineFeedTabProps {
-    /** Called when user clicks a row. Future S3E will open inline comments. */
+    /** Called when user clicks a row. S3E opens the inline TicketDetail
+     * view; before S3E this no-op'd back to the compose tab. */
     onSelectFeedback?: (feedbackId: string) => void;
 }
 declare function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElement;
+
+/**
+ * Status pill — submitter-facing rendering of D-003 ticket lifecycle.
+ *
+ * D-008 hides `type` and `severity` from the submitter, but `status` IS
+ * visible because the submitter needs to know whether the team has seen
+ * the ticket and where it stands. Colors mirror the admin triage panel
+ * so the same status reads the same across surfaces.
+ *
+ * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts inherit
+ * that; if a non-es host appears later we'll route via the translator.
+ */
+
+interface StatusPillProps {
+    status: FeedbackStatusKey;
+}
+declare function StatusPill({ status }: StatusPillProps): ReactElement;
+
+/**
+ * Submitter-facing ticket detail view — opens when the user clicks a
+ * row in Mis feedbacks (S3E).
+ *
+ * Layout:
+ *
+ *   ┌─ ← Volver  | ticket_code | <StatusPill> ─────────┐
+ *   │ Title                                              │
+ *   │ ┌─ Summary card (description) ──────────────────┐ │
+ *   │ ┌─ Conversation (admin ↔ submitter bubbles) ────┐ │
+ *   │ ┌─ Reply composer (textarea + send) ────────────┐ │
+ *   └────────────────────────────────────────────────────┘
+ *
+ * Bubble routing from the submitter's perspective:
+ *   - own comments  → role="user"  (right, primary tint)
+ *   - admin comments → role="admin" (left, violet tint + "Equipo" badge)
+ *
+ * Polling is delegated to `useFeedbackCommentsQuery` (30s refresh) so
+ * admin replies surface near-live without an explicit refresh.
+ *
+ * NOTE on synthesis: ``FeedbackRead`` does not currently expose
+ * ``synthesis_json`` — the backend stores it on
+ * ``feedback_chat_session`` and never serializes it on the feedback
+ * row. For S3E we render ``title`` + ``description`` (always present)
+ * as the read-only summary. Wiring the structured synthesis is a
+ * follow-up (needs the FeedbackRead schema to gain ``synthesis_json``).
+ */
+
+interface TicketDetailProps {
+    feedbackId: string;
+    onBack: () => void;
+}
+declare function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactElement;
 
 /**
  * Wire-shape types for the feedback widget.
@@ -585,26 +637,6 @@ declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
 /**
- * Iterate-with-AI workspace.
- *
- * Three-column layout on desktop, stacked on mobile. Hosts mount it
- * via `<IterWorkspace.lazy />` and own the route URL. The component
- * reads the `sessionId` it operates on from props.
- *
- * Streaming is driven by `useIterRunStream`. Persisted state
- * (versions, assumptions, package) comes from TanStack Query. The
- * component dynamically imports markdown-it on first render so its
- * weight stays out of the always-loaded widget bundle.
- */
-interface IterWorkspaceProps {
-    sessionId: string;
-    /** Called when the user clicks the close / back button. */
-    onClose?: () => void;
-}
-
-declare function IterWorkspaceLazy(props: IterWorkspaceProps): react_jsx_runtime.JSX.Element;
-
-/**
  * HTTP + SSE client for the Iterate-with-AI module.
  *
  * Mirrors the patterns in ../adapter.ts (CSRF + optional bearer +
@@ -632,4 +664,4 @@ declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptio
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspaceLazy as IterWorkspace, type IterWorkspaceProps, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

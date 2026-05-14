@@ -55,6 +55,8 @@ export {
 } from "./chat/FeedbackTabs";
 export { FooterActions, type FooterActionsProps } from "./chat/FooterActions";
 export { MineFeedTab, type MineFeedTabProps } from "./chat/MineFeedTab";
+export { StatusPill, type StatusPillProps } from "./chat/StatusPill";
+export { TicketDetail, type TicketDetailProps } from "./chat/TicketDetail";
 
 export {
   type FeedbackConfig,
@@ -97,13 +99,10 @@ export type {
   IterVersionRead,
 } from "./client/types";
 
-// Iter workspace — lazy-loaded; the markdown-it dependency only
-// downloads when a host actually mounts this component.
-export { IterWorkspaceLazy as IterWorkspace } from "./iter/IterWorkspace.lazy";
-export type { IterWorkspaceProps } from "./iter/IterWorkspace";
-
-// Programmatic API for hosts that need to call iter endpoints
-// directly (e.g., to start a session from a custom button).
+// v1.0.0 — the submitter-facing `<IterWorkspace>` was removed in S7.
+// Admin "Refinar" now reuses the chat sheet; the iter client + types
+// stay exported (admin Triage page consumes them) but no React
+// surface is public.
 export {
   abandonIterSession,
   editIterVersionMarkdown,

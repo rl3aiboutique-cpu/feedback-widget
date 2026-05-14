@@ -100,6 +100,20 @@ class FeedbackCommentAuthorRole(StrEnum):
     ADMIN = "admin"
 
 
+class FeedbackSeverity(StrEnum):
+    """LLM-inferred severity tag — chat-first capture flow (v1.0.0).
+
+    Populated when a chat session is confirmed (D-006); NULL on rows
+    created via the legacy multipart endpoint. The four values mirror
+    the ``feedback_severity`` enum created in migration 0007.
+    """
+
+    BLOCKER = "blocker"
+    MAJOR = "major"
+    MINOR = "minor"
+    IDEA = "idea"
+
+
 # ────────────────────────────────────────────────────────────────────
 # Tables
 # ────────────────────────────────────────────────────────────────────
@@ -187,6 +201,33 @@ class Feedback(SQLModel, table=True):
     # by the service on insert so the row is meaningful in emails and deep
     # links from day one.
     ticket_code: str = Field(max_length=24, default="")
+
+    # ── chat-first capture (v1.0.0) ─────────────────────────────────────
+    # Populated only when the feedback row was created via
+    # ``POST /chat/sessions/{sid}/confirm``. Legacy multipart submissions
+    # leave all three NULL. Schema lives in migration 0007.
+    chat_session_id: uuid.UUID | None = Field(
+        default=None,
+        sa_column=Column(
+            ForeignKey("feedback_chat_session.id"),
+            nullable=True,
+        ),
+    )
+    synthesis_json: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSONB, nullable=True)
+    )
+    severity: FeedbackSeverity | None = Field(
+        default=None,
+        sa_column=Column(
+            SAEnum(
+                FeedbackSeverity,
+                name="feedback_severity",
+                create_constraint=False,
+                values_callable=lambda enum_cls: [m.value for m in enum_cls],
+            ),
+            nullable=True,
+        ),
+    )
 
 
 class FeedbackAttachment(SQLModel, table=True):

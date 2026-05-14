@@ -24,7 +24,7 @@
  * is replaced by the Mis feedbacks tab + `<MineFeedTab>` (S3F).
  */
 
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { useFeedbackAdapter } from "../FeedbackProvider";
 import { Rl3Mark } from "../Rl3Mark";
@@ -37,6 +37,9 @@ import { FeedbackTabs } from "./FeedbackTabs";
 import { FooterActions } from "./FooterActions";
 import { MineFeedTab } from "./MineFeedTab";
 import { SynthesisCard } from "./SynthesisCard";
+import { TicketDetail } from "./TicketDetail";
+import { TranscriptionPreview } from "./TranscriptionPreview";
+import { VoiceRecorder } from "./VoiceRecorder";
 import type { ChatState } from "./types";
 import { useFeedbackChat } from "./useFeedbackChat";
 
@@ -95,6 +98,7 @@ export function FeedbackChatSheet({
     closeSheet,
     sendUserMessage,
     confirmSynthesis,
+    abandonSession,
     adjustSynthesis,
     newConversation,
     state,
@@ -108,7 +112,27 @@ export function FeedbackChatSheet({
     clearLocked: clearHookLocked,
     acceptLocked,
     selectTab,
+    voiceState,
+    voiceDurationMs,
+    voiceTranscript,
+    voiceLang,
+    voiceError,
+    startVoice,
+    stopVoice,
+    confirmVoiceTranscript,
+    cancelVoice,
   } = chat;
+
+  // S3E — when the user picks a row in Mis feedbacks, the right pane
+  // swaps from the list to <TicketDetail/>. Local to the sheet because
+  // the chat hook is scoped to compose-tab lifecycle.
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState<string | null>(null);
+
+  // Reset the detail selection when leaving the mine tab so the list
+  // is what you see next time you click back in.
+  useEffect(() => {
+    if (activeTab !== "mine") setSelectedFeedbackId(null);
+  }, [activeTab]);
 
   // Drive the session lifecycle from the open prop. openSheet itself
   // guards against re-entry via openingRef so re-renders are harmless.
@@ -137,10 +161,24 @@ export function FeedbackChatSheet({
     return () => window.clearTimeout(tid);
   }, [state, onOpenChange]);
 
+  // When the user closes the sheet mid-conversation (NOT after the bot
+  // already confirmed), fire-and-forget the abandon endpoint so analytics
+  // pick up the drop-off. We explicitly exclude `done` (post-confirm
+  // auto-close) and `idle` (never started) to avoid spurious abandons.
+  const handleOpenChange = useCallback(
+    (next: boolean) => {
+      if (!next && state !== "done" && state !== "idle") {
+        void abandonSession();
+      }
+      onOpenChange(next);
+    },
+    [state, abandonSession, onOpenChange],
+  );
+
   const showSynthesis = state === "confirming" && synthesis !== null;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
         className={`${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`}
@@ -179,19 +217,46 @@ export function FeedbackChatSheet({
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ChatTimeline
                 messages={messages}
-                isThinking={_isThinking(state)}
-                thinkingLabel={_thinkingLabel(state)}
+                isThinking={_isThinking(state) || voiceState === "transcribing"}
+                thinkingLabel={
+                  voiceState === "transcribing" ? "Transcribiendo…" : _thinkingLabel(state)
+                }
               />
               {error ? (
                 <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
                   {error}
                 </div>
               ) : null}
+              {voiceError ? (
+                <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {voiceError}
+                </div>
+              ) : null}
               {showSynthesis ? <SynthesisCard synthesis={synthesis} /> : null}
+              {voiceState === "preview" ? (
+                <TranscriptionPreview
+                  transcript={voiceTranscript}
+                  lang={voiceLang}
+                  onSend={(text) => void confirmVoiceTranscript(text)}
+                  onCancel={cancelVoice}
+                  disabled={state === "bot_thinking"}
+                />
+              ) : null}
             </div>
 
-            {_showComposer(state) ? (
-              <Composer onSend={sendUserMessage} disabled={state === "bot_thinking"} />
+            {voiceState === "recording" || voiceState === "transcribing" ? (
+              <VoiceRecorder
+                state={voiceState === "transcribing" ? "stopping" : "recording"}
+                duration_ms={voiceDurationMs}
+                onStop={() => void stopVoice()}
+                onCancel={cancelVoice}
+              />
+            ) : _showComposer(state) && (voiceState === "idle" || voiceState === "error") ? (
+              <Composer
+                onSend={sendUserMessage}
+                disabled={state === "bot_thinking"}
+                onVoiceToggle={() => void startVoice()}
+              />
             ) : null}
 
             {_showFooter(state) ? (
@@ -205,13 +270,14 @@ export function FeedbackChatSheet({
           </>
         ) : (
           <div className="flex-1 min-h-0 overflow-y-auto px-4 pb-4">
-            <MineFeedTab
-              onSelectFeedback={(_fid) => {
-                // S3E will open inline comments. For S3F we just bounce
-                // back to compose so the user keeps moving.
-                selectTab("compose");
-              }}
-            />
+            {selectedFeedbackId ? (
+              <TicketDetail
+                feedbackId={selectedFeedbackId}
+                onBack={() => setSelectedFeedbackId(null)}
+              />
+            ) : (
+              <MineFeedTab onSelectFeedback={(fid) => setSelectedFeedbackId(fid)} />
+            )}
           </div>
         )}
       </SheetContent>

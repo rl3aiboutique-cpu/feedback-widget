@@ -54,6 +54,12 @@ from feedback_widget.iter_llm.protocol import (
     LLMProviderError,
 )
 from feedback_widget.iter_scrubber import scrub_questions
+from feedback_widget.models import (
+    Feedback,
+    FeedbackSeverity,
+    FeedbackStatus,
+    FeedbackType,
+)
 
 GREETING_CAPTURE = "Cuéntame qué tienes en mente."
 GREETING_REFINE = "Tienes este ticket. ¿Qué quieres ajustar?"
@@ -75,7 +81,25 @@ _DEFAULT_COVERAGE_THRESHOLD = 0.7
 _TURN_REQUEST_TIMEOUT_SECONDS = 120
 _TURN_MAX_OUTPUT_TOKENS = 2_000
 
+# Confirm flow caps — mirror the Feedback model column limits so the
+# DB INSERT never trips a constraint when the synthesis title or URL
+# overflow the legacy form caps.
+_FEEDBACK_TITLE_MAX = 200
+_FEEDBACK_URL_MAX = 2048
+_FEEDBACK_ROUTE_MAX = 200
+# Bounded retry budget for the per-tenant ``ticket_code`` UNIQUE
+# collision — mirrors FeedbackService.create's loop.
+_TICKET_CODE_RETRIES = 3
+
 logger = logging.getLogger(__name__)
+
+
+class ChatSessionNotFoundError(Exception):
+    """Caller does not own the requested chat session, or it does not exist."""
+
+
+class ChatSessionMissingSynthesisError(Exception):
+    """Confirm called on a session whose ``synthesis_json`` is NULL."""
 
 
 class ChatService:
@@ -375,6 +399,266 @@ class ChatService:
         if is_synth and isinstance(parsed_scrubbed["synthesis"], dict):
             yield {"type": "synthesizing"}
             yield {"type": "synthesis", "data": parsed_scrubbed["synthesis"]}
+
+    # ── S5: confirm / abandon ──────────────────────────────────────────
+
+    def confirm_session(
+        self,
+        *,
+        session: Session,
+        chat_session_id: uuid.UUID,
+        tenant_id: uuid.UUID | None,
+        user_id: uuid.UUID,
+        synthesis_override: dict[str, Any] | None = None,
+    ) -> tuple[uuid.UUID, str]:
+        """Confirm a chat session — create the ``feedback`` row (D-006).
+
+        The synthesis is taken from ``synthesis_override`` when present,
+        otherwise from ``feedback_chat_session.synthesis_json``. The
+        feedback row mirrors ``user_id`` / ``tenant_id`` from the chat
+        session so admin views and the row's RLS line up.
+
+        Returns ``(feedback_id, ticket_code)``. Does NOT commit — the
+        caller commits so the chat-session update and feedback insert
+        land atomically.
+
+        Raises:
+            ChatSessionNotFoundError — session missing or not owned.
+            ChatSessionMissingSynthesisError — no synthesis available.
+        """
+        chat_row = session.get(FeedbackChatSession, chat_session_id)
+        if (
+            chat_row is None
+            or chat_row.user_id != user_id
+            or chat_row.tenant_id != tenant_id
+        ):
+            raise ChatSessionNotFoundError(str(chat_session_id))
+
+        synthesis = (
+            synthesis_override
+            if synthesis_override is not None
+            else chat_row.synthesis_json
+        )
+        if not isinstance(synthesis, dict) or not synthesis:
+            raise ChatSessionMissingSynthesisError(str(chat_session_id))
+
+        # tenant_id on the Feedback Python model is typed required but
+        # the DB column is nullable (migration 0001) — single-tenant
+        # hosts (sapphira) run with NULL tenant. The legacy multipart
+        # service.create() takes ``tenant_id: uuid.UUID`` yet passes
+        # through ``current_user.tenant_id`` which CAN be None; we keep
+        # the same shape so the runtime behaviour matches.
+        feedback_tenant: uuid.UUID | None = tenant_id
+
+        # Derive feedback fields from the synthesis dict. Be defensive —
+        # the LLM may omit any of these; fall back to safe defaults so
+        # the row can still be inserted.
+        title_raw = str(synthesis.get("title") or "Feedback sin título")
+        title = title_raw[:_FEEDBACK_TITLE_MAX]
+        summary = str(synthesis.get("summary") or "").strip()
+        user_story = str(synthesis.get("user_story") or "").strip()
+        user_need = synthesis.get("user_need")
+        description = (
+            "\n\n".join(part for part in (summary, user_story) if part)
+            or "(synthesis sin contenido)"
+        )
+        expected_outcome = (
+            str(user_need).strip() if isinstance(user_need, str) and user_need.strip() else None
+        )
+
+        # ``inferred`` is optional — the synthesize prompt sometimes ships
+        # it nested under the synthesis, sometimes alongside. Look in
+        # both places before falling back to the last assistant turn.
+        inferred = self._extract_inferred(chat_row, synthesis)
+        type_raw = inferred.get("type")
+        severity_raw = inferred.get("severity")
+        feedback_type = _coerce_type(type_raw)
+        severity = _coerce_severity(severity_raw)
+
+        auto = chat_row.auto_context or {}
+        url_raw = str(auto.get("url") or "")
+        url_captured = url_raw[:_FEEDBACK_URL_MAX] or "about:blank"
+        route_raw = auto.get("route")
+        route_name = (
+            str(route_raw)[:_FEEDBACK_ROUTE_MAX] if isinstance(route_raw, str) else None
+        )
+        app_version = _opt_str(auto.get("app_version"), 64)
+        git_commit_sha = _opt_str(auto.get("git_commit_sha"), 40)
+        user_agent = _opt_str(auto.get("user_agent"), 512)
+
+        feedback = Feedback(
+            tenant_id=feedback_tenant,
+            user_id=user_id,
+            type=feedback_type,
+            status=FeedbackStatus.NEW,
+            title=title,
+            description=description,
+            expected_outcome=expected_outcome,
+            url_captured=url_captured,
+            route_name=route_name,
+            metadata_bundle=auto,
+            app_version=app_version,
+            git_commit_sha=git_commit_sha,
+            user_agent=user_agent,
+            severity=severity,
+            synthesis_json=synthesis,
+            chat_session_id=chat_row.id,
+        )
+
+        ticket_code = _generate_ticket_code_for_tenant(
+            session=session, tenant_id=feedback_tenant
+        )
+        feedback.ticket_code = ticket_code
+
+        # Bounded retry for the per-tenant ``ticket_code`` UNIQUE
+        # collision — mirrors FeedbackService.create's loop so two
+        # concurrent confirms don't both observe the same MAX.
+        from sqlalchemy.exc import IntegrityError as _IntegrityError
+
+        attempts = 0
+        while True:
+            session.add(feedback)
+            try:
+                session.flush()
+                break
+            except _IntegrityError:
+                session.rollback()
+                attempts += 1
+                if attempts >= _TICKET_CODE_RETRIES:
+                    raise
+                feedback.ticket_code = _generate_ticket_code_for_tenant(
+                    session=session, tenant_id=feedback_tenant
+                )
+
+        # Flip the chat session to confirmed and link the new feedback id.
+        chat_row.status = ChatSessionStatus.CONFIRMED
+        chat_row.feedback_id = feedback.id
+        chat_row.confirmed_at = datetime.now(UTC)
+        chat_row.updated_at = chat_row.confirmed_at
+        session.add(chat_row)
+        session.flush()
+
+        return feedback.id, feedback.ticket_code
+
+    def abandon_session(
+        self,
+        *,
+        session: Session,
+        chat_session_id: uuid.UUID,
+        tenant_id: uuid.UUID | None,
+        user_id: uuid.UUID,
+    ) -> None:
+        """Mark a chat session abandoned. Idempotent on the status flip.
+
+        Raises:
+            ChatSessionNotFoundError — session missing or not owned.
+        """
+        chat_row = session.get(FeedbackChatSession, chat_session_id)
+        if (
+            chat_row is None
+            or chat_row.user_id != user_id
+            or chat_row.tenant_id != tenant_id
+        ):
+            raise ChatSessionNotFoundError(str(chat_session_id))
+
+        now = datetime.now(UTC)
+        chat_row.status = ChatSessionStatus.ABANDONED
+        chat_row.abandoned_at = now
+        chat_row.updated_at = now
+        session.add(chat_row)
+        session.flush()
+
+    @staticmethod
+    def _extract_inferred(
+        chat_row: FeedbackChatSession,
+        synthesis: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Pull the ``inferred`` block from the synthesis or the last
+        assistant turn carrying one. Returns an empty dict when nothing
+        is found — callers default to type=other / severity=NULL."""
+        nested = synthesis.get("inferred")
+        if isinstance(nested, dict):
+            return nested
+        for msg in reversed(chat_row.messages or []):
+            if not isinstance(msg, dict) or msg.get("role") != "assistant":
+                continue
+            cand = msg.get("inferred")
+            if isinstance(cand, dict):
+                return cand
+        return {}
+
+
+def _opt_str(value: Any, max_len: int) -> str | None:
+    """Coerce an auto_context value into a bounded optional string."""
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    if not trimmed:
+        return None
+    return trimmed[:max_len]
+
+
+def _coerce_type(raw: Any) -> FeedbackType:
+    """Map an LLM-emitted type label to the canonical enum.
+
+    The capture prompt asks the model for one of the six FeedbackType
+    values; any unknown / missing label collapses to ``other`` so the
+    confirm never fails on a typo.
+    """
+    if isinstance(raw, str):
+        try:
+            return FeedbackType(raw.strip().lower())
+        except ValueError:
+            pass
+    return FeedbackType.OTHER
+
+
+def _coerce_severity(raw: Any) -> FeedbackSeverity | None:
+    """Map an LLM-emitted severity label to the canonical enum, else None."""
+    if isinstance(raw, str):
+        try:
+            return FeedbackSeverity(raw.strip().lower())
+        except ValueError:
+            return None
+    return None
+
+
+def _generate_ticket_code_for_tenant(
+    *, session: Session, tenant_id: uuid.UUID | None
+) -> str:
+    """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
+
+    Mirrors :py:meth:`feedback_widget.service.FeedbackService._generate_ticket_code`
+    so confirm flows produce the same shape and respect the per-tenant
+    UNIQUE index. Kept here rather than imported because the legacy
+    service is instance-scoped on ``self.session`` — duplicating the
+    13-line helper is cheaper than constructing a throwaway service
+    instance that also expects a StorageBackend.
+
+    Single-tenant hosts call with ``tenant_id=None``; the SQL filter
+    becomes ``IS NULL`` so all single-tenant feedback rows share the
+    same sequence (mirroring the legacy multipart flow).
+    """
+    from sqlmodel import func
+
+    year = datetime.now(UTC).year
+    prefix = f"FB-{year}-"
+    stmt = select(func.max(Feedback.ticket_code)).where(
+        Feedback.ticket_code.like(f"{prefix}%")  # type: ignore[attr-defined]
+    )
+    if tenant_id is None:
+        stmt = stmt.where(Feedback.tenant_id.is_(None))  # type: ignore[attr-defined]
+    else:
+        stmt = stmt.where(Feedback.tenant_id == tenant_id)
+    max_code = session.exec(stmt).one_or_none()
+    if max_code:
+        try:
+            next_seq = int(max_code.split("-")[-1]) + 1
+        except (ValueError, IndexError):
+            next_seq = 1
+    else:
+        next_seq = 1
+    return f"{prefix}{next_seq:04d}"
 
 
 def _serialise_user_payload(turns: list[dict[str, Any]]) -> str:

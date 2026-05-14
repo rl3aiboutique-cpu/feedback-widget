@@ -7,6 +7,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-14
+
+**Chat-first redesign.** The widget no longer ships a form. The
+floating launcher opens a chat sheet that captures feedback through
+a conversational flow with an LLM. Synthesis (title + summary +
+status + type + sentiment) is drafted live as the user types and
+the user confirms or abandons. The whole submitter surface is one
+screen — the legacy Compose / Canvas / FeedbackPanel /
+MyTicketsPanel components are removed.
+
+This is a **breaking** release on the frontend public surface. The
+backend keeps the legacy v0.x endpoints (`/feedback`, `/iterate`)
+mounted alongside the new `/chat/*` family — hosts that still call
+the legacy endpoints continue to work without changes, but the
+shipped React components for those flows are gone.
+
+See [ADR-007](./docs/adr/007-chat-first-redesign.md) for the
+rationale and the 22 grilled design decisions that anchored the
+redesign.
+
+### Added
+
+- **`POST /feedback/chat/sessions`** — opens a chat session bound
+  to the calling user (single multi-tenant feedback row gets
+  created lazily when the user confirms).
+- **`POST /feedback/chat/sessions/{sid}/messages`** — SSE stream
+  endpoint. Every user turn streams back assistant tokens plus a
+  running `synthesis` event payload (title, summary, status, type,
+  sentiment, confidence).
+- **`POST /feedback/chat/sessions/{sid}/confirm`** — promotes the
+  session into a real feedback row. Idempotent (Idempotency-Key
+  header required).
+- **`POST /feedback/chat/sessions/{sid}/abandon`** — soft-deletes
+  the session. Reversible until garbage collection.
+- **`POST /feedback/chat/voice/transcribe`** — backend-proxied
+  Whisper transcription. Audio never reaches OpenAI from the
+  browser; the widget POSTs the blob, the backend forwards with
+  the server-side API key.
+- **`FeedbackChatSheet`, `Composer`, `ChatTimeline`,
+  `SynthesisCard`, `CapturePicker`, `FeedbackTabs`, `MineFeedTab`,
+  `FooterActions`, `StatusPill`, `TicketDetail`, `VoiceRecorder`,
+  `TranscriptionPreview`** — new React components composing the
+  chat-first submitter surface.
+- **`useFeedbackChat`, `useChatRunStream`, `useVoiceCapture`** —
+  hooks the chat sheet builds on. Hosts that want to roll their
+  own surface can import the building blocks and skip
+  `FeedbackButton` entirely.
+- **`SubmitVoiceRecording` capability** on the host adapter — lets
+  hosts route Whisper traffic through their own auth layer if the
+  default backend proxy does not fit.
+
+### Changed
+
+- **Floating launcher (`FeedbackButton`)** — opens the chat sheet
+  instead of the legacy form. The badge logic
+  (`useMyPendingActionCount`) moved out of the removed
+  `MyTicketsPanel` shim into `hooks/useMyPendingActionCount.ts`.
+- **Admin Triage page (`FeedbackTriagePage`)** — still consumes
+  the iter HTTP client (`listIterSessionsForFeedback`,
+  `getIterPackage`) but the embedded submitter iter UI is gone.
+  Admin "Refinar" is planned to reuse the chat sheet in a
+  follow-up slice (post-v1.0.0).
+
+### Removed
+
+- **Legacy submitter React components (BREAKING):** `Compose`,
+  `Canvas`, `FeedbackPanel`, `MyTicketsPanel`, `forms/FeedbackForm`,
+  `forms/AttachmentsField`, `forms/types`, `IterWorkspace`,
+  `IterWorkspace.lazy`, `InlineIterPane`, `IterFocusView`,
+  `IterFocusShell`, `EditableSpecPanel`, `SpecTabsPanel`,
+  `SpecSectionCard`, `DiagramPanel`, `AssumptionCard`,
+  `IterContextPanel`, `ContextDialog`, `CopilotChatPanel`,
+  `FallbackToast`, `iter/ChatBubble`, `chat/PreviousConversations`,
+  `chat/useMyConversations`, plus the iter-local helpers
+  `markdownView`, `forbiddenWords`, `useIterRunStream`,
+  `useIterRunMeta`, `useChatTimeline`, `specSectionState`.
+- **Public exports removed (BREAKING):** `IterWorkspace`,
+  `IterWorkspaceProps`. The `client/iter` HTTP helpers and the
+  iter type re-exports stay — admin UIs and custom integrations
+  still use them.
+
+### Migration notes
+
+Hosts on v0.x:
+
+1. Pull the new release.
+2. No backend code change required — `register_feedback_router`
+   keeps mounting the legacy endpoints. `register_feedback_chat_router`
+   is the new mount point for the chat-first surface.
+3. Remove any direct imports of the deleted components above. The
+   floating launcher (`<FeedbackButton/>`) does not need code
+   changes — it now opens the chat sheet automatically.
+4. Hosts that mounted `<IterWorkspace/>` directly: the React
+   surface is gone. The HTTP client (`startIterSession`,
+   `listIterSessionsForFeedback`, etc.) is preserved so internal
+   admin tooling keeps working; the public iter submitter UI is
+   replaced by the chat sheet.
+5. Optional: wire `SubmitVoiceRecording` on your adapter to route
+   transcription through your own backend instead of the bundled
+   `/feedback/chat/voice/transcribe` proxy.
+
+### Deferred
+
+- Backend `iter_*.py` modules stay on disk and stay registered —
+  legacy admin Iter flows might still hit them. A separate
+  post-v1.0.0 slice removes them once admin migrates to the chat
+  sheet.
+
 ## [0.4.6] — 2026-05-07
 
 Same-day patch on top of v0.4.5. v0.4.5 verified the early-stream

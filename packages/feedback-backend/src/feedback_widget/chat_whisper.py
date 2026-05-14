@@ -1,0 +1,166 @@
+"""OpenAI Whisper transcription helper (S4 — voice input via backend proxy).
+
+The frontend records audio via the browser's ``MediaRecorder`` API and
+POSTs the raw blob to ``POST /chat/sessions/{sid}/voice``. That endpoint
+calls :func:`transcribe_audio` here, which delegates to the OpenAI SDK's
+``audio.transcriptions.create`` (Whisper).
+
+Audio bytes are NEVER persisted (D-013) — the endpoint reads the multipart
+body, hands it to this helper, and discards it. Only the resulting
+transcript lives in ``feedback_chat_session.messages[].text``.
+
+The ``openai`` package is gated behind the ``[iter-openai]`` optional
+extra (same as :mod:`feedback_widget.iter_llm.openai`). When the extra is
+not installed OR ``FEEDBACK_ITER_OPENAI_API_KEY`` is unset, the helper
+raises a typed error and the endpoint returns 503 with a clear message.
+
+The optional ``language_hint`` argument is forwarded to Whisper's
+``language=`` parameter so the model can lock onto Spanish / English /
+etc. when the host knows it up-front. The glossary string is passed as
+``prompt=`` for biasing toward domain terminology (product names, code
+identifiers — D-009).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import io
+from dataclasses import dataclass
+
+from .settings import FeedbackSettings
+
+
+class WhisperConfigError(RuntimeError):
+    """Raised when Whisper transcription is not configured.
+
+    The router translates this into a 503 ``Service Unavailable`` so the
+    frontend can keep the chat sheet usable in text-only mode.
+    """
+
+
+class WhisperTranscriptionError(RuntimeError):
+    """Raised when the upstream Whisper call fails for a reason the
+    router cannot map to a config-level 503 (network blip, malformed
+    audio, etc.). The router translates this into a 502 ``Bad Gateway``.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class WhisperTranscript:
+    """Result of a Whisper transcription call.
+
+    ``transcript`` is the raw text Whisper returned. ``lang`` is the
+    BCP-47-ish language code Whisper detected (e.g. ``"es"``, ``"en"``).
+    Whisper itself returns ISO-639-1 codes; we pass them through verbatim.
+    """
+
+    transcript: str
+    lang: str
+
+
+def _resolve_api_key(settings: FeedbackSettings) -> str:
+    """Return the OpenAI API key or raise ``WhisperConfigError``."""
+    secret = settings.ITER_OPENAI_API_KEY
+    if secret is None:
+        raise WhisperConfigError(
+            "FEEDBACK_ITER_OPENAI_API_KEY is not set — voice transcription is unavailable."
+        )
+    key = secret.get_secret_value().strip()
+    if not key:
+        raise WhisperConfigError(
+            "FEEDBACK_ITER_OPENAI_API_KEY is empty — voice transcription is unavailable."
+        )
+    return key
+
+
+def _glossary_to_prompt(glossary: dict[str, str] | None) -> str | None:
+    """Render the session glossary as a Whisper biasing ``prompt``.
+
+    Whisper's ``prompt`` is at most 224 tokens of context that nudges the
+    decoder toward specific vocabulary. We concatenate up to ~30 terms,
+    space-separated — enough to bias product/brand names without bumping
+    against the limit.
+    """
+    if not glossary:
+        return None
+    terms = [v.strip() for v in glossary.values() if isinstance(v, str) and v.strip()]
+    if not terms:
+        return None
+    return " ".join(terms[:30])
+
+
+async def transcribe_audio(
+    audio_bytes: bytes,
+    *,
+    content_type: str,  # noqa: ARG001 — accepted for API symmetry; SDK infers codec from filename
+    filename: str = "audio.webm",
+    language_hint: str | None = None,
+    glossary: dict[str, str] | None = None,
+    settings: FeedbackSettings,
+) -> WhisperTranscript:
+    """Transcribe ``audio_bytes`` via OpenAI Whisper.
+
+    Parameters
+    ----------
+    audio_bytes:
+        Raw audio file content (opus/webm or mp4). Read once from the
+        multipart upload; never persisted.
+    content_type:
+        MIME type the browser declared. Forwarded to the SDK so it can
+        attach the right file extension to the multipart body.
+    filename:
+        Display filename — Whisper uses the extension to infer codec
+        when ``content_type`` is generic. Defaults to ``audio.webm``.
+    language_hint:
+        ISO-639-1 code (e.g. ``"es"``) to bias detection. ``None`` lets
+        Whisper auto-detect.
+    glossary:
+        Per-session glossary captured at session start. Rendered as
+        Whisper's ``prompt=`` argument so product/brand names round-trip.
+    settings:
+        Loaded :class:`FeedbackSettings` — reads
+        ``FEEDBACK_ITER_OPENAI_API_KEY``.
+
+    Returns
+    -------
+    WhisperTranscript
+        Object holding ``transcript`` (text) + ``lang`` (detected
+        language code; falls back to ``language_hint or ""`` when Whisper
+        did not return one).
+    """
+    api_key = _resolve_api_key(settings)
+
+    # Import lazily so hosts that did not install the [iter-openai] extra
+    # still load the package — the helper only fails when actually called.
+    try:
+        from openai import AsyncOpenAI
+    except ImportError as exc:  # pragma: no cover - dep-gated
+        raise WhisperConfigError(
+            "openai SDK not installed — install the [iter-openai] extra to enable voice."
+        ) from exc
+
+    client = AsyncOpenAI(api_key=api_key)
+    buf = io.BytesIO(audio_bytes)
+    buf.name = filename  # the SDK reads .name to infer extension
+
+    prompt = _glossary_to_prompt(glossary)
+
+    try:
+        # response_format="verbose_json" so we get .language alongside
+        # .text. The newer SDK shapes this as a Pydantic model; we read
+        # attributes defensively to stay forward-compatible.
+        resp = await client.audio.transcriptions.create(
+            model="whisper-1",
+            file=buf,
+            language=language_hint or None,
+            prompt=prompt,
+            response_format="verbose_json",
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception as exc:
+        raise WhisperTranscriptionError(f"whisper call failed: {exc}") from exc
+
+    transcript = str(getattr(resp, "text", "") or "").strip()
+    lang = str(getattr(resp, "language", "") or language_hint or "").strip()
+    return WhisperTranscript(transcript=transcript, lang=lang)

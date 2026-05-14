@@ -14,6 +14,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
+import type { FeedbackHostBindings } from "../adapter";
 import { capturePageScreenshot } from "../capture/screenshot";
 import { DEFAULT_REDACTION_SELECTORS } from "../redactors";
 import type { CaptureMode, LockedElementInfo } from "./CapturePicker";
@@ -27,6 +28,40 @@ import type {
   Synthesis,
 } from "./types";
 import { useChatRunStream } from "./useChatRunStream";
+import { useVoiceCapture } from "./useVoiceCapture";
+
+/** Build the absolute URL for the confirm endpoint. Pure helper —
+ * exported so the unit test can pin the path-prefix + encoding behaviour
+ * without spinning up the whole hook. */
+export function _buildConfirmUrl(bindings: FeedbackHostBindings, sessionId: string): string {
+  const base = bindings.apiBaseUrl.replace(/\/$/, "");
+  const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
+  return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/confirm`;
+}
+
+/** Build the absolute URL for the abandon endpoint. Pure helper. */
+export function _buildAbandonUrl(bindings: FeedbackHostBindings, sessionId: string): string {
+  const base = bindings.apiBaseUrl.replace(/\/$/, "");
+  const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
+  return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/abandon`;
+}
+
+/** Build the absolute URL for the voice transcription endpoint (S4). */
+export function _buildVoiceUrl(bindings: FeedbackHostBindings, sessionId: string): string {
+  const base = bindings.apiBaseUrl.replace(/\/$/, "");
+  const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
+  return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/voice`;
+}
+
+/** State machine for the voice-input flow (S4).
+ *
+ *   idle          — no voice activity
+ *   recording     — mic is hot, MediaRecorder running
+ *   transcribing  — blob uploaded to /voice, awaiting Whisper response
+ *   preview       — Whisper returned; user reviews/edits the transcript
+ *   error         — terminal voice error (mic denied / Whisper 5xx)
+ */
+export type VoiceFlowState = "idle" | "recording" | "transcribing" | "preview" | "error";
 
 export interface UseFeedbackChatResult {
   state: ChatState;
@@ -40,9 +75,12 @@ export interface UseFeedbackChatResult {
   closeSheet: () => void;
   /** Send a user message into the streaming endpoint. */
   sendUserMessage: (content: string) => Promise<void>;
-  /** User accepted the synthesis card. Batch B stubs the POST /confirm
-   * call until S5 lands the backend endpoint. */
+  /** User accepted the synthesis card. POSTs /confirm and transitions to
+   * `done` on 2xx (or `error` on 4xx/5xx). */
   confirmSynthesis: () => Promise<void>;
+  /** Best-effort POST /abandon — called when the user closes the sheet
+   * mid-conversation. Never throws, never changes UI state. */
+  abandonSession: () => Promise<void>;
   /** User asked to refine the synthesis. Drops the card and re-enters
    * the discover loop with a follow-up question (D-012). */
   adjustSynthesis: () => void;
@@ -66,6 +104,23 @@ export interface UseFeedbackChatResult {
   clearLocked: () => void;
   acceptLocked: (info: LockedElementInfo) => void;
   selectTab: (tab: FeedbackTab) => void;
+
+  // S4 voice flow — exposed so FeedbackChatSheet can mount the
+  // VoiceRecorder + TranscriptionPreview overlays.
+  voiceState: VoiceFlowState;
+  voiceDurationMs: number;
+  voiceTranscript: string;
+  voiceLang: string;
+  voiceError: string | null;
+  /** Start a recording session (mic permission + MediaRecorder start). */
+  startVoice: () => Promise<void>;
+  /** Stop the recording → upload → preview the transcript. */
+  stopVoice: () => Promise<void>;
+  /** Send the (possibly edited) transcript into the chat as a normal
+   * user turn with `via: "voice"`. */
+  confirmVoiceTranscript: (text: string) => Promise<void>;
+  /** Discard the recording or transcript and bounce back to text. */
+  cancelVoice: () => void;
 }
 
 function _buildAutoContext(args: {
@@ -126,6 +181,15 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const [captureMode, setCaptureMode] = useState<CaptureMode>("page");
   const [lockedElement, setLockedElement] = useState<LockedElementInfo | null>(null);
   const [activeTab, setActiveTab] = useState<FeedbackTab>("compose");
+
+  // S4 — voice capture flow. The browser-side recorder lives in
+  // `useVoiceCapture`; this hook orchestrates the upload + preview +
+  // send sequence on top of it.
+  const voiceCapture = useVoiceCapture();
+  const [voiceState, setVoiceState] = useState<VoiceFlowState>("idle");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [voiceLang, setVoiceLang] = useState("");
+  const [voiceError, setVoiceError] = useState<string | null>(null);
 
   const setMode = useCallback((mode: CaptureMode) => {
     setCaptureMode(mode);
@@ -232,18 +296,111 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   );
 
   const confirmSynthesis = useCallback(async () => {
-    // TODO(S5): replace with real POST /api/v1/feedback/chat/sessions/{sid}/confirm.
-    // For Batch B we stub the round-trip so the UX is fully exercisable
-    // end-to-end: flip to `finalizing` for a tick, push a thank-you turn,
-    // then flip to `done`. The sheet auto-dismisses on `done` from the
-    // parent component.
+    // S5b: POST /api/v1/feedback/chat/sessions/{sid}/confirm.
+    // Persisted synthesis is used (no override editing in v1.0.0).
+    if (!sessionId) {
+      setOpenError("session not initialised");
+      stream.setStateExternal("error");
+      return;
+    }
     stream.setStateExternal("finalizing");
-    // Tiny micro-delay so the disabled state is visible even on a fast
-    // network — keeps the UX honest with the future real call.
-    await new Promise((r) => setTimeout(r, 250));
-    stream.pushAssistantMessage("¡Gracias! Hemos registrado tu feedback.");
-    stream.setStateExternal("done");
-  }, [stream]);
+    try {
+      const url = _buildConfirmUrl(bindings, sessionId);
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      try {
+        const csrf = await bindings.getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+      } catch {
+        /* ignore — degrade gracefully */
+      }
+      if (bindings.authHeader) {
+        try {
+          const auth = await bindings.authHeader();
+          if (auth) headers.Authorization = auth;
+        } catch {
+          /* ignore — degrade gracefully */
+        }
+      }
+
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ synthesis_override: null }),
+      });
+      if (!resp.ok) {
+        let detail = resp.statusText;
+        try {
+          const data = (await resp.json()) as { detail?: unknown };
+          if (data && typeof data.detail === "string") detail = data.detail;
+        } catch {
+          /* response had no JSON body */
+        }
+        const msg = `No pudimos registrar tu feedback (${resp.status}). ${detail}`;
+        setOpenError(msg);
+        stream.setStateExternal("error");
+        try {
+          adapter.toast?.error?.(msg);
+        } catch {
+          /* host toast may throw — never let it bubble */
+        }
+        return;
+      }
+
+      const body = (await resp.json()) as { feedback_id: string; ticket_code: string };
+      const ticket = body.ticket_code || "FB-?";
+      stream.pushAssistantMessage(
+        `✓ ¡Gracias! Tu feedback es ${ticket}. Te avisaremos cuando lo veamos.`,
+      );
+      stream.setStateExternal("done");
+    } catch (err) {
+      const msg = String((err as Error).message ?? err);
+      setOpenError(msg);
+      stream.setStateExternal("error");
+      try {
+        adapter.toast?.error?.(msg);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [bindings, stream, sessionId, adapter]);
+
+  const abandonSession = useCallback(async () => {
+    // Fire-and-forget: user closed the sheet mid-conversation. The
+    // backend records the abandon so analytics + retention pick it up.
+    // Never throw, never change UI state — the sheet is already gone.
+    if (!sessionId) return;
+    try {
+      const url = _buildAbandonUrl(bindings, sessionId);
+      const headers: Record<string, string> = {};
+      try {
+        const csrf = await bindings.getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+      } catch {
+        /* ignore */
+      }
+      if (bindings.authHeader) {
+        try {
+          const auth = await bindings.authHeader();
+          if (auth) headers.Authorization = auth;
+        } catch {
+          /* ignore */
+        }
+      }
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && typeof console !== "undefined") {
+        console.warn(`[feedback-chat] abandon failed (${resp.status})`);
+      }
+    } catch (err) {
+      if (typeof console !== "undefined") {
+        console.warn("[feedback-chat] abandon network error", err);
+      }
+    }
+  }, [bindings, sessionId]);
 
   const loadConversation = useCallback(
     async (item: PreviousConversationItem) => {
@@ -373,6 +530,118 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     stream.setStateExternal("awaiting_user");
   }, [stream]);
 
+  // ── S4: voice capture flow ──────────────────────────────────────
+
+  const startVoice = useCallback(async () => {
+    setVoiceError(null);
+    setVoiceTranscript("");
+    setVoiceLang("");
+    setVoiceState("recording");
+    await voiceCapture.startRecording();
+    // If start failed, the hook flips state=error; mirror it here so
+    // the sheet shows the recorder error UI.
+    if (voiceCapture.state === "error" || voiceCapture.error) {
+      setVoiceError(voiceCapture.error ?? "Microphone unavailable");
+      setVoiceState("error");
+    }
+  }, [voiceCapture]);
+
+  const cancelVoice = useCallback(() => {
+    voiceCapture.cancelRecording();
+    setVoiceTranscript("");
+    setVoiceLang("");
+    setVoiceError(null);
+    setVoiceState("idle");
+  }, [voiceCapture]);
+
+  const stopVoice = useCallback(async () => {
+    if (!sessionId) {
+      setVoiceError("session not initialised");
+      setVoiceState("error");
+      return;
+    }
+    const result = await voiceCapture.stopRecording();
+    if (!result || result.blob.size === 0) {
+      // Empty blob — likely a too-short tap; drop back to idle silently.
+      setVoiceState("idle");
+      return;
+    }
+    setVoiceState("transcribing");
+    try {
+      const url = _buildVoiceUrl(bindings, sessionId);
+      const headers: Record<string, string> = {};
+      try {
+        const csrf = await bindings.getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+      } catch {
+        /* ignore */
+      }
+      if (bindings.authHeader) {
+        try {
+          const auth = await bindings.authHeader();
+          if (auth) headers.Authorization = auth;
+        } catch {
+          /* ignore */
+        }
+      }
+
+      const form = new FormData();
+      // Filename extension hints Whisper toward the right codec when
+      // content_type is generic.
+      const ext = result.mime_type.includes("mp4")
+        ? "m4a"
+        : result.mime_type.includes("ogg")
+          ? "ogg"
+          : "webm";
+      form.append("audio", result.blob, `clip.${ext}`);
+
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: form,
+      });
+      if (!resp.ok) {
+        let detail = resp.statusText;
+        try {
+          const data = (await resp.json()) as { detail?: unknown };
+          if (data && typeof data.detail === "string") detail = data.detail;
+        } catch {
+          /* response had no JSON body */
+        }
+        const msg = `Voice transcription failed (${resp.status}): ${detail}`;
+        setVoiceError(msg);
+        setVoiceState("error");
+        return;
+      }
+      const body = (await resp.json()) as { transcript: string; lang: string };
+      setVoiceTranscript(body.transcript ?? "");
+      setVoiceLang(body.lang ?? "");
+      setVoiceState("preview");
+    } catch (err) {
+      const msg = String((err as Error).message ?? err);
+      setVoiceError(msg);
+      setVoiceState("error");
+    }
+  }, [bindings, sessionId, voiceCapture]);
+
+  const confirmVoiceTranscript = useCallback(
+    async (text: string) => {
+      const trimmed = text.trim();
+      if (!trimmed) {
+        setVoiceState("idle");
+        return;
+      }
+      // Reset voice state BEFORE firing the send so the preview overlay
+      // disappears immediately; the chat stream takes over.
+      setVoiceTranscript("");
+      setVoiceLang("");
+      setVoiceState("idle");
+      await stream.sendMessage(trimmed, "voice");
+    },
+    [stream],
+  );
+
   const effectiveState: ChatState = overrideState ?? stream.state;
   const effectiveError = openError ?? stream.error;
 
@@ -386,6 +655,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     closeSheet,
     sendUserMessage,
     confirmSynthesis,
+    abandonSession,
     adjustSynthesis,
     loadConversation,
     newConversation,
@@ -396,5 +666,14 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     clearLocked,
     acceptLocked,
     selectTab,
+    voiceState,
+    voiceDurationMs: voiceCapture.duration_ms,
+    voiceTranscript,
+    voiceLang,
+    voiceError,
+    startVoice,
+    stopVoice,
+    confirmVoiceTranscript,
+    cancelVoice,
   };
 }

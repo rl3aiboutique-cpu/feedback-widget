@@ -28,7 +28,7 @@ export interface ChatRunStreamResult {
   partial_text: string;
   synthesis: Synthesis | null;
   error: string | null;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, via?: "text" | "voice") => Promise<void>;
   reset: () => void;
   /** Seed the timeline with the initial assistant greeting. */
   pushAssistantGreeting: (text: string) => void;
@@ -162,7 +162,7 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
   );
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, via: "text" | "voice" = "text") => {
       if (!sessionId) {
         setError("session not initialised");
         setState("error");
@@ -195,7 +195,7 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
             "Idempotency-Key": newIdempotencyKey(),
             ...(await _authHeaders(bindings)),
           },
-          body: JSON.stringify({ content: trimmed, via: "text" }),
+          body: JSON.stringify({ content: trimmed, via }),
         });
         if (!resp.ok) {
           const detail = await resp.text().catch(() => "");

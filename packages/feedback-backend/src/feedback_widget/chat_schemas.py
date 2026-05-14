@@ -72,3 +72,52 @@ class ChatSessionDetailResponse(BaseModel):
     synthesis_json: dict[str, Any] | None
     auto_context: dict[str, Any]
     updated_at: datetime
+
+
+# ── S5: confirm / abandon ────────────────────────────────────────────
+
+
+class ConfirmChatSessionRequest(BaseModel):
+    """Body of ``POST /chat/sessions/{sid}/confirm`` (S5).
+
+    ``synthesis_override`` lets the caller submit an edited synthesis
+    instead of the one already on ``feedback_chat_session.synthesis_json``
+    (D-012 — Ajustar returns to chat, but the admin/user can also patch
+    the synthesis here for direct edits). When ``None`` the persisted
+    synthesis on the session row is used as-is.
+    """
+
+    synthesis_override: dict[str, Any] | None = None
+
+
+class ConfirmChatSessionResponse(BaseModel):
+    """Response of ``POST /chat/sessions/{sid}/confirm`` (S5)."""
+
+    feedback_id: uuid.UUID
+    ticket_code: str
+
+
+class AbandonChatSessionResponse(BaseModel):
+    """Response of ``POST /chat/sessions/{sid}/abandon`` (S5)."""
+
+    ok: Literal[True] = True
+
+
+# ── S4: voice transcription ──────────────────────────────────────────
+
+
+class VoiceTranscriptionResponse(BaseModel):
+    """Response of ``POST /chat/sessions/{sid}/voice`` (S4 — Whisper proxy).
+
+    ``transcript`` is the raw text Whisper produced; the frontend renders
+    it in an editable preview so the user can correct mistakes before
+    sending. ``lang`` is the detected ISO-639-1 code (e.g. ``"es"``,
+    ``"en"``) — passed back so subsequent LLM turns receive the language
+    hint (D-009).
+
+    Audio is NEVER persisted (D-013). The endpoint reads the multipart
+    bytes, calls Whisper, and discards them.
+    """
+
+    transcript: str
+    lang: str

@@ -25,18 +25,17 @@
 import { Suspense, lazy, useCallback, useState } from "react";
 import { ElementSelector } from "./ElementSelector";
 import { useFeedbackAdapter, useFeedbackConfig } from "./FeedbackProvider";
-import { useMyPendingActionCount } from "./MyTicketsPanel";
 import { Rl3Mark } from "./Rl3Mark";
 import type { SelectedElementInfo } from "./capture/metadata";
 import { describeElement } from "./capture/screenshot";
+import { useMyPendingActionCount } from "./hooks/useMyPendingActionCount";
 
 const FeedbackChatSheetLazy = lazy(() =>
   import("./chat/FeedbackChatSheet").then((m) => ({ default: m.FeedbackChatSheet })),
 );
 
-// v1.0.0 (S3F shell-hybrid) — the chat sheet is now the only path; the
-// legacy `VITE_FEEDBACK_CHAT_FIRST` flag is removed. `FeedbackPanel`
-// stays on disk until S7 physically deletes it.
+// v1.0.0 — the chat sheet is the only submitter surface. The legacy
+// `FeedbackPanel` / `Compose` / `Canvas` files were removed in S7.
 
 const POSITION_CLASSES: Record<string, string> = {
   bottom_right: "bottom-24 right-6",

@@ -6,11 +6,12 @@ Endpoints currently mounted:
 * ``GET  /chat/sessions/in-progress``              — list user's in_progress sessions
 * ``GET  /chat/sessions/{session_id}``             — full detail of a session (S3C resume)
 * ``POST /chat/sessions/{session_id}/messages``    — SSE stream of one LLM turn (S2 Batch B)
+* ``POST /chat/sessions/{session_id}/confirm``     — create feedback row (S5)
+* ``POST /chat/sessions/{session_id}/abandon``     — mark session abandoned (S5)
 
 Future slices add:
 
 * S4: ``POST /chat/sessions/{sid}/voice``
-* S5: ``POST /chat/sessions/{sid}/confirm`` + ``/abandon``
 """
 
 # NOTE: deliberately not using `from __future__ import annotations` so that
@@ -30,9 +31,12 @@ from typing import Annotated, Any
 from fastapi import (
     APIRouter,
     Depends,
+    File,
+    Form,
     Header,
     HTTPException,
     Request,
+    UploadFile,
     status,
 )
 from fastapi.responses import StreamingResponse
@@ -41,13 +45,26 @@ from sqlmodel import Session
 from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.chat_models import FeedbackChatSession
 from feedback_widget.chat_schemas import (
+    AbandonChatSessionResponse,
     ChatMessageRequest,
     ChatSessionDetailResponse,
+    ConfirmChatSessionRequest,
+    ConfirmChatSessionResponse,
     CreateChatSessionRequest,
     CreateChatSessionResponse,
     InProgressSessionsResponse,
+    VoiceTranscriptionResponse,
 )
-from feedback_widget.chat_service import ChatService
+from feedback_widget.chat_service import (
+    ChatService,
+    ChatSessionMissingSynthesisError,
+    ChatSessionNotFoundError,
+)
+from feedback_widget.chat_whisper import (
+    WhisperConfigError,
+    WhisperTranscriptionError,
+    transcribe_audio,
+)
 from feedback_widget.deps import WidgetDependencies
 from feedback_widget.iter_llm import build_provider
 from feedback_widget.iter_llm.protocol import LLMAttachment, LLMProvider
@@ -56,6 +73,12 @@ from feedback_widget.settings import FeedbackSettings
 from feedback_widget.storage import StorageBackend
 
 logger = logging.getLogger(__name__)
+
+# S4 — voice transcription is hard-capped at 5MB (~30s opus). The browser
+# enforces the 30s timer; the backend enforces the byte cap so a tampered
+# client can't push a 50MB blob through the multipart parser.
+_VOICE_MAX_BYTES = 5_000_000
+
 
 # D-021: in-memory Idempotency-Key cache, 1h TTL.
 # Process-local — worker-pinning at the load balancer level is the host's
@@ -382,6 +405,219 @@ def build_chat_router(
                 "Connection": "keep-alive",
                 "X-Accel-Buffering": "no",
             },
+        )
+
+    # ── S5: confirm / abandon ───────────────────────────────────────────
+
+    @router.post(
+        "/chat/sessions/{session_id}/confirm",
+        response_model=ConfirmChatSessionResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    def confirm_chat_session(
+        session_id: uuid.UUID,
+        payload: ConfirmChatSessionRequest,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+    ) -> ConfirmChatSessionResponse:
+        """Confirm a chat session — create the feedback row (D-006)."""
+        try:
+            feedback_id, ticket_code = service.confirm_session(
+                session=db,
+                chat_session_id=session_id,
+                tenant_id=user.tenant_id,
+                user_id=user.user_id,
+                synthesis_override=payload.synthesis_override,
+            )
+        except ChatSessionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="chat session not found",
+            ) from exc
+        except ChatSessionMissingSynthesisError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="chat session has no synthesis to confirm",
+            ) from exc
+        except Exception as exc:
+            logger.exception("chat confirm failed: session=%s", session_id)
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"confirm failed: {type(exc).__name__}",
+            ) from exc
+
+        db.commit()
+        logger.info(
+            "chat session confirmed: user=%s tenant=%s session=%s feedback=%s ticket=%s",
+            user.user_id,
+            user.tenant_id,
+            session_id,
+            feedback_id,
+            ticket_code,
+        )
+        return ConfirmChatSessionResponse(
+            feedback_id=feedback_id, ticket_code=ticket_code
+        )
+
+    @router.post(
+        "/chat/sessions/{session_id}/abandon",
+        response_model=AbandonChatSessionResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    def abandon_chat_session(
+        session_id: uuid.UUID,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+    ) -> AbandonChatSessionResponse:
+        """Mark a chat session abandoned. No body required."""
+        try:
+            service.abandon_session(
+                session=db,
+                chat_session_id=session_id,
+                tenant_id=user.tenant_id,
+                user_id=user.user_id,
+            )
+        except ChatSessionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="chat session not found",
+            ) from exc
+
+        db.commit()
+        logger.info(
+            "chat session abandoned: user=%s tenant=%s session=%s",
+            user.user_id,
+            user.tenant_id,
+            session_id,
+        )
+        return AbandonChatSessionResponse(ok=True)
+
+    # ── S4: voice transcription (Whisper proxy) ──────────────────────────
+
+    @router.post(
+        "/chat/sessions/{session_id}/voice",
+        response_model=VoiceTranscriptionResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    async def transcribe_chat_voice(
+        session_id: uuid.UUID,
+        audio: UploadFile = File(...),
+        language_hint: Annotated[str | None, Form()] = None,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+    ) -> VoiceTranscriptionResponse:
+        """Transcribe a voice clip via OpenAI Whisper (D-004 + D-005 + D-009).
+
+        Multipart body fields:
+
+        - ``audio``  — the recorded clip (opus/webm or mp4). Read once,
+          handed to Whisper, then discarded (D-013).
+        - ``language_hint`` (optional) — ISO-639-1 to bias detection.
+
+        Returns ``{transcript, lang}``. Errors:
+
+        - 404 when the session is not owned by the caller
+        - 413 when the upload exceeds 5MB (~30s opus, browser cap is 30s
+          hard-stop so larger means tampered client)
+        - 503 when ``FEEDBACK_ITER_OPENAI_API_KEY`` is unset / openai SDK
+          missing — the frontend falls back to text-only mode
+        - 502 when Whisper itself errors (network blip, bad audio, etc.)
+        """
+        # Ownership check — 404 to avoid leaking session existence.
+        row = db.get(FeedbackChatSession, session_id)
+        if (
+            row is None
+            or row.user_id != user.user_id
+            or row.tenant_id != user.tenant_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="chat session not found",
+            )
+
+        # Read the whole upload into memory. 5MB cap means we don't risk
+        # blowing the worker — bigger files are rejected before the SDK
+        # call. We avoid streaming because Whisper's SDK wants a seekable
+        # file-like with a known size anyway.
+        audio_bytes = await audio.read()
+        if len(audio_bytes) > _VOICE_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=(
+                    f"audio too large ({len(audio_bytes)} bytes); "
+                    f"max {_VOICE_MAX_BYTES} (~30s opus)."
+                ),
+            )
+
+        glossary_raw = row.glossary_snapshot
+        glossary: dict[str, str] | None
+        if isinstance(glossary_raw, dict):
+            glossary = {
+                str(k): str(v)
+                for k, v in glossary_raw.items()
+                if isinstance(v, str)
+            }
+        else:
+            glossary = None
+
+        content_type = audio.content_type or "audio/webm"
+        # Pick a filename Whisper recognises by extension. The browser
+        # rarely sets one, so we derive from the MIME type.
+        if "mp4" in content_type or "m4a" in content_type:
+            filename = "audio.m4a"
+        elif "ogg" in content_type:
+            filename = "audio.ogg"
+        elif "wav" in content_type:
+            filename = "audio.wav"
+        else:
+            filename = "audio.webm"
+
+        try:
+            result = await transcribe_audio(
+                audio_bytes,
+                content_type=content_type,
+                filename=filename,
+                language_hint=language_hint,
+                glossary=glossary,
+                settings=settings,
+            )
+        except WhisperConfigError as exc:
+            logger.warning("voice transcription unavailable: %s", exc)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=str(exc),
+            ) from exc
+        except WhisperTranscriptionError as exc:
+            logger.exception("whisper transcription failed: session=%s", session_id)
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+        finally:
+            # D-013: explicitly drop bytes reference so no caller holds
+            # the audio after the request handler returns.
+            del audio_bytes
+
+        # Persist the detected language on the session so subsequent LLM
+        # turns receive the hint (D-009). Best-effort: missing lang is
+        # not fatal.
+        if result.lang:
+            row.detected_language = result.lang[:8]
+            db.add(row)
+            db.commit()
+
+        logger.info(
+            "chat voice transcribed: user=%s tenant=%s session=%s lang=%s chars=%d",
+            user.user_id,
+            user.tenant_id,
+            session_id,
+            result.lang,
+            len(result.transcript),
+        )
+        return VoiceTranscriptionResponse(
+            transcript=result.transcript,
+            lang=result.lang,
         )
 
     return router
