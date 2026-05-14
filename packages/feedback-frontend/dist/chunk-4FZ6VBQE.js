@@ -2277,18 +2277,23 @@ function _buildAutoContext(args) {
     git_commit_sha: args.gitSha || null,
     user_role: args.userRole,
     console_tail: [],
-    // Batch A: client captures screenshot but does NOT upload. Batch B
-    // adds the multipart/form-data upload → returns attachment_id →
-    // wires it through this field. TODO(S3-B).
-    screenshot_attachment_id: null,
     // S3F shell-hybrid: forward the locked element so backend can hang
     // turn context (and downstream feedback row) off the right DOM node.
-    // Backend pydantic config ignores unknown fields today (S5 lands
-    // first-class support).
+    // Sprint A Phase 2 promotes these to feedback.element_* columns.
     element_selector: args.locked?.selector ?? null,
     element_xpath: args.locked?.xpath ?? null,
     element_bounding_box: args.locked?.bounding_box ?? null
   };
+}
+async function _blobToBase64(blob) {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 32768;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 function useFeedbackChat() {
   const bindings = useFeedbackBindings();
@@ -2298,6 +2303,7 @@ function useFeedbackChat() {
   const stream = useChatRunStream({ bindings, sessionId });
   const [overrideState, setOverrideState] = useState5(null);
   const [openError, setOpenError] = useState5(null);
+  const [screenshotBlob, setScreenshotBlob] = useState5(null);
   const openingRef = useRef6(false);
   const [captureMode, setCaptureMode] = useState5("page");
   const [lockedElement, setLockedElement] = useState5(null);
@@ -2331,9 +2337,12 @@ function useFeedbackChat() {
     setOpenError(null);
     try {
       try {
-        await capturePageScreenshot({
+        const result = await capturePageScreenshot({
           redactionSelectors: DEFAULT_REDACTION_SELECTORS
         });
+        if (result?.blob) {
+          setScreenshotBlob(result.blob);
+        }
       } catch (err) {
         if (typeof console !== "undefined") {
           console.warn("[feedback-chat] screenshot capture failed", err);
@@ -2393,6 +2402,7 @@ function useFeedbackChat() {
     setVoiceLang("");
     setVoiceError(null);
     setVoiceState("idle");
+    setScreenshotBlob(null);
     openingRef.current = false;
   }, [stream]);
   const sendUserMessage = useCallback4(
@@ -2426,11 +2436,25 @@ function useFeedbackChat() {
         } catch {
         }
       }
+      let screenshotB64 = null;
+      if (screenshotBlob) {
+        try {
+          screenshotB64 = await _blobToBase64(screenshotBlob);
+        } catch (err) {
+          if (typeof console !== "undefined") {
+            console.warn("[feedback-chat] screenshot encode failed", err);
+          }
+        }
+      }
       const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
         headers,
-        body: JSON.stringify({ synthesis_override: null })
+        body: JSON.stringify({
+          synthesis_override: null,
+          screenshot_b64: screenshotB64,
+          screenshot_content_type: screenshotB64 ? "image/png" : null
+        })
       });
       if (!resp.ok) {
         let detail = resp.statusText;
@@ -2463,7 +2487,7 @@ function useFeedbackChat() {
       } catch {
       }
     }
-  }, [bindings, stream, sessionId, adapter]);
+  }, [bindings, stream, sessionId, adapter, screenshotBlob]);
   const abandonSession = useCallback4(async () => {
     if (!sessionId) return;
     try {
@@ -2637,6 +2661,9 @@ function useFeedbackChat() {
       const form = new FormData();
       const ext = result.mime_type.includes("mp4") ? "m4a" : result.mime_type.includes("ogg") ? "ogg" : "webm";
       form.append("audio", result.blob, `clip.${ext}`);
+      if (voiceLang) {
+        form.append("language_hint", voiceLang);
+      }
       const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
@@ -2868,8 +2895,8 @@ function FeedbackChatSheet({
               ChatTimeline,
               {
                 messages,
-                isThinking: _isThinking(state) || voiceState === "transcribing",
-                thinkingLabel: voiceState === "transcribing" ? "Transcribiendo\u2026" : _thinkingLabel(state)
+                isThinking: _isThinking(state),
+                thinkingLabel: _thinkingLabel(state)
               }
             ),
             error ? /* @__PURE__ */ jsx17("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: error }) : null,
@@ -2964,4 +2991,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-Y5B657YR.js.map
+//# sourceMappingURL=chunk-4FZ6VBQE.js.map
