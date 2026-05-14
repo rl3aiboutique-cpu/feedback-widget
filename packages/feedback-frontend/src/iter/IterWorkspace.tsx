@@ -19,9 +19,15 @@ export interface IterWorkspaceProps {
   sessionId: string;
   feedbackId?: string;
   onExit?: () => void;
+  onClose?: () => void | Promise<void>;
 }
 
-export function IterWorkspace({ sessionId, onExit }: IterWorkspaceProps): ReactElement {
+export function IterWorkspace({
+  sessionId,
+  onExit,
+  onClose,
+}: IterWorkspaceProps): ReactElement {
+  const handleBack = onExit ?? (onClose ? () => void onClose() : undefined);
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
       <p className="text-sm font-medium text-foreground">Iterate workspace deprecated</p>
@@ -30,10 +36,10 @@ export function IterWorkspace({ sessionId, onExit }: IterWorkspaceProps): ReactE
         This admin view will be replaced in v1.1.0 by the chat refine trigger.
       </p>
       <p className="text-[10px] text-muted-foreground/70 font-mono">session: {sessionId}</p>
-      {onExit ? (
+      {handleBack ? (
         <button
           type="button"
-          onClick={onExit}
+          onClick={handleBack}
           className="mt-2 rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent"
         >
           ← Volver

@@ -1285,7 +1285,12 @@ var FeedbackButton_default = FeedbackButton;
 
 // src/iter/IterWorkspace.tsx
 import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
-function IterWorkspace({ sessionId, onExit }) {
+function IterWorkspace({
+  sessionId,
+  onExit,
+  onClose
+}) {
+  const handleBack = onExit ?? (onClose ? () => void onClose() : void 0);
   return /* @__PURE__ */ jsxs6("div", { className: "flex h-full flex-col items-center justify-center gap-3 p-6 text-center", children: [
     /* @__PURE__ */ jsx9("p", { className: "text-sm font-medium text-foreground", children: "Iterate workspace deprecated" }),
     /* @__PURE__ */ jsx9("p", { className: "max-w-md text-xs text-muted-foreground", children: "Refinement now happens inside the chat-first feedback sheet (v1.0.0). This admin view will be replaced in v1.1.0 by the chat refine trigger." }),
@@ -1293,11 +1298,11 @@ function IterWorkspace({ sessionId, onExit }) {
       "session: ",
       sessionId
     ] }),
-    onExit ? /* @__PURE__ */ jsx9(
+    handleBack ? /* @__PURE__ */ jsx9(
       "button",
       {
         type: "button",
-        onClick: onExit,
+        onClick: handleBack,
         className: "mt-2 rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent",
         children: "\u2190 Volver"
       }

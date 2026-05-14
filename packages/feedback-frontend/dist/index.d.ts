@@ -655,8 +655,9 @@ interface IterWorkspaceProps {
     sessionId: string;
     feedbackId?: string;
     onExit?: () => void;
+    onClose?: () => void | Promise<void>;
 }
-declare function IterWorkspace({ sessionId, onExit }: IterWorkspaceProps): ReactElement;
+declare function IterWorkspace({ sessionId, onExit, onClose, }: IterWorkspaceProps): ReactElement;
 
 /**
  * HTTP + SSE client for the Iterate-with-AI module.
