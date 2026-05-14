@@ -47,7 +47,7 @@ import {
 } from "./chunk-ADSW44RC.js";
 
 // src/version.ts
-var VERSION = "0.7.0";
+var VERSION = "1.0.0";
 
 // src/hooks/useCanTriageFeedback.ts
 function useCanTriageFeedback() {
@@ -1282,6 +1282,28 @@ function FeedbackButton() {
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
+
+// src/iter/IterWorkspace.tsx
+import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
+function IterWorkspace({ sessionId, onExit }) {
+  return /* @__PURE__ */ jsxs6("div", { className: "flex h-full flex-col items-center justify-center gap-3 p-6 text-center", children: [
+    /* @__PURE__ */ jsx9("p", { className: "text-sm font-medium text-foreground", children: "Iterate workspace deprecated" }),
+    /* @__PURE__ */ jsx9("p", { className: "max-w-md text-xs text-muted-foreground", children: "Refinement now happens inside the chat-first feedback sheet (v1.0.0). This admin view will be replaced in v1.1.0 by the chat refine trigger." }),
+    /* @__PURE__ */ jsxs6("p", { className: "text-[10px] text-muted-foreground/70 font-mono", children: [
+      "session: ",
+      sessionId
+    ] }),
+    onExit ? /* @__PURE__ */ jsx9(
+      "button",
+      {
+        type: "button",
+        onClick: onExit,
+        className: "mt-2 rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent",
+        children: "\u2190 Volver"
+      }
+    ) : null
+  ] });
+}
 export {
   CapturePicker,
   FeedbackButton,
@@ -1292,6 +1314,7 @@ export {
   FeedbackTriagePage,
   FooterActions,
   IterApiError,
+  IterWorkspace,
   MineFeedTab,
   StatusPill,
   SubmitFeedbackError,

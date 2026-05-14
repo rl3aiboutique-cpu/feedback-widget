@@ -99,10 +99,10 @@ export type {
   IterVersionRead,
 } from "./client/types";
 
-// v1.0.0 — the submitter-facing `<IterWorkspace>` was removed in S7.
-// Admin "Refinar" now reuses the chat sheet; the iter client + types
-// stay exported (admin Triage page consumes them) but no React
-// surface is public.
+// v1.0.0 — `<IterWorkspace>` is a deprecated stub kept only so host
+// admin pages (capellai-ai-crm) still compile while S6 ships the
+// chat-first admin refine flow. Remove in v1.1.0.
+export { IterWorkspace, type IterWorkspaceProps } from "./iter/IterWorkspace";
 export {
   abandonIterSession,
   editIterVersionMarkdown,

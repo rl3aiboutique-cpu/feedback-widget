@@ -2,7 +2,7 @@ import { ReactElement, ReactNode } from 'react';
 import * as react_jsx_runtime from 'react/jsx-runtime';
 
 /** Package version — keep in sync with package.json. */
-declare const VERSION = "0.7.0";
+declare const VERSION = "1.0.0";
 
 declare function useCanTriageFeedback(): boolean;
 
@@ -637,6 +637,28 @@ declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
 /**
+ * IterWorkspace — v1.0.0 stub (S7 cleanup).
+ *
+ * The full iter workspace UI was removed in v1.0.0 because refinement now
+ * lives inside the chat sheet itself (D-002 → admin refine via chat).
+ *
+ * This stub exists ONLY because the admin Triage page (capellai-ai-crm)
+ * still imports the symbol while we wait for S6 to land the admin refine
+ * trigger from the chat-first flow. Renders a neutral placeholder so the
+ * admin page compiles + ships v1.0.0 without breaking host integration.
+ *
+ * REMOVE in v1.1.0 once host admin pages migrate to the chat-refine flow
+ * (S6) and stop importing `IterWorkspace`.
+ */
+
+interface IterWorkspaceProps {
+    sessionId: string;
+    feedbackId?: string;
+    onExit?: () => void;
+}
+declare function IterWorkspace({ sessionId, onExit }: IterWorkspaceProps): ReactElement;
+
+/**
  * HTTP + SSE client for the Iterate-with-AI module.
  *
  * Mirrors the patterns in ../adapter.ts (CSRF + optional bearer +
@@ -664,4 +686,4 @@ declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptio
 declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspace, type IterWorkspaceProps, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
