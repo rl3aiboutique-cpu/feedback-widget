@@ -689,7 +689,7 @@ function SheetDescription({
 }
 
 // src/chat/CapturePicker.tsx
-import { Image as ImageIcon, MousePointer2, X } from "lucide-react";
+import { Image as ImageIcon, MousePointer2 } from "lucide-react";
 import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
 function CapturePicker({
   mode,
@@ -751,29 +751,12 @@ function CapturePicker({
           ]
         }
       )
-    ] }),
-    mode === "element" && locked ? /* @__PURE__ */ jsxs3("span", { className: "ml-auto inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px]", children: [
-      /* @__PURE__ */ jsx4("code", { className: "font-mono truncate max-w-[180px]", children: locked.selector }),
-      /* @__PURE__ */ jsx4(
-        "button",
-        {
-          type: "button",
-          onClick: () => {
-            onClearLocked();
-            onModeChange("page");
-          },
-          className: "rounded-full p-0.5 text-primary hover:bg-primary/20",
-          "data-feedback-id": "feedback.clear_element",
-          "aria-label": "Clear locked element",
-          children: /* @__PURE__ */ jsx4(X, { className: "h-3 w-3" })
-        }
-      )
-    ] }) : null
+    ] })
   ] });
 }
 
 // src/chat/CapturePreview.tsx
-import { Image as ImageIcon2, X as X2 } from "lucide-react";
+import { Image as ImageIcon2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Fragment, jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
 function formatBytes(size) {
@@ -811,7 +794,7 @@ function _Lightbox({
             onClick: onClose,
             "aria-label": "Cerrar vista ampliada",
             className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
-            children: /* @__PURE__ */ jsx5(X2, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx5(X, { className: "h-4 w-4" })
           }
         ),
         /* @__PURE__ */ jsx5(
@@ -890,7 +873,7 @@ function CapturePreview({
           onClick: onClear,
           "aria-label": "Quitar captura",
           className: "ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-destructive",
-          children: /* @__PURE__ */ jsx5(X2, { className: "h-3.5 w-3.5" })
+          children: /* @__PURE__ */ jsx5(X, { className: "h-3.5 w-3.5" })
         }
       ) : null
     ] }),
@@ -1866,7 +1849,7 @@ function TicketDetail({ feedbackId, onBack }) {
 }
 
 // src/chat/VoiceRecorder.tsx
-import { Check as Check2, Loader2 as Loader22, X as X3 } from "lucide-react";
+import { Check as Check2, Loader2 as Loader22, X as X2 } from "lucide-react";
 import { useEffect as useEffect5, useRef as useRef4 } from "react";
 import { Fragment as Fragment3, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 3e4;
@@ -1958,7 +1941,7 @@ function VoiceRecorder({
             "aria-label": "Descartar grabaci\xF3n",
             "data-feedback-id": "feedback.voice_cancel",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx17(X3, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx17(X2, { className: "h-4 w-4" })
           }
         ),
         /* @__PURE__ */ jsx17("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
@@ -3279,4 +3262,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-DEBOJOBF.js.map
+//# sourceMappingURL=chunk-ZM4WNGLS.js.map

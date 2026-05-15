@@ -1,4 +1,4 @@
-import { Image as ImageIcon, MousePointer2, X } from "lucide-react";
+import { Image as ImageIcon, MousePointer2 } from "lucide-react";
 import type { ReactElement } from "react";
 
 import { useFeedbackAdapter } from "../FeedbackProvider";
@@ -92,23 +92,12 @@ export function CapturePicker({
           {t("feedback.mode_select_element")}
         </button>
       </div>
-      {mode === "element" && locked ? (
-        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px]">
-          <code className="font-mono truncate max-w-[180px]">{locked.selector}</code>
-          <button
-            type="button"
-            onClick={() => {
-              onClearLocked();
-              onModeChange("page");
-            }}
-            className="rounded-full p-0.5 text-primary hover:bg-primary/20"
-            data-feedback-id="feedback.clear_element"
-            aria-label="Clear locked element"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </span>
-      ) : null}
+      {/* The locked-element selector now lives inside CapturePreview's
+       * caption (post 20260515 visual-refresh) so the chip here would
+       * duplicate the information. The user clears the lock either by
+       * × on the CapturePreview (drops the screenshot entirely) or by
+       * clicking "Whole page" in this toggle (resets mode + clears
+       * locked via the page-button handler above). */}
     </div>
   );
 }
