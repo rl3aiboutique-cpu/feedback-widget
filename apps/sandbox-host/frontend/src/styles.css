@@ -1,36 +1,28 @@
 @import "tailwindcss";
 
-/* Tailwind v4 needs to see the widget's source files so it can compile
-   the utility classes the widget uses. The package ships TS source
-   alongside the dist (per its `files` entry in package.json) — we
-   point the scanner at both. */
+/* Tailwind v4 needs explicit @source directives for files outside its
+ * default scan tree. We point it at:
+ *   1. the sandbox's own pages (App.tsx) — relative to this file
+ *   2. the linked widget package source — for the chrome utilities
+ *   3. the published dist (when running against a published widget) */
+@source "../**/*.{ts,tsx}";
 @source "../../../../packages/feedback-frontend/src/**/*.{ts,tsx}";
 @source "../../../node_modules/@rl3/feedback-widget/dist/**/*.{js,mjs}";
 
 /* shadcn CSS variables — required for the @rl3/feedback-widget vendored primitives. */
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
-  }
+/* Sandbox runs in dark mode by default — the index.html applies the
+ * ``class="dark"`` to <html> so the widget's vendored shadcn dark
+ * token set kicks in. We don't redefine :root tokens here because the
+ * widget tailwind preset already ships both light + dark sets and our
+ * own :root would lose the cascade against the widget's :root.
+ *
+ * The body color/background fallback below keeps unhydrated content
+ * (initial paint before React mounts) on the same dark surface so
+ * users never see a white flash. */
+html,
+body {
+  background: hsl(222.2 84% 4.9%);
+  color: hsl(210 40% 98%);
 }
 
 body {

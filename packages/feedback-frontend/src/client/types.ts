@@ -13,7 +13,16 @@ export type FeedbackType =
   | "extend_feature"
   | "other";
 
-export type FeedbackStatus = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+export type FeedbackStatus =
+  | "open"
+  | "in_review"
+  | "in_progress"
+  | "waiting_for_user"
+  | "resolved"
+  | "wont_fix"
+  | "closed";
+
+export type FeedbackSeverity = "blocker" | "major" | "minor" | "idea";
 
 export type FeedbackAttachmentKind = "screenshot" | "user_attachment";
 
@@ -31,16 +40,32 @@ export interface FeedbackAttachmentRead {
   presigned_url?: string | null;
 }
 
+/**
+ * One conversation entry inside ``feedback_ticket.messages``. The
+ * backend appends entries in order; the frontend renders them as
+ * chat bubbles. ``role`` discriminates the speaker: user, assistant
+ * (LLM), or admin (injected via /admin-action).
+ */
+export interface FeedbackTimelineMessage {
+  role: "user" | "assistant" | "admin";
+  text: string;
+  ts: string;
+  /** Present on admin entries to attribute the message. */
+  author_user_id?: string | null;
+  /** Present on assistant entries that came from a synthesize turn. */
+  mode?: "discover" | "synthesize";
+}
+
 export interface FeedbackRead {
   id: string;
   tenant_id: string | null;
   user_id: string;
-  type: FeedbackType;
+  type: FeedbackType | null;
   status: FeedbackStatus;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   expected_outcome?: string | null;
-  url_captured: string;
+  url_captured: string | null;
   route_name?: string | null;
   element_selector?: string | null;
   element_xpath?: string | null;
@@ -51,11 +76,27 @@ export interface FeedbackRead {
   user_agent?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  confirmed_at?: string | null;
+  abandoned_at?: string | null;
+  closed_at?: string | null;
   triaged_by?: string | null;
   triaged_at?: string | null;
   triage_note?: string | null;
-  ticket_code: string;
+  ticket_code: string | null;
+  severity?: FeedbackSeverity | null;
+  synthesis_json?: Record<string, unknown> | null;
+  user_action_required: boolean;
+  last_user_msg_at?: string | null;
+  last_admin_msg_at?: string | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  context_usage_pct: number;
+  model_id_pinned?: string | null;
+  model_provider?: string | null;
+  deleted_at?: string | null;
+  deleted_by_role?: string | null;
   attachments: FeedbackAttachmentRead[];
+  messages?: FeedbackTimelineMessage[] | null;
 }
 
 export interface FeedbackListResponse {
@@ -70,24 +111,14 @@ export interface FeedbackStatusUpdate {
   triage_note?: string | null;
 }
 
-export type FeedbackCommentAuthorRole = "submitter" | "admin";
-
-export interface FeedbackCommentRead {
-  id: string;
-  feedback_id: string;
-  author_user_id: string;
-  author_role: FeedbackCommentAuthorRole;
-  body: string;
-  created_at?: string | null;
-}
-
-export interface FeedbackCommentListResponse {
-  data: FeedbackCommentRead[];
-  count: number;
-}
-
-export interface FeedbackCommentCreatePayload {
-  body: string;
+/**
+ * Body of POST /feedback/{id}/admin-action — atomic state change +
+ * optional message injection (replaces the legacy comments POST).
+ */
+export interface FeedbackAdminActionPayload {
+  to_status?: FeedbackStatus | null;
+  message_text?: string | null;
+  model_override?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────

@@ -46,11 +46,19 @@ const TYPE_VALUES: FeedbackType[] = [
   "other",
 ];
 
-const STATUS_VALUES: FeedbackStatus[] = ["new", "triaged", "in_progress", "done", "wont_fix"];
+const STATUS_VALUES: FeedbackStatus[] = [
+  "open",
+  "in_review",
+  "in_progress",
+  "waiting_for_user",
+  "resolved",
+  "wont_fix",
+  "closed",
+];
 
 function statusVariant(s: FeedbackStatus): "default" | "secondary" | "outline" | "destructive" {
-  if (s === "new") return "default";
-  if (s === "triaged" || s === "in_progress") return "secondary";
+  if (s === "open") return "default";
+  if (s === "in_review" || s === "in_progress" || s === "waiting_for_user") return "secondary";
   if (s === "wont_fix") return "destructive";
   return "outline";
 }

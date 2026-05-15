@@ -26,14 +26,13 @@ import {
   useDeleteFeedbackMutation,
   useFeedbackAdapter,
   useFeedbackBindings,
-  useFeedbackCommentsQuery,
   useFeedbackConfig,
   useFeedbackDetailQuery,
   useFeedbackListQuery,
   useMyFeedbackQuery,
-  usePostFeedbackCommentMutation,
+  usePostFeedbackAdminActionMutation,
   useUpdateFeedbackStatusMutation
-} from "./chunk-E3MTBJVF.js";
+} from "./chunk-UOU67JP7.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -676,14 +675,16 @@ function CommentThread({ feedbackId }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const currentUser = adapter.useCurrentUser();
-  const query = useFeedbackCommentsQuery(feedbackId);
-  const post = usePostFeedbackCommentMutation();
+  const ticketQuery = useFeedbackDetailQuery(feedbackId);
+  const adminAction = usePostFeedbackAdminActionMutation();
   const [draft, setDraft] = useState("");
+  const messages = ticketQuery.data?.messages ?? [];
+  const isAdmin = ticketQuery.data?.user_id !== currentUser?.id;
   const onSend = () => {
     const body = draft.trim();
     if (!body) return;
-    post.mutate(
-      { feedbackId, body },
+    adminAction.mutate(
+      { feedbackId, payload: { message_text: body } },
       {
         onSuccess: () => {
           setDraft("");
@@ -707,32 +708,27 @@ function CommentThread({ feedbackId }) {
   };
   return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
     /* @__PURE__ */ jsx6("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
-    query.isLoading ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : query.isError ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (query.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx6("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: query.data?.data.map((c) => {
-      const isMine = currentUser !== null && c.author_user_id === currentUser.id;
-      const label = isMine ? t("feedback.comments.you_label") : c.author_role === "admin" ? t("feedback.comments.admin_label") : t("feedback.comments.submitter_label");
+    ticketQuery.isLoading ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : ticketQuery.isError ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : messages.length === 0 ? /* @__PURE__ */ jsx6("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: messages.map((m, idx) => {
+      const isMine = m.role === "user";
+      const label = m.role === "admin" ? t("feedback.comments.admin_label") : m.role === "assistant" ? "RL3" : isMine ? t("feedback.comments.you_label") : t("feedback.comments.submitter_label");
+      const bubbleClass = m.role === "admin" ? "border-primary/40 bg-primary/5" : m.role === "assistant" ? "border-input bg-muted/40" : "border-input bg-background";
+      const badgeVariant = m.role === "admin" ? "default" : m.role === "assistant" ? "secondary" : "outline";
       return /* @__PURE__ */ jsxs3(
         "li",
         {
-          className: `rounded-md border p-2 text-xs ${isMine ? "border-input bg-background" : c.author_role === "admin" ? "border-primary/40 bg-primary/5" : "border-input bg-muted/40"}`,
+          className: `rounded-md border p-2 text-xs ${bubbleClass}`,
           children: [
             /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
-              /* @__PURE__ */ jsx6(
-                Badge,
-                {
-                  variant: isMine ? "outline" : c.author_role === "admin" ? "default" : "secondary",
-                  className: "text-[10px]",
-                  children: label
-                }
-              ),
-              /* @__PURE__ */ jsx6("span", { className: "text-[10px] text-muted-foreground", children: _fmt(c.created_at) })
+              /* @__PURE__ */ jsx6(Badge, { variant: badgeVariant, className: "text-[10px]", children: label }),
+              /* @__PURE__ */ jsx6("span", { className: "text-[10px] text-muted-foreground", children: _fmt(m.ts) })
             ] }),
-            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: c.body })
+            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: m.text })
           ]
         },
-        c.id
+        `${m.role}-${m.ts}-${idx}`
       );
     }) }),
-    /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
+    isAdmin ? /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
       /* @__PURE__ */ jsx6(
         Textarea,
         {
@@ -741,7 +737,7 @@ function CommentThread({ feedbackId }) {
           placeholder: t("feedback.comments.placeholder"),
           rows: 2,
           maxLength: 5e3,
-          disabled: post.isPending,
+          disabled: adminAction.isPending,
           "data-feedback-id": "feedback.comments.draft"
         }
       ),
@@ -751,15 +747,15 @@ function CommentThread({ feedbackId }) {
           type: "button",
           size: "sm",
           onClick: onSend,
-          disabled: post.isPending || draft.trim().length === 0,
+          disabled: adminAction.isPending || draft.trim().length === 0,
           "data-feedback-id": "feedback.comments.send",
           children: [
             /* @__PURE__ */ jsx6(Send, { className: "mr-1 h-3.5 w-3.5" }),
-            post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
+            adminAction.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
           ]
         }
       ) })
-    ] })
+    ] }) : null
   ] });
 }
 
@@ -773,10 +769,18 @@ var TYPE_VALUES = [
   "extend_feature",
   "other"
 ];
-var STATUS_VALUES = ["new", "triaged", "in_progress", "done", "wont_fix"];
+var STATUS_VALUES = [
+  "open",
+  "in_review",
+  "in_progress",
+  "waiting_for_user",
+  "resolved",
+  "wont_fix",
+  "closed"
+];
 function statusVariant(s) {
-  if (s === "new") return "default";
-  if (s === "triaged" || s === "in_progress") return "secondary";
+  if (s === "open") return "default";
+  if (s === "in_review" || s === "in_progress" || s === "waiting_for_user") return "secondary";
   if (s === "wont_fix") return "destructive";
   return "outline";
 }
@@ -1270,7 +1274,7 @@ function useMyPendingActionCount() {
 // src/FeedbackButton.tsx
 import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-DJASXYXP.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-HFTAGQ6G.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",

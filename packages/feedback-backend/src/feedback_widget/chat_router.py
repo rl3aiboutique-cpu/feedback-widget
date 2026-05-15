@@ -198,6 +198,8 @@ def build_chat_router(
 
     SessionDep = Depends(deps.get_session)
     UserDep = Depends(deps.get_current_user)
+    StorageDep = Depends(lambda: storage)
+    SettingsDep = Depends(deps.get_settings)
 
     _provider_factory: Callable[[], LLMProvider] = (
         provider_factory if provider_factory is not None else (lambda: build_provider(settings))
@@ -545,6 +547,53 @@ def build_chat_router(
         return ConfirmChatSessionResponse(
             feedback_id=feedback_id, ticket_code=ticket_code
         )
+
+    # ── S5b: user soft-delete (2026-05-16 unification) ──────────────
+    #
+    # Mark the ticket as soft-deleted from the user's perspective. The
+    # row stays in the DB so admin can review or restore it; the user's
+    # ``list_mine`` query filters it out.
+
+    @router.delete(
+        "/chat/sessions/{session_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    def soft_delete_chat_session(
+        session_id: uuid.UUID,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+        storage_backend: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> None:
+        from feedback_widget.models import DeletedByRole
+        from feedback_widget.service import FeedbackService
+
+        feedback_service = FeedbackService(
+            session=db,
+            storage=storage_backend,
+            tenant_id=user.tenant_id,
+            settings=cfg,
+        )
+        # Ownership check first — ``get`` already validates tenant.
+        try:
+            row = feedback_service.get(session_id)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="ticket not found",
+            )
+        if row.user_id != user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="ticket not found",
+            )
+        feedback_service.soft_delete(
+            feedback_id=session_id,
+            current_user_id=user.user_id,
+            role=DeletedByRole.USER,
+        )
+        db.commit()
+        return None
 
     @router.post(
         "/chat/sessions/{session_id}/abandon",

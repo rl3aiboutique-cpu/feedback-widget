@@ -266,22 +266,44 @@ class ChatService:
         if row is None:
             yield {"type": "error", "detail": f"chat session {chat_session_id} not found"}
             return
-        if row.status in {
-            ChatSessionStatus.CONFIRMED,
-            ChatSessionStatus.ABANDONED,
-        }:
+        if row.deleted_at is not None:
+            yield {"type": "error", "detail": "ticket has been deleted"}
+            return
+        # S7 (grilled 2026-05-16, 6A=C): terminal ticket statuses block
+        # new turns. ABANDONED chat sessions also block (user discarded
+        # the conversation). A CONFIRMED chat session is allowed to
+        # continue iterating — that's exactly the user × admin × LLM
+        # loop the target asks for, kicked off by admin injection.
+        if row.status == ChatSessionStatus.ABANDONED:
             yield {
                 "type": "error",
-                "detail": f"chat session is {row.status.value}; no further turns allowed",
+                "detail": "chat session is abandoned; no further turns allowed",
+            }
+            return
+        if row.ticket_status is not None and row.ticket_status.is_terminal:
+            yield {
+                "type": "error",
+                "detail": f"ticket is {row.ticket_status.value}; no further turns allowed",
             }
             return
 
         # ── Append the new user turn to messages BEFORE prompt build
         # so the model sees its own context. JSONB columns need
         # flag_modified for SQLAlchemy to notice in-place edits.
-        now_iso = datetime.now(UTC).isoformat()
+        now = datetime.now(UTC)
+        now_iso = now.isoformat()
         msgs: list[dict[str, Any]] = list(row.messages or [])
         msgs.append({"role": "user", "text": user_content, "ts": now_iso})
+
+        # S7 (grilled 2026-05-16, 6B=B): a user turn after admin
+        # injection auto-flips the ticket back to in_review so the
+        # admin queue surfaces the reply naturally. The user-side
+        # ``user_action_required`` badge clears in the same step.
+        row.last_user_msg_at = now
+        if row.user_action_required:
+            row.user_action_required = False
+            if row.ticket_status == FeedbackStatus.WAITING_FOR_USER:
+                row.ticket_status = FeedbackStatus.IN_REVIEW
 
         # ── D-003 — force synthesize when budget exhausted or
         # coverage already crossed the threshold on a prior turn.
@@ -333,17 +355,44 @@ class ChatService:
             error_message: str | None = None,
         ) -> None:
             latency_ms = int((time.perf_counter() - call_started_at) * 1000)
+            # Harvest real token usage from the provider's streaming
+            # adapter. Falls back to zero when the provider cannot
+            # report (legacy stream paths) so existing rows never
+            # break — drift detection is the nightly job's problem.
+            usage = None
+            harvester = getattr(provider, "last_stream_usage", None)
+            if callable(harvester):
+                try:
+                    usage = harvester()
+                except Exception:  # noqa: BLE001
+                    usage = None
+            input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage else 0
+            output_tokens = int(getattr(usage, "output_tokens", 0) or 0) if usage else 0
+
+            model_id = (
+                getattr(provider, "current_model", None)
+                or getattr(provider, "name", None)
+                or "unknown"
+            )
+            model_provider_slug = getattr(provider, "name", None) or "unknown"
+
+            cost_usd: float | None = None
+            estimator = getattr(provider, "estimate_cost_usd", None)
+            if callable(estimator) and usage is not None:
+                try:
+                    cost_usd = estimator(usage)
+                except Exception:  # noqa: BLE001
+                    cost_usd = None
+
             row_call = FeedbackChatCall(
-                chat_session_id=row.id,
+                ticket_id=row.id,
                 tenant_id=row.tenant_id,
                 turn_index=prior_user_turns,
-                model_id=getattr(provider, "model_id", None)
-                or getattr(provider, "name", None)
-                or "unknown",
-                model_provider=getattr(provider, "name", None) or "unknown",
-                input_tokens=0,
-                output_tokens=0,
-                cost_usd=None,
+                model_id=model_id,
+                model_provider=model_provider_slug,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
                 latency_ms=latency_ms,
                 status=status,
                 attempt_number=attempt_number,
@@ -352,6 +401,24 @@ class ChatService:
                 prompt_version=CAPTURE_SYSTEM_PROMPT_VERSION,
             )
             session_db.add(row_call)
+
+            # Denormalize the running totals + recompute context
+            # occupancy so the ticket UI bar reads in O(1).
+            row.total_input_tokens = (row.total_input_tokens or 0) + input_tokens
+            row.total_output_tokens = (row.total_output_tokens or 0) + output_tokens
+            try:
+                from feedback_widget.llm.limits import compute_usage_pct
+
+                row.context_usage_pct = compute_usage_pct(
+                    row.total_input_tokens,
+                    row.total_output_tokens,
+                    model_id,
+                )
+            except Exception:  # noqa: BLE001
+                pass
+            row.model_id_pinned = model_id
+            row.model_provider = model_provider_slug
+            session_db.add(row)
             session_db.commit()
 
         # ── Stream the model ─────────────────────────────────────────
@@ -603,34 +670,45 @@ class ChatService:
         bbox_raw = redacted_auto.get("element_bounding_box")
         element_bounding_box = bbox_raw if isinstance(bbox_raw, dict) else None
 
-        feedback = Feedback(
-            tenant_id=feedback_tenant,
-            user_id=user_id,
-            type=feedback_type,
-            status=FeedbackStatus.NEW,
-            title=title,
-            description=description,
-            expected_outcome=expected_outcome,
-            url_captured=url_captured,
-            route_name=route_name,
-            element_selector=element_selector,
-            element_xpath=element_xpath,
-            element_bounding_box=element_bounding_box,
-            metadata_bundle=redacted_auto,
-            app_version=app_version,
-            git_commit_sha=git_commit_sha,
-            user_agent=user_agent,
-            severity=severity,
-            synthesis_json=redacted_synthesis,
-            chat_session_id=chat_row.id,
-        )
+        # Unification (2026-05-16): the chat row IS the ticket. We
+        # update its header fields in place instead of creating a
+        # separate Feedback row. The legacy code path that allocated
+        # a new ``Feedback`` and back-referenced ``chat_session_id``
+        # is gone — ``chat_row.id`` IS the ticket id for the rest of
+        # the system.
+        feedback = chat_row
+        feedback.tenant_id = feedback_tenant
+        feedback.type = feedback_type
+        if feedback.ticket_status is None or feedback.ticket_status == FeedbackStatus.OPEN:
+            # Confirm is a "user said done" signal; don't force a status
+            # transition because the admin loop owns the lifecycle from
+            # here on — leave the ticket at OPEN so admin triage picks
+            # it up. If a host previously moved the ticket through the
+            # waiting/in-review states, keep that state.
+            feedback.ticket_status = FeedbackStatus.OPEN
+        feedback.title = title
+        feedback.description = description
+        feedback.expected_outcome = expected_outcome
+        feedback.url_captured = url_captured
+        feedback.route_name = route_name
+        feedback.element_selector = element_selector
+        feedback.element_xpath = element_xpath
+        feedback.element_bounding_box = element_bounding_box
+        feedback.metadata_bundle = redacted_auto
+        feedback.app_version = app_version
+        feedback.git_commit_sha = git_commit_sha
+        feedback.user_agent = user_agent
+        feedback.severity = severity
+        feedback.synthesis_json = redacted_synthesis
 
-        ticket_code = generate_ticket_code(session, tenant_id=feedback_tenant)
-        feedback.ticket_code = ticket_code
+        if not feedback.ticket_code:
+            feedback.ticket_code = generate_ticket_code(
+                session, tenant_id=feedback_tenant
+            )
 
-        # Bounded retry for the per-tenant ``ticket_code`` UNIQUE
-        # collision — mirrors FeedbackService.create's loop so two
-        # concurrent confirms don't both observe the same MAX.
+        # Bounded retry on UNIQUE collision against the per-tenant
+        # ``ticket_code`` index — two confirms racing through the same
+        # MAX read can both end up with the same code.
         from sqlalchemy.exc import IntegrityError as _IntegrityError
 
         attempts = 0
@@ -648,13 +726,12 @@ class ChatService:
                     session, tenant_id=feedback_tenant
                 )
 
-        # Screenshot upload (paridad con legacy POST /feedback). The blob
-        # auto-captured client-side at openSheet arrives base64-encoded
-        # in ``screenshot_b64``; decode, sanity-cap, push to the
-        # configured bucket via ``upload_feedback_attachment`` (which
-        # also creates the matching FeedbackAttachment row), and store
-        # the attachment id back inside ``metadata_bundle`` so the email
-        # template + admin UI can resolve it.
+        # Screenshot upload (paridad con el legacy multipart). The
+        # blob auto-captured client-side at openSheet arrives
+        # base64-encoded in ``screenshot_b64``; decode, sanity-cap,
+        # push to S3 via ``upload_feedback_attachment``, and stash
+        # the attachment id inside ``metadata_bundle`` so the email
+        # template + admin UI resolve it without a join.
         if (
             screenshot_b64
             and storage is not None
@@ -697,9 +774,9 @@ class ChatService:
                     session.add(feedback)
                     session.flush()
 
-        # Flip the chat session to confirmed and link the new feedback id.
+        # Flip the chat session phase to confirmed. The ticket itself
+        # stays addressable via ``feedback.id`` (same as chat_row.id).
         chat_row.status = ChatSessionStatus.CONFIRMED
-        chat_row.feedback_id = feedback.id
         chat_row.confirmed_at = datetime.now(UTC)
         chat_row.updated_at = chat_row.confirmed_at
         session.add(chat_row)

@@ -21,9 +21,7 @@ import { useMemo } from "react";
 
 import { useFeedbackBindings, useFeedbackConfig } from "./FeedbackProvider";
 import type {
-  FeedbackCommentCreatePayload,
-  FeedbackCommentListResponse,
-  FeedbackCommentRead,
+  FeedbackAdminActionPayload,
   FeedbackListResponse,
   FeedbackRead,
   FeedbackStatus,
@@ -473,46 +471,63 @@ async function _postJson<T>(
   return (await resp.json()) as T;
 }
 
-export function useFeedbackCommentsQuery(
-  feedbackId: string | null,
-): UseQueryResult<FeedbackCommentListResponse, Error> {
-  const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "comments", feedbackId],
-    queryFn: () =>
-      feedbackId
-        ? _getJson<FeedbackCommentListResponse>(
-            bindings,
-            `/${encodeURIComponent(feedbackId)}/comments`,
-          )
-        : (Promise.resolve({
-            data: [],
-            count: 0,
-          }) as Promise<FeedbackCommentListResponse>),
-    enabled: !!feedbackId,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
-}
-
-export function usePostFeedbackCommentMutation(): UseMutationResult<
-  FeedbackCommentRead,
+/**
+ * Admin-action mutation (2026-05-16 unification) — replaces the
+ * legacy comments POST. Issues a single atomic call that may
+ * transition status, inject a message into the chat timeline, or
+ * both. The response is the refreshed ticket (FeedbackRead with the
+ * updated ``status`` + ``user_action_required`` + ``last_admin_msg_at``).
+ */
+export function usePostFeedbackAdminActionMutation(): UseMutationResult<
+  FeedbackRead,
   Error,
-  { feedbackId: string; body: string }
+  { feedbackId: string; payload: FeedbackAdminActionPayload }
 > {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input) =>
-      _postJson<FeedbackCommentRead>(
+      _postJson<FeedbackRead>(
         bindings,
-        `/${encodeURIComponent(input.feedbackId)}/comments`,
-        { body: input.body } satisfies FeedbackCommentCreatePayload,
+        `/${encodeURIComponent(input.feedbackId)}/admin-action`,
+        input.payload,
       ),
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({
-        queryKey: ["feedback", "comments", input.feedbackId],
+        queryKey: ["feedback", "detail", input.feedbackId],
       });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+    },
+  });
+}
+
+/**
+ * User soft-delete of their own ticket (S5b). Returns 204; the
+ * mutation invalidates ``mine`` so the row disappears from the list.
+ */
+export function useSoftDeleteTicketMutation(): UseMutationResult<
+  void,
+  Error,
+  { ticketId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.ticketId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("DELETE /chat/sessions", resp);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
     },
   });
 }

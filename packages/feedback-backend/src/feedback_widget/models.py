@@ -1,326 +1,72 @@
-"""SQLModel tables + enums for the feedback module.
+"""Compatibility shim for the unified ticket entity (2026-05-16).
 
-Two tables:
+Historically this module owned the ``Feedback`` SQLModel + the
+``FeedbackComment`` + ``FeedbackAttachment`` tables. The 2026-05-16
+unification collapsed ``feedback`` + ``feedback_chat_session`` into a
+single ``feedback_ticket`` entity (see ``vault/wiki/captures/decision/
+2026-05-16_grilled-ticket-unification.md``) and dropped the standalone
+``feedback_comment`` table — admin messages now live in
+``feedback_ticket.messages`` JSONB as ``role="admin"`` entries.
 
-* ``feedback`` — one row per submission. Tenant-scoped (RLS), user-owned.
-  v0.2.0 dropped the dynamic ``type_fields`` JSONB and the persona /
-  linked_user_stories / parent-ticket / acceptance-token apparatus in
-  favour of a uniform schema across the six feedback types.
-* ``feedback_attachment`` — one row per binary artefact. Mirrors
-  ``tenant_id`` so the same RLS policy applies without a join.
+Rather than mass-rewriting every ``from feedback_widget.models import
+...`` across the codebase, this shim re-exports the unified enums and
+table classes under their historical names. Net effect: callers still
+write ``FeedbackStatus``, ``Feedback`` (the legacy alias now points at
+the unified ``FeedbackTicket``), ``FeedbackAttachment``, etc., without
+having to learn a new module path.
 
-Both tables get RLS policies in the host's own migration (the package
-itself is host-agnostic).
-
-After v0.2.0 the schema is frozen: future destructive changes require
-non-destructive migrations with backwards compatibility.
+The shim is intentionally thin — it should never grow new logic.
+Anything new belongs in ``chat_models``.
 """
 
 from __future__ import annotations
 
-import uuid
-from datetime import UTC, datetime
-from enum import StrEnum
-from typing import Any
-
-from sqlalchemy import (
-    Column,
-    DateTime,
-    ForeignKey,
+# Re-export everything the rest of the codebase pulls from this module.
+from feedback_widget.chat_models import (
+    AdminActionKind,
+    ChatCallStatus,
+    ChatSessionMode,
+    ChatSessionStatus,
+    DeletedByRole,
+    FeedbackAdminAction,
+    FeedbackAttachment,
+    FeedbackAttachmentKind,
+    FeedbackChatCall,
+    FeedbackSeverity,
+    FeedbackStatus,
+    FeedbackTicket,
+    FeedbackType,
 )
-from sqlalchemy import (
-    Enum as SAEnum,
-)
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, SQLModel
 
+# ── Backwards-compatible aliases ────────────────────────────────────
+# The legacy ``Feedback`` SQLModel and the chat-first
+# ``FeedbackChatSession`` SQLModel were merged into ``FeedbackTicket``.
+# Code that still imports ``Feedback`` or ``FeedbackChatSession`` from
+# this module keeps working unchanged — both are now aliases for the
+# unified ticket entity.
+Feedback = FeedbackTicket
+FeedbackChatSession = FeedbackTicket
 
-def _utc_now() -> datetime:
-    return datetime.now(UTC)
+# The legacy comment table was dropped — admin messages now live in
+# ``feedback_ticket.messages`` JSONB. We deliberately do NOT alias
+# ``FeedbackComment`` to anything else — callers that still import it
+# will fail loudly, which is the right outcome (they need to migrate
+# to reading the messages array instead).
 
-
-# ────────────────────────────────────────────────────────────────────
-# Enums (Postgres-native via SAEnum)
-# ────────────────────────────────────────────────────────────────────
-
-
-class FeedbackType(StrEnum):
-    """Six first-class feedback flavours.
-
-    The taxonomy is intentionally small. Each type renders the same
-    three-field form (title + description + expected_outcome) — the
-    type chip is just a triage hint, not a different schema.
-    """
-
-    BUG = "bug"
-    UI = "ui"
-    PERFORMANCE = "performance"
-    NEW_FEATURE = "new_feature"
-    EXTEND_FEATURE = "extend_feature"
-    OTHER = "other"
-
-
-class FeedbackStatus(StrEnum):
-    """Triage lifecycle. Default ``new`` on insert.
-
-    NEW          — submitted, unread
-    TRIAGED      — admin acknowledged, in queue
-    IN_PROGRESS  — admin actively working on it
-    DONE         — admin finished, submitter notified
-    WONT_FIX     — admin closed without fixing (final)
-    """
-
-    NEW = "new"
-    TRIAGED = "triaged"
-    IN_PROGRESS = "in_progress"
-    DONE = "done"
-    WONT_FIX = "wont_fix"
-
-
-class FeedbackAttachmentKind(StrEnum):
-    """Kind of binary attached to a feedback row.
-
-    ``screenshot`` is the auto-captured page snapshot (at most one per
-    feedback). ``user_attachment`` is anything the user dropped in the
-    form themselves (wireframes, drawings, log files, notes — up to 5).
-    """
-
-    SCREENSHOT = "screenshot"
-    USER_ATTACHMENT = "user_attachment"
-
-
-class FeedbackCommentAuthorRole(StrEnum):
-    """Who wrote the comment.
-
-    ``submitter`` is the user who filed the original feedback row.
-    ``admin`` is anyone with the host's MASTER_ADMIN gate.
-    """
-
-    SUBMITTER = "submitter"
-    ADMIN = "admin"
-
-
-class FeedbackSeverity(StrEnum):
-    """LLM-inferred severity tag — chat-first capture flow (v1.0.0).
-
-    Populated when a chat session is confirmed (D-006); NULL on rows
-    created via the legacy multipart endpoint. The four values mirror
-    the ``feedback_severity`` enum created in migration 0007.
-    """
-
-    BLOCKER = "blocker"
-    MAJOR = "major"
-    MINOR = "minor"
-    IDEA = "idea"
-
-
-# ────────────────────────────────────────────────────────────────────
-# Tables
-# ────────────────────────────────────────────────────────────────────
-
-
-class Feedback(SQLModel, table=True):
-    """One in-app feedback submission."""
-
-    __tablename__ = "feedback"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    tenant_id: uuid.UUID = Field(index=True)
-    user_id: uuid.UUID = Field(index=True)
-
-    type: FeedbackType = Field(
-        sa_column=Column(
-            SAEnum(
-                FeedbackType,
-                name="feedback_type",
-                create_constraint=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
-    status: FeedbackStatus = Field(
-        default=FeedbackStatus.NEW,
-        sa_column=Column(
-            SAEnum(
-                FeedbackStatus,
-                name="feedback_status",
-                create_constraint=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-            server_default=FeedbackStatus.NEW.value,
-        ),
-    )
-
-    title: str = Field(max_length=200)
-    description: str  # markdown — "What's happening?"
-    expected_outcome: str | None = Field(default=None)  # markdown — "How should it work?"
-
-    # Where the user was when they submitted.
-    url_captured: str = Field(max_length=2048)
-    route_name: str | None = Field(default=None, max_length=200)
-
-    # Element-mode capture details. NULL when whole-page mode.
-    element_selector: str | None = Field(default=None, max_length=1024)
-    element_xpath: str | None = Field(default=None, max_length=2048)
-    element_bounding_box: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSONB, nullable=True)
-    )
-
-    # Redacted technical metadata captured client-side (URL, viewport, console
-    # tail, network tail, breadcrumbs, etc.). Server-side redactor runs as
-    # defence-in-depth.
-    metadata_bundle: dict[str, Any] = Field(
-        default_factory=dict,
-        sa_column=Column(JSONB, nullable=False, server_default="{}"),
-    )
-
-    # Build provenance — useful when triaging a bug against a specific build.
-    app_version: str | None = Field(default=None, max_length=64)
-    git_commit_sha: str | None = Field(default=None, max_length=40)
-    user_agent: str | None = Field(default=None, max_length=512)
-
-    created_at: datetime | None = Field(
-        default_factory=_utc_now,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
-    updated_at: datetime | None = Field(
-        default_factory=_utc_now,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
-
-    triaged_by: uuid.UUID | None = Field(default=None)
-    triaged_at: datetime | None = Field(
-        default=None,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
-    triage_note: str | None = Field(default=None)
-
-    # Human-readable identifier ``FB-YYYY-NNNN`` unique per tenant. Generated
-    # by the service on insert so the row is meaningful in emails and deep
-    # links from day one.
-    ticket_code: str = Field(max_length=24, default="")
-
-    # ── chat-first capture (v1.0.0) ─────────────────────────────────────
-    # Populated only when the feedback row was created via
-    # ``POST /chat/sessions/{sid}/confirm``. Legacy multipart submissions
-    # leave all three NULL. Schema lives in migration 0007.
-    chat_session_id: uuid.UUID | None = Field(
-        default=None,
-        sa_column=Column(
-            ForeignKey("feedback_chat_session.id"),
-            nullable=True,
-        ),
-    )
-    synthesis_json: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSONB, nullable=True)
-    )
-    severity: FeedbackSeverity | None = Field(
-        default=None,
-        sa_column=Column(
-            SAEnum(
-                FeedbackSeverity,
-                name="feedback_severity",
-                create_constraint=False,
-                values_callable=lambda enum_cls: [m.value for m in enum_cls],
-            ),
-            nullable=True,
-        ),
-    )
-
-
-class FeedbackAttachment(SQLModel, table=True):
-    """Binary artefact attached to a feedback row.
-
-    ``bucket`` + ``object_key`` together identify the underlying MinIO/S3
-    object so multi-bucket deployments are straightforward to query.
-    """
-
-    __tablename__ = "feedback_attachment"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    feedback_id: uuid.UUID = Field(
-        sa_column=Column(
-            ForeignKey("feedback.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        )
-    )
-    # Mirrored from parent row so the RLS predicate applies without a join.
-    tenant_id: uuid.UUID = Field(index=True)
-
-    kind: FeedbackAttachmentKind = Field(
-        sa_column=Column(
-            SAEnum(
-                FeedbackAttachmentKind,
-                name="feedback_attachment_kind",
-                create_constraint=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
-    bucket: str = Field(max_length=200)
-    object_key: str = Field(max_length=512)
-    content_type: str = Field(max_length=100)
-    byte_size: int
-
-    # Original filename for user_attachments (sanitized before storage).
-    # NULL for auto-captured screenshots which derive their filename
-    # from the feedback id.
-    filename: str | None = Field(default=None, max_length=255)
-
-    # Image-only metadata; null for non-image kinds.
-    width: int | None = Field(default=None)
-    height: int | None = Field(default=None)
-
-    created_at: datetime | None = Field(
-        default_factory=_utc_now,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
-
-
-class FeedbackComment(SQLModel, table=True):
-    """One reply / note on a feedback ticket. (v0.2.2)
-
-    The conversation between submitter and admin lives here. There's no
-    edit / delete in v0.2.2 — just append-only — to keep the table cheap
-    and the audit trail clean. Soft delete + edit follow in a later
-    minor version once we see the moderation patterns we actually need.
-    """
-
-    __tablename__ = "feedback_comment"
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    feedback_id: uuid.UUID = Field(
-        sa_column=Column(
-            ForeignKey("feedback.id", ondelete="CASCADE"),
-            nullable=False,
-            index=True,
-        )
-    )
-    # Mirrored from the parent row so the RLS policy applies without a
-    # join. Single-tenant hosts may leave this NULL — match the parent
-    # ``feedback`` table's optional shape so the ORM model agrees with
-    # the migration's nullable=True column.
-    tenant_id: uuid.UUID | None = Field(default=None, index=True)
-
-    author_user_id: uuid.UUID = Field(index=True)
-    author_role: FeedbackCommentAuthorRole = Field(
-        sa_column=Column(
-            SAEnum(
-                FeedbackCommentAuthorRole,
-                name="feedback_comment_author_role",
-                create_constraint=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
-    body: str  # markdown — server redacts before insert
-
-    created_at: datetime | None = Field(
-        default_factory=_utc_now,
-        sa_type=DateTime(timezone=True),  # type: ignore[call-overload]
-    )
+__all__ = [
+    "AdminActionKind",
+    "ChatCallStatus",
+    "ChatSessionMode",
+    "ChatSessionStatus",
+    "DeletedByRole",
+    "Feedback",
+    "FeedbackAdminAction",
+    "FeedbackAttachment",
+    "FeedbackAttachmentKind",
+    "FeedbackChatCall",
+    "FeedbackChatSession",
+    "FeedbackSeverity",
+    "FeedbackStatus",
+    "FeedbackTicket",
+    "FeedbackType",
+]

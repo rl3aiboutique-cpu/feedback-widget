@@ -32,11 +32,10 @@ import { type ReactElement, useState } from "react";
 import { useFeedbackAdapter } from "../FeedbackProvider";
 import {
   FeedbackApiError,
-  useFeedbackCommentsQuery,
   useFeedbackDetailQuery,
-  usePostFeedbackCommentMutation,
+  usePostFeedbackAdminActionMutation,
 } from "../adapter";
-import type { FeedbackCommentRead } from "../client";
+import type { FeedbackTimelineMessage } from "../client";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 
@@ -59,16 +58,25 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
   const currentUser = adapter.useCurrentUser();
 
   const detail = useFeedbackDetailQuery(feedbackId);
-  const comments = useFeedbackCommentsQuery(feedbackId);
-  const post = usePostFeedbackCommentMutation();
+  // After unification the ticket carries its own ``messages`` JSONB
+  // — there is no separate comments fetch. We still surface a
+  // textarea here for the user so they can reply when admin
+  // injected a ``waiting_for_user`` ask; the reply flows through
+  // the chat run-turn pipeline via the admin-action endpoint when
+  // the current user is the admin, OR via the normal chat send
+  // mutation when the user is the submitter (TODO follow-up).
+  const adminAction = usePostFeedbackAdminActionMutation();
+
+  const messages: FeedbackTimelineMessage[] = detail.data?.messages ?? [];
+  const isAdmin = detail.data && currentUser && detail.data.user_id !== currentUser.id;
 
   const [draft, setDraft] = useState("");
 
   const onSend = (): void => {
     const body = draft.trim();
     if (!body) return;
-    post.mutate(
-      { feedbackId, body },
+    adminAction.mutate(
+      { feedbackId, payload: { message_text: body } },
       {
         onSuccess: () => setDraft(""),
         onError: (err) => {
@@ -145,26 +153,24 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
               {t("feedback.comments.thread_title")}
             </h4>
             <div className="flex-1 min-h-0 overflow-y-auto">
-              {comments.isLoading ? (
-                <p className="text-xs text-muted-foreground">{t("feedback.comments.loading")}</p>
-              ) : comments.isError ? (
-                <p className="text-xs text-destructive">{t("feedback.comments.error")}</p>
-              ) : (comments.data?.data?.length ?? 0) === 0 ? (
+              {messages.length === 0 ? (
                 <p className="text-xs italic text-muted-foreground">
                   {t("feedback.comments.empty")}
                 </p>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {comments.data?.data.map((c: FeedbackCommentRead) => {
-                    const isMine = currentUser !== null && c.author_user_id === currentUser.id;
-                    const role: "user" | "admin" = isMine ? "user" : "admin";
+                  {messages.map((m, idx) => {
+                    const role: "user" | "admin" | "assistant" =
+                      m.role === "admin" ? "admin" : m.role === "assistant" ? "assistant" : "user";
                     const caption =
-                      role === "admin"
-                        ? `${t("feedback.comments.admin_label")} · ${_formatTs(c.created_at)}`
-                        : undefined;
+                      m.role === "admin"
+                        ? `${t("feedback.comments.admin_label")} · ${_formatTs(m.ts)}`
+                        : m.role === "assistant"
+                          ? `RL3 · ${_formatTs(m.ts)}`
+                          : undefined;
                     return (
-                      <li key={c.id}>
-                        <ChatBubble role={role} text={c.body} caption={caption} />
+                      <li key={`${m.role}-${m.ts}-${idx}`}>
+                        <ChatBubble role={role} text={m.text} caption={caption} />
                       </li>
                     );
                   })}
@@ -173,29 +179,33 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
             </div>
           </section>
 
-          <div className="space-y-1.5">
-            <Textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder={t("feedback.comments.placeholder")}
-              rows={2}
-              maxLength={5000}
-              disabled={post.isPending}
-              data-feedback-id="feedback.ticket_detail.draft"
-            />
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                size="sm"
-                onClick={onSend}
-                disabled={post.isPending || draft.trim().length === 0}
-                data-feedback-id="feedback.ticket_detail.send"
-              >
-                <Send className="mr-1 h-3.5 w-3.5" />
-                {post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")}
-              </Button>
+          {isAdmin ? (
+            <div className="space-y-1.5">
+              <Textarea
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder={t("feedback.comments.placeholder")}
+                rows={2}
+                maxLength={5000}
+                disabled={adminAction.isPending}
+                data-feedback-id="feedback.ticket_detail.draft"
+              />
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onSend}
+                  disabled={adminAction.isPending || draft.trim().length === 0}
+                  data-feedback-id="feedback.ticket_detail.send"
+                >
+                  <Send className="mr-1 h-3.5 w-3.5" />
+                  {adminAction.isPending
+                    ? t("feedback.comments.sending")
+                    : t("feedback.comments.send")}
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </>
       )}
     </div>

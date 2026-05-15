@@ -125,9 +125,34 @@ class LLMProvider(Protocol):
         """Best-effort price estimate from a per-model price table.
 
         Returns ``None`` when the model is not in the table; the
-        ``feedback_iter_call.cost_usd`` column accepts NULL for
+        ``feedback_chat_call.cost_usd`` column accepts NULL for
         exactly this reason.
         """
+
+    def last_stream_usage(self) -> LLMUsage | None:
+        """Return the token usage for the most recent :meth:`stream`
+        call, or ``None`` when the adapter cannot report it yet.
+
+        Providers expose token usage in the final SSE event of each
+        stream. The adapter caches it so the service layer can persist
+        real ``input_tokens`` / ``output_tokens`` on
+        ``feedback_chat_call`` after every turn — the value would
+        otherwise be lost because the streaming iterator only yields
+        text deltas. Default implementation returns ``None`` for
+        adapters that cannot harvest usage from a stream.
+        """
+        return None
+
+    @property
+    def context_window(self) -> int:
+        """Published context-window of :attr:`current_model` in tokens.
+
+        Drives the live "context bar" in the UI plus the
+        ``force_synthesize`` / ``context_exhausted`` thresholds
+        enforced server-side. Adapters compute this from
+        :data:`llm.limits.MODEL_CONTEXT_LIMITS`.
+        """
+        ...
 
 
 class LLMProviderError(RuntimeError):

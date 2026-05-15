@@ -9,7 +9,7 @@
  *   stopping  → transient while the recorder flushes its last chunk
  *   error     → permission denied / MediaRecorder unsupported / etc.
  *
- * Hard auto-stop at 30s (D-005) — the cap is enforced here, not in the
+ * Hard auto-stop at 60s (D-005, raised 2026-05-15) — the cap is enforced here, not in the
  * UI, so an unmounted component can't run the recorder forever. The
  * backend ALSO enforces a 5MB cap as defence-in-depth.
  *
@@ -59,11 +59,13 @@ export interface UseVoiceCaptureResult {
   getAudioLevels: () => Float32Array;
 }
 
-/** 30s hard-cap per D-005 — the recorder auto-stops at this mark. */
-const _MAX_DURATION_MS = 30_000;
+/** 60s hard-cap per D-005 (raised from 30s 2026-05-15 — voice notes
+ *  were truncating mid-sentence too often; user can always chain a
+ *  second note after auto-stop). The recorder auto-stops at this mark. */
+const _MAX_DURATION_MS = 60_000;
 
 /** Tick interval for the duration counter (16Hz keeps the UI smooth
- * without burning a frame budget on a meter that only goes to 30s). */
+ * without burning a frame budget on a meter that only goes to 60s). */
 const _TICK_INTERVAL_MS = 250;
 
 /** Number of vertical bars in the waveform. Matches the visual count
@@ -401,7 +403,7 @@ export function useVoiceCapture(): UseVoiceCaptureResult {
       setDurationMs(elapsed);
     }, _TICK_INTERVAL_MS);
 
-    // Auto-stop at 30s — clears its own timer via the recorder's onstop.
+    // Auto-stop at 60s — clears its own timer via the recorder's onstop.
     autoStopTimerRef.current = window.setTimeout(() => {
       const r = recorderRef.current;
       if (r && r.state !== "inactive") {

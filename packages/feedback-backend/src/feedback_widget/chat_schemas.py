@@ -140,6 +140,16 @@ class ChatSynthesis(BaseModel):
     assumptions: list[str] = Field(default_factory=list, max_length=15)
     diagram: str | None = Field(default=None, max_length=8000)
 
+    # ── Capture_v5 (2026-05-15) — sharper scope + measurability ─────────
+    negative_scope: list[str] = Field(default_factory=list, max_length=10)
+    """User-explicit out-of-scope items — what the user said they are
+    NOT asking for. Helps the downstream developer agent avoid
+    feature-creep when the request is ambiguous."""
+
+    success_metrics: list[str] = Field(default_factory=list, max_length=10)
+    """How the user will verify the change is done well — observable,
+    user-side outcomes (NOT internal metrics like latency budget)."""
+
 
 class ConfirmChatSessionRequest(BaseModel):
     """Body of ``POST /chat/sessions/{sid}/confirm`` (S5).

@@ -30,12 +30,24 @@ from .protocol import (
 
 # Per-million-token prices in USD. Conservative defaults; hosts can
 # override by patching this table at runtime.
+# Lookup uses ``startswith`` (see ``estimate_cost_usd`` below) so more
+# specific prefixes MUST appear before broader ones — e.g. ``gpt-5-mini``
+# before ``gpt-5`` so the cheaper tier is not mispriced as the base
+# model. New variants must respect this ordering.
+#
+# Prices verified 2026-05-15 against pricepertoken.com (mirror of the
+# official OpenAI pricing page). Update when models are added or when
+# OpenAI publishes price cuts.
 _OPENAI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
-    "gpt-5": (10.00, 40.00),
-    "gpt-4o": (2.50, 10.00),
+    "gpt-5-nano": (0.05, 0.40),
+    "gpt-5-mini": (0.25, 2.00),
+    "gpt-5": (1.25, 10.00),
     "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    "o3-mini": (1.10, 4.40),
+    "o3": (2.00, 8.00),
+    "o1-mini": (0.55, 2.20),
     "o1": (15.00, 60.00),
-    "o1-mini": (3.00, 12.00),
 }
 
 
@@ -53,6 +65,28 @@ def _resolve_api_key(settings: FeedbackSettings) -> str:
             "FEEDBACK_ITER_OPENAI_API_KEY is not set. Add it to your host's .env."
         )
     return secret.get_secret_value().strip()
+
+
+# Models that accept the `reasoning_effort` knob. Includes the gpt-5
+# family (gpt-5, gpt-5-mini, gpt-5-nano) and the o-series reasoners
+# (o1, o1-mini, o3, o3-mini). Non-matching models receive None so the
+# param is skipped — older models reject it with HTTP 400.
+_REASONING_PREFIXES: tuple[str, ...] = ("gpt-5", "o1", "o3")
+
+
+def _resolve_reasoning_effort(model: str, thinking_mode: str) -> str | None:
+    """Map ``FEEDBACK_ITER_THINKING_MODE`` to OpenAI's ``reasoning_effort``.
+
+    Returns ``None`` when reasoning is disabled or the model does not
+    support the knob — the caller then omits the param entirely.
+    """
+    if thinking_mode == "off":
+        return None
+    if not any(model.startswith(p) for p in _REASONING_PREFIXES):
+        return None
+    # OpenAI accepts minimal | low | medium | high. We map our "off"
+    # to None (handled above) and pass the rest through verbatim.
+    return thinking_mode
 
 
 def _build_messages(
@@ -112,10 +146,28 @@ class OpenAIProvider:
         self._settings = settings
         self._model = _resolve_model(settings)
         self._client = AsyncOpenAI(api_key=_resolve_api_key(settings))
+        self._reasoning_effort = _resolve_reasoning_effort(
+            self._model, settings.ITER_THINKING_MODE
+        )
+        # Cached usage from the most recent stream call. OpenAI emits
+        # the totals in the final chunk when ``stream_options.include_usage``
+        # is set; we stash them here so :meth:`last_stream_usage` can
+        # surface real tokens to the service layer.
+        self._last_stream_usage: LLMUsage | None = None
 
     @property
     def current_model(self) -> str:
         return self._model
+
+    @property
+    def context_window(self) -> int:
+        from feedback_widget.llm.limits import resolve_context_limit
+
+        return resolve_context_limit(self._model)
+
+    def last_stream_usage(self) -> LLMUsage | None:
+        value, self._last_stream_usage = self._last_stream_usage, None
+        return value
 
     async def generate(
         self,
@@ -128,16 +180,19 @@ class OpenAIProvider:
     ) -> LLMResult:
         loop = asyncio.get_running_loop()
         start = loop.time()
+        kwargs: dict[str, object] = {
+            "model": self._model,
+            "messages": _build_messages(system_prompt, user_prompt, attachments),
+            "max_tokens": max_output_tokens,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "response_format": {"type": "json_object"},
+        }
+        if self._reasoning_effort is not None:
+            kwargs["reasoning_effort"] = self._reasoning_effort
         try:
             response = await asyncio.wait_for(
-                self._client.chat.completions.create(
-                    model=self._model,
-                    messages=_build_messages(system_prompt, user_prompt, attachments),
-                    max_tokens=max_output_tokens,
-                    temperature=0.2,
-                    top_p=0.95,
-                    response_format={"type": "json_object"},
-                ),
+                self._client.chat.completions.create(**kwargs),
                 timeout=timeout_seconds,
             )
         except BaseException as exc:
@@ -168,17 +223,36 @@ class OpenAIProvider:
         max_output_tokens: int,
     ) -> AsyncIterator[str]:
         del timeout_seconds  # SDK enforces its own
+        self._last_stream_usage = None
+        kwargs: dict[str, object] = {
+            "model": self._model,
+            "messages": _build_messages(system_prompt, user_prompt, attachments),
+            "max_tokens": max_output_tokens,
+            "temperature": 0.2,
+            "top_p": 0.95,
+            "response_format": {"type": "json_object"},
+            "stream": True,
+            # Required so the final chunk carries usage metadata; the
+            # field is silently dropped by providers that don't support
+            # it (it's an OpenAI-only key).
+            "stream_options": {"include_usage": True},
+        }
+        if self._reasoning_effort is not None:
+            kwargs["reasoning_effort"] = self._reasoning_effort
         try:
-            stream = await self._client.chat.completions.create(
-                model=self._model,
-                messages=_build_messages(system_prompt, user_prompt, attachments),
-                max_tokens=max_output_tokens,
-                temperature=0.2,
-                top_p=0.95,
-                response_format={"type": "json_object"},
-                stream=True,
-            )
+            stream = await self._client.chat.completions.create(**kwargs)
             async for chunk in stream:
+                # ``chunk.usage`` is populated only on the final chunk
+                # when ``include_usage`` is set. Cache it for the
+                # service layer's audit row + denormalized totals.
+                usage = getattr(chunk, "usage", None)
+                if usage is not None:
+                    self._last_stream_usage = LLMUsage(
+                        input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
+                        output_tokens=int(
+                            getattr(usage, "completion_tokens", 0) or 0
+                        ),
+                    )
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta

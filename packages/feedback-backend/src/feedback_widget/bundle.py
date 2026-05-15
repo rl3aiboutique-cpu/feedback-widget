@@ -67,11 +67,13 @@ DEFAULT_REPO_URL = ""
 
 
 _STATUS_LABEL: dict[FeedbackStatus, str] = {
-    FeedbackStatus.NEW: "new (just submitted, no admin action yet)",
-    FeedbackStatus.TRIAGED: "triaged (admin acknowledged, in queue)",
+    FeedbackStatus.OPEN: "open (just submitted, no admin action yet)",
+    FeedbackStatus.IN_REVIEW: "in_review (admin acknowledged, in queue)",
     FeedbackStatus.IN_PROGRESS: "in_progress (admin actively working on it)",
-    FeedbackStatus.DONE: "done (admin finished, submitter notified)",
+    FeedbackStatus.WAITING_FOR_USER: "waiting_for_user (admin requested action)",
+    FeedbackStatus.RESOLVED: "resolved (admin finished, submitter notified)",
     FeedbackStatus.WONT_FIX: "wont_fix (admin closed without fixing — final)",
+    FeedbackStatus.CLOSED: "closed (terminal umbrella close)",
 }
 
 

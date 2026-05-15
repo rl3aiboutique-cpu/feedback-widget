@@ -37,7 +37,7 @@ declare function FeedbackTriagePage(): React.ReactElement;
  * cheap: if the host SDK changes shape, only `adapter.ts` cares.
  */
 type FeedbackTypeKey = "bug" | "ui" | "performance" | "new_feature" | "extend_feature" | "other";
-type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+type FeedbackStatusKey = "open" | "in_review" | "in_progress" | "waiting_for_user" | "resolved" | "wont_fix" | "closed";
 interface CurrentUserSnapshot {
     /** Stable user identifier — UUID-as-string. */
     id: string;
@@ -355,7 +355,8 @@ declare function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactE
  * `feedback_widget.schemas` — keep them in sync.
  */
 type FeedbackType = "bug" | "ui" | "performance" | "new_feature" | "extend_feature" | "other";
-type FeedbackStatus = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+type FeedbackStatus = "open" | "in_review" | "in_progress" | "waiting_for_user" | "resolved" | "wont_fix" | "closed";
+type FeedbackSeverity = "blocker" | "major" | "minor" | "idea";
 type FeedbackAttachmentKind = "screenshot" | "user_attachment";
 interface FeedbackAttachmentRead {
     id: string;
@@ -370,16 +371,31 @@ interface FeedbackAttachmentRead {
     created_at?: string | null;
     presigned_url?: string | null;
 }
+/**
+ * One conversation entry inside ``feedback_ticket.messages``. The
+ * backend appends entries in order; the frontend renders them as
+ * chat bubbles. ``role`` discriminates the speaker: user, assistant
+ * (LLM), or admin (injected via /admin-action).
+ */
+interface FeedbackTimelineMessage {
+    role: "user" | "assistant" | "admin";
+    text: string;
+    ts: string;
+    /** Present on admin entries to attribute the message. */
+    author_user_id?: string | null;
+    /** Present on assistant entries that came from a synthesize turn. */
+    mode?: "discover" | "synthesize";
+}
 interface FeedbackRead {
     id: string;
     tenant_id: string | null;
     user_id: string;
-    type: FeedbackType;
+    type: FeedbackType | null;
     status: FeedbackStatus;
-    title: string;
-    description: string;
+    title: string | null;
+    description: string | null;
     expected_outcome?: string | null;
-    url_captured: string;
+    url_captured: string | null;
     route_name?: string | null;
     element_selector?: string | null;
     element_xpath?: string | null;
@@ -390,11 +406,27 @@ interface FeedbackRead {
     user_agent?: string | null;
     created_at?: string | null;
     updated_at?: string | null;
+    confirmed_at?: string | null;
+    abandoned_at?: string | null;
+    closed_at?: string | null;
     triaged_by?: string | null;
     triaged_at?: string | null;
     triage_note?: string | null;
-    ticket_code: string;
+    ticket_code: string | null;
+    severity?: FeedbackSeverity | null;
+    synthesis_json?: Record<string, unknown> | null;
+    user_action_required: boolean;
+    last_user_msg_at?: string | null;
+    last_admin_msg_at?: string | null;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    context_usage_pct: number;
+    model_id_pinned?: string | null;
+    model_provider?: string | null;
+    deleted_at?: string | null;
+    deleted_by_role?: string | null;
     attachments: FeedbackAttachmentRead[];
+    messages?: FeedbackTimelineMessage[] | null;
 }
 interface FeedbackListResponse {
     data: FeedbackRead[];

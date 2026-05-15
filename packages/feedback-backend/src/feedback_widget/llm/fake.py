@@ -219,9 +219,22 @@ class FakeLLMProvider:
 
     name = "fake"
 
+    def __init__(self) -> None:
+        self._last_stream_usage: LLMUsage | None = None
+
     @property
     def current_model(self) -> str:
         return "fake"
+
+    @property
+    def context_window(self) -> int:
+        from feedback_widget.llm.limits import resolve_context_limit
+
+        return resolve_context_limit("fake")
+
+    def last_stream_usage(self) -> LLMUsage | None:
+        value, self._last_stream_usage = self._last_stream_usage, None
+        return value
 
     async def generate(
         self,
@@ -272,6 +285,10 @@ class FakeLLMProvider:
             attachments=attachments,
             timeout_seconds=timeout_seconds,
             max_output_tokens=max_output_tokens,
+        )
+        self._last_stream_usage = LLMUsage(
+            input_tokens=result.usage.input_tokens,
+            output_tokens=result.usage.output_tokens,
         )
         # Chunk into ~64-char pieces with a tiny await between them so
         # the event loop yields and the SSE consumer sees real streaming

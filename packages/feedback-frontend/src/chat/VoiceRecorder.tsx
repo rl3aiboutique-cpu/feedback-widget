@@ -13,7 +13,7 @@
  * refs — React never re-renders during recording, which keeps the
  * meter at 30 FPS regardless of host load.
  *
- * The 30s hard-cap is enforced inside `useVoiceCapture`; this bar shows
+ * The 60s hard-cap is enforced inside `useVoiceCapture`; this bar shows
  * a tiny mm:ss counter on the right of the waveform so the user knows
  * roughly where they are without dominating the layout.
  */
@@ -35,7 +35,7 @@ export interface VoiceRecorderProps {
   onCancel: () => void;
 }
 
-const _MAX_DURATION_MS = 30_000;
+const _MAX_DURATION_MS = 60_000;
 
 /** Minimum bar height (px) — silence still shows a flat line so the
  * meter looks "alive" instead of an empty strip. */
@@ -77,13 +77,16 @@ function _Waveform({
     const loop = () => {
       const levels = getAudioLevels();
       const bars = barRefs.current;
-      // The hook's cursor is opaque to us; we display the buffer in
-      // index order, so the wave appears to "scroll" naturally as the
-      // hook overwrites old samples in place.
+      // RTL flow: newest sample renders on the rightmost bar and the
+      // wave appears to enter from the right + scroll left, matching
+      // the convention used by Whisper / Apple voice memos / WhatsApp
+      // voice notes. The hook's cursor is opaque, so we read the
+      // buffer in reverse index order — bar[N-1] reads levels[0], etc.
+      const last = bars.length - 1;
       for (let i = 0; i < bars.length; i++) {
         const bar = bars[i];
         if (!bar) continue;
-        const level = levels[i] ?? 0;
+        const level = levels[last - i] ?? 0;
         const px = Math.max(
           _BAR_MIN_PX,
           Math.round(_BAR_MIN_PX + level * (_BAR_MAX_PX - _BAR_MIN_PX)),

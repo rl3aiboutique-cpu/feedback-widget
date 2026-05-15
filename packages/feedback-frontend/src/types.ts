@@ -17,7 +17,14 @@ export type FeedbackTypeKey =
   | "extend_feature"
   | "other";
 
-export type FeedbackStatusKey = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+export type FeedbackStatusKey =
+  | "open"
+  | "in_review"
+  | "in_progress"
+  | "waiting_for_user"
+  | "resolved"
+  | "wont_fix"
+  | "closed";
 
 export interface CurrentUserSnapshot {
   /** Stable user identifier — UUID-as-string. */

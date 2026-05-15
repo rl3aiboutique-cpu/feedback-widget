@@ -37,14 +37,26 @@ from .protocol import (
 # Per-million-token prices in USD. Used by ``estimate_cost_usd``.
 # Gemma open models are free at the time of writing on the AI Studio
 # API tier; we still record token counts but report cost as 0.
+#
+# Verified 2026-05-15 against ai.google.dev/gemini-api/docs/pricing.
+# Gemini 2.5 Pro uses a two-tier scheme (≤200k context = $1.25/$10.00,
+# >200k = $2.50/$15.00); we encode the cheaper short-context price and
+# document the tier in the comment — most chat-first turns fit well
+# under 200k. Update when context-aware billing matters.
+#
+# Lookup uses ``startswith`` (see _resolve_pricing). More specific
+# prefixes MUST appear before broader ones — e.g. ``gemini-2.5-flash-lite``
+# before ``gemini-2.5-flash``.
 _GEMINI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
     # model_id_prefix: (input_per_m, output_per_m)
-    "gemini-2.5-flash": (0.075, 0.30),
-    "gemini-2.5-pro": (1.25, 5.00),
-    "gemini-flash-latest": (0.075, 0.30),
-    "gemini-flash-lite-latest": (0.0, 0.0),  # free tier on AI Studio at writing
-    "gemini-3-flash-preview": (0.075, 0.30),  # 2026 preview pricing TBD; track as Flash
-    "gemini-3.1-flash-lite-preview": (0.0, 0.0),  # 2026 preview free on AI Studio
+    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),  # ≤200k context tier
+    "gemini-flash-lite-latest": (0.10, 0.40),
+    "gemini-flash-latest": (0.30, 2.50),
+    "gemini-3-flash-preview": (0.50, 3.00),
+    "gemini-3.1-flash-lite-preview": (0.25, 1.50),
+    "gemini-3.1-flash-lite": (0.25, 1.50),
     # Gemma is free on AI Studio's developer tier.
     "gemma-3-1b-it": (0.0, 0.0),
     "gemma-3-4b-it": (0.0, 0.0),
@@ -240,10 +252,25 @@ class GeminiProvider:
         # provider_fallback SSE event reaches the UI even when the
         # whole chain fails before yielding anything.
         self._fallback_queue: list[tuple[str, str, str]] = []
+        # Token usage from the most recent stream call. google-genai
+        # exposes ``usage_metadata`` on every chunk but only the
+        # final chunk carries the totals; we cache the latest value
+        # seen so :meth:`last_stream_usage` returns the totals.
+        self._last_stream_usage: LLMUsage | None = None
 
     @property
     def current_model(self) -> str:
         return self._model
+
+    @property
+    def context_window(self) -> int:
+        from feedback_widget.llm.limits import resolve_context_limit
+
+        return resolve_context_limit(self._model)
+
+    def last_stream_usage(self) -> LLMUsage | None:
+        value, self._last_stream_usage = self._last_stream_usage, None
+        return value
 
     def consume_fallback_events(self) -> list[tuple[str, str, str]]:
         out = self._fallback_queue[:]
@@ -479,7 +506,25 @@ class GeminiProvider:
             # Setup succeeded. Try to consume. If the SDK errors before
             # the first chunk reaches the user, walk the chain too.
             try:
+                self._last_stream_usage = None
                 async for chunk in stream_iter:
+                    # Harvest usage metadata from every chunk — the SDK
+                    # only populates totals on the final one, but a
+                    # cheap "use the latest non-None value" idiom keeps
+                    # the cache always up-to-date.
+                    usage_meta = getattr(chunk, "usage_metadata", None)
+                    if usage_meta is not None:
+                        prompt_tokens = int(
+                            getattr(usage_meta, "prompt_token_count", 0) or 0
+                        )
+                        out_tokens = int(
+                            getattr(usage_meta, "candidates_token_count", 0) or 0
+                        )
+                        if prompt_tokens or out_tokens:
+                            self._last_stream_usage = LLMUsage(
+                                input_tokens=prompt_tokens,
+                                output_tokens=out_tokens,
+                            )
                     text = chunk.text
                     if text:
                         yield text

@@ -439,35 +439,21 @@ async function _postJson(bindings, path, body) {
   }
   return await resp.json();
 }
-function useFeedbackCommentsQuery(feedbackId) {
-  const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "comments", feedbackId],
-    queryFn: () => feedbackId ? _getJson(
-      bindings,
-      `/${encodeURIComponent(feedbackId)}/comments`
-    ) : Promise.resolve({
-      data: [],
-      count: 0
-    }),
-    enabled: !!feedbackId,
-    refetchInterval: 3e4,
-    staleTime: 15e3
-  });
-}
-function usePostFeedbackCommentMutation() {
+function usePostFeedbackAdminActionMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input) => _postJson(
       bindings,
-      `/${encodeURIComponent(input.feedbackId)}/comments`,
-      { body: input.body }
+      `/${encodeURIComponent(input.feedbackId)}/admin-action`,
+      input.payload
     ),
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({
-        queryKey: ["feedback", "comments", input.feedbackId]
+        queryKey: ["feedback", "detail", input.feedbackId]
       });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
     }
   });
 }
@@ -1022,7 +1008,7 @@ function Button({
 
 // src/chat/useVoiceCapture.ts
 import { useCallback, useEffect as useEffect3, useRef as useRef2, useState as useState2 } from "react";
-var _MAX_DURATION_MS = 3e4;
+var _MAX_DURATION_MS = 6e4;
 var _TICK_INTERVAL_MS = 250;
 var AUDIO_LEVEL_BARS = 40;
 var _LEVEL_FRAME_INTERVAL_MS = 1e3 / 30;
@@ -1560,29 +1546,37 @@ function FooterActions({
 // src/chat/StatusPill.tsx
 import { jsx as jsx12 } from "react/jsx-runtime";
 var _STATUS_STYLES = {
-  new: {
+  open: {
     label: "Recibido",
     classes: "border-muted-foreground/30 bg-muted text-muted-foreground"
   },
-  triaged: {
-    label: "En triaje",
+  in_review: {
+    label: "En revisi\xF3n",
     classes: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700"
   },
   in_progress: {
     label: "En curso",
     classes: "border-blue-500/30 bg-blue-500/10 text-blue-700"
   },
-  done: {
+  waiting_for_user: {
+    label: "Esper\xE1ndote",
+    classes: "border-amber-500/40 bg-amber-500/10 text-amber-700"
+  },
+  resolved: {
     label: "Resuelto",
     classes: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
   },
   wont_fix: {
     label: "No se har\xE1",
     classes: "border-destructive/30 bg-destructive/10 text-destructive"
+  },
+  closed: {
+    label: "Cerrado",
+    classes: "border-muted-foreground/40 bg-muted text-muted-foreground"
   }
 };
 function StatusPill({ status }) {
-  const style = _STATUS_STYLES[status] ?? _STATUS_STYLES.new;
+  const style = _STATUS_STYLES[status] ?? _STATUS_STYLES.open;
   return /* @__PURE__ */ jsx12(
     "span",
     {
@@ -1753,14 +1747,15 @@ function TicketDetail({ feedbackId, onBack }) {
   const t = adapter.useTranslation();
   const currentUser = adapter.useCurrentUser();
   const detail = useFeedbackDetailQuery(feedbackId);
-  const comments = useFeedbackCommentsQuery(feedbackId);
-  const post = usePostFeedbackCommentMutation();
+  const adminAction = usePostFeedbackAdminActionMutation();
+  const messages = detail.data?.messages ?? [];
+  const isAdmin = detail.data && currentUser && detail.data.user_id !== currentUser.id;
   const [draft, setDraft] = useState4("");
   const onSend = () => {
     const body = draft.trim();
     if (!body) return;
-    post.mutate(
-      { feedbackId, body },
+    adminAction.mutate(
+      { feedbackId, payload: { message_text: body } },
       {
         onSuccess: () => setDraft(""),
         onError: (err) => {
@@ -1815,14 +1810,13 @@ function TicketDetail({ feedbackId, onBack }) {
       ),
       /* @__PURE__ */ jsxs12("section", { className: "flex flex-1 min-h-0 flex-col gap-2", children: [
         /* @__PURE__ */ jsx16("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
-        /* @__PURE__ */ jsx16("div", { className: "flex-1 min-h-0 overflow-y-auto", children: comments.isLoading ? /* @__PURE__ */ jsx16("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : comments.isError ? /* @__PURE__ */ jsx16("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (comments.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx16("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx16("ul", { className: "flex flex-col gap-2", children: comments.data?.data.map((c) => {
-          const isMine = currentUser !== null && c.author_user_id === currentUser.id;
-          const role = isMine ? "user" : "admin";
-          const caption = role === "admin" ? `${t("feedback.comments.admin_label")} \xB7 ${_formatTs(c.created_at)}` : void 0;
-          return /* @__PURE__ */ jsx16("li", { children: /* @__PURE__ */ jsx16(ChatBubble, { role, text: c.body, caption }) }, c.id);
+        /* @__PURE__ */ jsx16("div", { className: "flex-1 min-h-0 overflow-y-auto", children: messages.length === 0 ? /* @__PURE__ */ jsx16("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx16("ul", { className: "flex flex-col gap-2", children: messages.map((m, idx) => {
+          const role = m.role === "admin" ? "admin" : m.role === "assistant" ? "assistant" : "user";
+          const caption = m.role === "admin" ? `${t("feedback.comments.admin_label")} \xB7 ${_formatTs(m.ts)}` : m.role === "assistant" ? `RL3 \xB7 ${_formatTs(m.ts)}` : void 0;
+          return /* @__PURE__ */ jsx16("li", { children: /* @__PURE__ */ jsx16(ChatBubble, { role, text: m.text, caption }) }, `${m.role}-${m.ts}-${idx}`);
         }) }) })
       ] }),
-      /* @__PURE__ */ jsxs12("div", { className: "space-y-1.5", children: [
+      isAdmin ? /* @__PURE__ */ jsxs12("div", { className: "space-y-1.5", children: [
         /* @__PURE__ */ jsx16(
           Textarea,
           {
@@ -1831,7 +1825,7 @@ function TicketDetail({ feedbackId, onBack }) {
             placeholder: t("feedback.comments.placeholder"),
             rows: 2,
             maxLength: 5e3,
-            disabled: post.isPending,
+            disabled: adminAction.isPending,
             "data-feedback-id": "feedback.ticket_detail.draft"
           }
         ),
@@ -1841,15 +1835,15 @@ function TicketDetail({ feedbackId, onBack }) {
             type: "button",
             size: "sm",
             onClick: onSend,
-            disabled: post.isPending || draft.trim().length === 0,
+            disabled: adminAction.isPending || draft.trim().length === 0,
             "data-feedback-id": "feedback.ticket_detail.send",
             children: [
               /* @__PURE__ */ jsx16(Send, { className: "mr-1 h-3.5 w-3.5" }),
-              post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
+              adminAction.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
             ]
           }
         ) })
-      ] })
+      ] }) : null
     ] })
   ] });
 }
@@ -1858,7 +1852,7 @@ function TicketDetail({ feedbackId, onBack }) {
 import { Check as Check2, Loader2 as Loader22, X as X2 } from "lucide-react";
 import { useEffect as useEffect5, useRef as useRef4 } from "react";
 import { Fragment as Fragment3, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
-var _MAX_DURATION_MS2 = 3e4;
+var _MAX_DURATION_MS2 = 6e4;
 var _BAR_MIN_PX = 3;
 var _BAR_MAX_PX = 26;
 function _formatMs(ms) {
@@ -1885,10 +1879,11 @@ function _Waveform({
     const loop = () => {
       const levels = getAudioLevels();
       const bars = barRefs.current;
+      const last = bars.length - 1;
       for (let i = 0; i < bars.length; i++) {
         const bar = bars[i];
         if (!bar) continue;
-        const level = levels[i] ?? 0;
+        const level = levels[last - i] ?? 0;
         const px = Math.max(
           _BAR_MIN_PX,
           Math.round(_BAR_MIN_PX + level * (_BAR_MAX_PX - _BAR_MIN_PX))
@@ -3241,8 +3236,7 @@ export {
   useFeedbackDetailQuery,
   useUpdateFeedbackStatusMutation,
   useDeleteFeedbackMutation,
-  useFeedbackCommentsQuery,
-  usePostFeedbackCommentMutation,
+  usePostFeedbackAdminActionMutation,
   createAdapter,
   FeedbackProvider,
   useFeedbackAdapter,
@@ -3268,4 +3262,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-E3MTBJVF.js.map
+//# sourceMappingURL=chunk-UOU67JP7.js.map

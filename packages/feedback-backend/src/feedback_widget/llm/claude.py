@@ -29,10 +29,14 @@ from .protocol import (
 )
 
 # Per-million-token prices in USD.
+# Verified 2026-05-15 against Anthropic's published rates for the 4.x
+# generation (Haiku 4.5, Sonnet 4.6, Opus 4.7). The 4.x line cut Opus
+# pricing by ~67% vs. the legacy Opus 3 ($15/$75). Update when new
+# generations ship.
 _CLAUDE_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
-    "claude-haiku": (0.80, 4.00),
+    "claude-haiku": (1.00, 5.00),
     "claude-sonnet": (3.00, 15.00),
-    "claude-opus": (15.00, 75.00),
+    "claude-opus": (5.00, 25.00),
 }
 
 
@@ -117,10 +121,21 @@ class ClaudeProvider:
         self._settings = settings
         self._model = _resolve_model(settings)
         self._client = AsyncAnthropic(api_key=_resolve_api_key(settings))
+        self._last_stream_usage: LLMUsage | None = None
 
     @property
     def current_model(self) -> str:
         return self._model
+
+    @property
+    def context_window(self) -> int:
+        from feedback_widget.llm.limits import resolve_context_limit
+
+        return resolve_context_limit(self._model)
+
+    def last_stream_usage(self) -> LLMUsage | None:
+        value, self._last_stream_usage = self._last_stream_usage, None
+        return value
 
     async def generate(
         self,
@@ -181,6 +196,7 @@ class ClaudeProvider:
         max_output_tokens: int,
     ) -> AsyncIterator[str]:
         del timeout_seconds  # SDK enforces its own
+        self._last_stream_usage = None
         try:
             async with self._client.messages.stream(
                 model=self._model,
@@ -197,6 +213,26 @@ class ClaudeProvider:
                 async for text in stream.text_stream:
                     if text:
                         yield text
+                # The SDK exposes the final message (with totals) via
+                # ``get_final_message`` once the stream context exits
+                # cleanly. Harvest token usage here so the service
+                # layer can persist real values.
+                try:
+                    final = await stream.get_final_message()
+                    usage = getattr(final, "usage", None)
+                    if usage is not None:
+                        self._last_stream_usage = LLMUsage(
+                            input_tokens=int(
+                                getattr(usage, "input_tokens", 0) or 0
+                            ),
+                            output_tokens=int(
+                                getattr(usage, "output_tokens", 0) or 0
+                            ),
+                        )
+                except Exception:  # noqa: BLE001
+                    # Token harvest is best-effort — never break the
+                    # stream because the totals call failed.
+                    pass
         except BaseException as exc:
             raise _wrap_provider_error(exc) from exc
 
