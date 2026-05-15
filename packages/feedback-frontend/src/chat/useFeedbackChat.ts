@@ -111,6 +111,11 @@ export interface UseFeedbackChatResult {
   captureMode: CaptureMode;
   lockedElement: LockedElementInfo | null;
   activeTab: FeedbackTab;
+  /** Auto-captured screenshot blob (D-007). Shipped under
+   * ``screenshot_b64`` in the confirm body; exposed here so the sheet
+   * can render a thumbnail under CAPTURE so the user sees the evidence
+   * the LLM will attach. */
+  screenshotBlob: Blob | null;
   setMode: (mode: CaptureMode) => void;
   clearLocked: () => void;
   acceptLocked: (info: LockedElementInfo) => void;
@@ -838,6 +843,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     captureMode,
     lockedElement,
     activeTab,
+    screenshotBlob,
     setMode,
     clearLocked,
     acceptLocked,

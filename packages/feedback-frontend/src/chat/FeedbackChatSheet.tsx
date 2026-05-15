@@ -31,6 +31,7 @@ import { Rl3Mark } from "../Rl3Mark";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "../ui/sheet";
 
 import { CapturePicker, type LockedElementInfo } from "./CapturePicker";
+import { CapturePreview } from "./CapturePreview";
 import { ChatTimeline } from "./ChatTimeline";
 import { Composer } from "./Composer";
 import { FeedbackTabs } from "./FeedbackTabs";
@@ -107,6 +108,7 @@ export function FeedbackChatSheet({
     captureMode,
     lockedElement,
     activeTab,
+    screenshotBlob,
     setMode,
     clearLocked: clearHookLocked,
     acceptLocked,
@@ -213,6 +215,8 @@ export function FeedbackChatSheet({
                 onModeChange={setMode}
               />
             </div>
+
+            <CapturePreview blob={screenshotBlob} />
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ChatTimeline

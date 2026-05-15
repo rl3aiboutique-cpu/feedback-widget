@@ -1,5 +1,5 @@
 // src/chat/FeedbackChatSheet.tsx
-import { useCallback as useCallback5, useEffect as useEffect6, useState as useState6 } from "react";
+import { useCallback as useCallback5, useEffect as useEffect7, useState as useState7 } from "react";
 
 // src/FeedbackProvider.tsx
 import { createContext, useContext, useMemo as useMemo2 } from "react";
@@ -808,23 +808,80 @@ function CapturePicker({
   ] });
 }
 
+// src/chat/CapturePreview.tsx
+import { Image as ImageIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+import { jsx as jsx6, jsxs as jsxs4 } from "react/jsx-runtime";
+function formatBytes(size) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+function CapturePreview({ blob }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!blob) {
+      setUrl(null);
+      return;
+    }
+    const next = URL.createObjectURL(blob);
+    setUrl(next);
+    return () => {
+      URL.revokeObjectURL(next);
+    };
+  }, [blob]);
+  if (!blob || !url) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxs4("div", { className: "mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2", children: [
+    /* @__PURE__ */ jsx6(
+      "a",
+      {
+        href: url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "block shrink-0 overflow-hidden rounded border border-input",
+        "aria-label": "Abrir captura en tama\xF1o completo",
+        children: /* @__PURE__ */ jsx6(
+          "img",
+          {
+            src: url,
+            alt: "Captura de la pantalla",
+            className: "h-16 w-24 object-cover"
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxs4("div", { className: "flex min-w-0 flex-1 flex-col gap-0.5", children: [
+      /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1 text-xs font-medium text-foreground", children: [
+        /* @__PURE__ */ jsx6(ImageIcon, { className: "h-3 w-3" }),
+        "Captura adjunta"
+      ] }),
+      /* @__PURE__ */ jsxs4("span", { className: "text-[10px] text-muted-foreground", children: [
+        formatBytes(blob.size),
+        " \xB7 click para ampliar"
+      ] })
+    ] })
+  ] });
+}
+
 // src/chat/ChatTimeline.tsx
-import { useEffect, useRef } from "react";
+import { useEffect as useEffect2, useRef } from "react";
 
 // src/chat/ChatBubble.tsx
 import { Users } from "lucide-react";
-import { jsx as jsx6, jsxs as jsxs4 } from "react/jsx-runtime";
+import { jsx as jsx7, jsxs as jsxs5 } from "react/jsx-runtime";
 function ChatBubble({ role, text, caption }) {
   const isUser = role === "user";
   const isAdmin = role === "admin";
   const isAssistant = role === "assistant";
   const bubbleClass = isUser ? "border-primary/30 bg-primary/10 text-foreground" : isAdmin ? "border-violet-500/40 bg-violet-500/10 text-foreground" : "border-input bg-muted/40 text-foreground";
-  return /* @__PURE__ */ jsx6("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: /* @__PURE__ */ jsxs4("div", { className: "flex max-w-[85%] flex-col gap-1", children: [
-    isAdmin && caption ? /* @__PURE__ */ jsxs4("span", { className: "inline-flex items-center gap-1 text-[10px] font-medium text-violet-700", children: [
-      /* @__PURE__ */ jsx6(Users, { className: "h-3 w-3", "aria-hidden": "true" }),
+  return /* @__PURE__ */ jsx7("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: /* @__PURE__ */ jsxs5("div", { className: "flex max-w-[85%] flex-col gap-1", children: [
+    isAdmin && caption ? /* @__PURE__ */ jsxs5("span", { className: "inline-flex items-center gap-1 text-[10px] font-medium text-violet-700", children: [
+      /* @__PURE__ */ jsx7(Users, { className: "h-3 w-3", "aria-hidden": "true" }),
       caption
     ] }) : null,
-    /* @__PURE__ */ jsx6(
+    /* @__PURE__ */ jsx7(
       "div",
       {
         className: [
@@ -839,30 +896,30 @@ function ChatBubble({ role, text, caption }) {
 }
 
 // src/chat/ChatTimeline.tsx
-import { jsx as jsx7, jsxs as jsxs5 } from "react/jsx-runtime";
+import { jsx as jsx8, jsxs as jsxs6 } from "react/jsx-runtime";
 function ChatTimeline({
   messages,
   isThinking = false,
   thinkingLabel
 }) {
   const endRef = useRef(null);
-  useEffect(() => {
+  useEffect2(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, isThinking]);
-  return /* @__PURE__ */ jsxs5("div", { className: "flex flex-col gap-3 px-4 py-3", children: [
-    messages.map((m, idx) => /* @__PURE__ */ jsx7(ChatBubble, { role: m.role, text: m.text }, `${m.role}-${m.ts}-${idx}`)),
-    isThinking ? /* @__PURE__ */ jsx7(_ThinkingIndicator, { label: thinkingLabel }) : null,
-    /* @__PURE__ */ jsx7("div", { ref: endRef, "aria-hidden": "true" })
+  return /* @__PURE__ */ jsxs6("div", { className: "flex flex-col gap-3 px-4 py-3", children: [
+    messages.map((m, idx) => /* @__PURE__ */ jsx8(ChatBubble, { role: m.role, text: m.text }, `${m.role}-${m.ts}-${idx}`)),
+    isThinking ? /* @__PURE__ */ jsx8(_ThinkingIndicator, { label: thinkingLabel }) : null,
+    /* @__PURE__ */ jsx8("div", { ref: endRef, "aria-hidden": "true" })
   ] });
 }
 function _ThinkingIndicator({ label }) {
-  return /* @__PURE__ */ jsx7("div", { className: "flex w-full justify-start", children: /* @__PURE__ */ jsxs5("div", { className: "flex items-center gap-2 rounded-2xl border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground", children: [
-    /* @__PURE__ */ jsxs5("span", { className: "flex items-center gap-1", "aria-hidden": "true", children: [
-      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" }),
-      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" }),
-      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current" })
+  return /* @__PURE__ */ jsx8("div", { className: "flex w-full justify-start", children: /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2 rounded-2xl border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground", children: [
+    /* @__PURE__ */ jsxs6("span", { className: "flex items-center gap-1", "aria-hidden": "true", children: [
+      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" }),
+      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" }),
+      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current" })
     ] }),
-    label ? /* @__PURE__ */ jsx7("span", { className: "text-xs", children: label }) : null
+    label ? /* @__PURE__ */ jsx8("span", { className: "text-xs", children: label }) : null
   ] }) });
 }
 
@@ -870,15 +927,15 @@ function _ThinkingIndicator({ label }) {
 import { Mic, SendHorizontal } from "lucide-react";
 import {
   useCallback as useCallback2,
-  useEffect as useEffect3,
+  useEffect as useEffect4,
   useRef as useRef3,
-  useState as useState2
+  useState as useState3
 } from "react";
 
 // src/ui/textarea.tsx
-import { jsx as jsx8 } from "react/jsx-runtime";
+import { jsx as jsx9 } from "react/jsx-runtime";
 function Textarea({ className, ...props }) {
-  return /* @__PURE__ */ jsx8(
+  return /* @__PURE__ */ jsx9(
     "textarea",
     {
       "data-slot": "textarea",
@@ -894,7 +951,7 @@ function Textarea({ className, ...props }) {
 }
 
 // src/chat/useVoiceCapture.ts
-import { useCallback, useEffect as useEffect2, useRef as useRef2, useState } from "react";
+import { useCallback, useEffect as useEffect3, useRef as useRef2, useState as useState2 } from "react";
 var _MAX_DURATION_MS = 3e4;
 var _TICK_INTERVAL_MS = 250;
 var AUDIO_LEVEL_BARS = 40;
@@ -928,9 +985,9 @@ function _getAudioContextCtor() {
   return w.AudioContext ?? w.webkitAudioContext ?? null;
 }
 function useVoiceCapture() {
-  const [state, setState] = useState("idle");
-  const [duration_ms, setDurationMs] = useState(0);
-  const [error, setError] = useState(null);
+  const [state, setState] = useState2("idle");
+  const [duration_ms, setDurationMs] = useState2(0);
+  const [error, setError] = useState2(null);
   const recorderRef = useRef2(null);
   const streamRef = useRef2(null);
   const chunksRef = useRef2([]);
@@ -1057,7 +1114,7 @@ function useVoiceCapture() {
     [_disposeAudioGraph, _resetLevels, _tickLevel]
   );
   const getAudioLevels = useCallback(() => levelsRef.current, []);
-  useEffect2(() => {
+  useEffect3(() => {
     return () => {
       _cleanup();
     };
@@ -1203,7 +1260,7 @@ function useVoiceCapture() {
 }
 
 // src/chat/Composer.tsx
-import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
+import { jsx as jsx10, jsxs as jsxs7 } from "react/jsx-runtime";
 var DEFAULT_PLACEHOLDER = "Escribe lo que tienes en mente\u2026";
 function Composer({
   onSend,
@@ -1214,13 +1271,13 @@ function Composer({
   onValueChange,
   autoFocus = false
 }) {
-  const [localValue, setLocalValue] = useState2("");
+  const [localValue, setLocalValue] = useState3("");
   const isControlled = valueProp !== void 0;
   const value = isControlled ? valueProp : localValue;
   const textareaRef = useRef3(null);
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
-  useEffect3(() => {
+  useEffect4(() => {
     if (!autoFocus) return;
     const el = textareaRef.current;
     if (!el) return;
@@ -1253,8 +1310,8 @@ function Composer({
     },
     [submit]
   );
-  return /* @__PURE__ */ jsxs6("div", { className: "flex items-end gap-2 border-t border-input bg-background px-3 py-3", children: [
-    /* @__PURE__ */ jsx9(
+  return /* @__PURE__ */ jsxs7("div", { className: "flex items-end gap-2 border-t border-input bg-background px-3 py-3", children: [
+    /* @__PURE__ */ jsx10(
       Textarea,
       {
         ref: textareaRef,
@@ -1268,7 +1325,7 @@ function Composer({
         "data-feedback-id": "feedback.chat_composer"
       }
     ),
-    showVoice ? /* @__PURE__ */ jsx9(
+    showVoice ? /* @__PURE__ */ jsx10(
       Button,
       {
         type: "button",
@@ -1278,10 +1335,10 @@ function Composer({
         disabled,
         "aria-label": "Grabar mensaje de voz",
         "data-feedback-id": "feedback.chat_mic",
-        children: /* @__PURE__ */ jsx9(Mic, { className: "h-4 w-4" })
+        children: /* @__PURE__ */ jsx10(Mic, { className: "h-4 w-4" })
       }
     ) : null,
-    /* @__PURE__ */ jsx9(
+    /* @__PURE__ */ jsx10(
       Button,
       {
         type: "button",
@@ -1290,27 +1347,27 @@ function Composer({
         disabled: disabled || value.trim().length === 0,
         "aria-label": "Enviar",
         "data-feedback-id": "feedback.chat_send",
-        children: /* @__PURE__ */ jsx9(SendHorizontal, { className: "h-4 w-4" })
+        children: /* @__PURE__ */ jsx10(SendHorizontal, { className: "h-4 w-4" })
       }
     )
   ] });
 }
 
 // src/chat/FeedbackTabs.tsx
-import { jsx as jsx10, jsxs as jsxs7 } from "react/jsx-runtime";
+import { jsx as jsx11, jsxs as jsxs8 } from "react/jsx-runtime";
 function FeedbackTabs({
   activeTab,
   mineTotalCount,
   unreadAdminRepliesCount = 0,
   onTabChange
 }) {
-  return /* @__PURE__ */ jsxs7(
+  return /* @__PURE__ */ jsxs8(
     "div",
     {
       className: "grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium",
       role: "tablist",
       children: [
-        /* @__PURE__ */ jsx10(
+        /* @__PURE__ */ jsx11(
           "button",
           {
             type: "button",
@@ -1322,7 +1379,7 @@ function FeedbackTabs({
             children: "\u270E Nuevo feedback"
           }
         ),
-        /* @__PURE__ */ jsxs7(
+        /* @__PURE__ */ jsxs8(
           "button",
           {
             type: "button",
@@ -1332,8 +1389,8 @@ function FeedbackTabs({
             className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.mine",
             children: [
-              /* @__PURE__ */ jsx10("span", { children: "\u{1F4CB} Mis feedbacks" }),
-              mineTotalCount > 0 ? /* @__PURE__ */ jsx10(
+              /* @__PURE__ */ jsx11("span", { children: "\u{1F4CB} Mis feedbacks" }),
+              mineTotalCount > 0 ? /* @__PURE__ */ jsx11(
                 "span",
                 {
                   className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${unreadAdminRepliesCount > 0 ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"}`,
@@ -1351,7 +1408,7 @@ function FeedbackTabs({
 
 // src/chat/FooterActions.tsx
 import { Check, Loader2, RotateCcw } from "lucide-react";
-import { jsx as jsx11, jsxs as jsxs8 } from "react/jsx-runtime";
+import { jsx as jsx12, jsxs as jsxs9 } from "react/jsx-runtime";
 function FooterActions({
   state,
   onConfirm,
@@ -1359,12 +1416,12 @@ function FooterActions({
   onRetry
 }) {
   if (state === "error") {
-    return /* @__PURE__ */ jsx11("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: /* @__PURE__ */ jsx11(Button, { type: "button", variant: "default", onClick: onRetry, className: "w-full", children: "\u21BB Reintentar" }) });
+    return /* @__PURE__ */ jsx12("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: /* @__PURE__ */ jsx12(Button, { type: "button", variant: "default", onClick: onRetry, className: "w-full", children: "\u21BB Reintentar" }) });
   }
   if (state === "confirming" || state === "synthesizing" || state === "finalizing") {
     const disabled = state !== "confirming";
-    return /* @__PURE__ */ jsxs8("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: [
-      /* @__PURE__ */ jsxs8(
+    return /* @__PURE__ */ jsxs9("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: [
+      /* @__PURE__ */ jsxs9(
         Button,
         {
           type: "button",
@@ -1374,12 +1431,12 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.adjust",
           children: [
-            state === "synthesizing" ? /* @__PURE__ */ jsx11(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx11(RotateCcw, { className: "h-4 w-4 mr-1" }),
+            state === "synthesizing" ? /* @__PURE__ */ jsx12(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx12(RotateCcw, { className: "h-4 w-4 mr-1" }),
             "\u21BA Sigamos iterando"
           ]
         }
       ),
-      /* @__PURE__ */ jsxs8(
+      /* @__PURE__ */ jsxs9(
         Button,
         {
           type: "button",
@@ -1389,7 +1446,7 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.confirm",
           children: [
-            state === "finalizing" ? /* @__PURE__ */ jsx11(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx11(Check, { className: "h-4 w-4 mr-1" }),
+            state === "finalizing" ? /* @__PURE__ */ jsx12(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx12(Check, { className: "h-4 w-4 mr-1" }),
             "\u2713 Confirmar"
           ]
         }
@@ -1400,7 +1457,7 @@ function FooterActions({
 }
 
 // src/chat/StatusPill.tsx
-import { jsx as jsx12 } from "react/jsx-runtime";
+import { jsx as jsx13 } from "react/jsx-runtime";
 var _STATUS_STYLES = {
   new: {
     label: "Recibido",
@@ -1425,7 +1482,7 @@ var _STATUS_STYLES = {
 };
 function StatusPill({ status }) {
   const style = _STATUS_STYLES[status] ?? _STATUS_STYLES.new;
-  return /* @__PURE__ */ jsx12(
+  return /* @__PURE__ */ jsx13(
     "span",
     {
       className: `inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none ${style.classes}`,
@@ -1437,22 +1494,22 @@ function StatusPill({ status }) {
 }
 
 // src/chat/MineFeedTab.tsx
-import { jsx as jsx13, jsxs as jsxs9 } from "react/jsx-runtime";
+import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
 function MineFeedTab({ onSelectFeedback }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
   if (query.isLoading) {
-    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") });
+    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") });
   }
   if (query.isError) {
-    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") });
+    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") });
   }
   const rows = query.data ?? [];
   if (rows.length === 0) {
-    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.empty") });
+    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.empty") });
   }
-  return /* @__PURE__ */ jsx13("ul", { className: "space-y-2 p-1", children: rows.map((r) => /* @__PURE__ */ jsx13("li", { children: /* @__PURE__ */ jsxs9(
+  return /* @__PURE__ */ jsx14("ul", { className: "space-y-2 p-1", children: rows.map((r) => /* @__PURE__ */ jsx14("li", { children: /* @__PURE__ */ jsxs10(
     "button",
     {
       type: "button",
@@ -1460,33 +1517,33 @@ function MineFeedTab({ onSelectFeedback }) {
       className: "w-full p-2 text-sm flex items-center gap-2 rounded-md border border-input hover:bg-accent text-left",
       "data-feedback-id": "feedback.mine.row",
       children: [
-        /* @__PURE__ */ jsx13("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-        /* @__PURE__ */ jsx13(StatusPill, { status: r.status }),
-        /* @__PURE__ */ jsx13("span", { className: "truncate flex-1 font-medium", children: r.title })
+        /* @__PURE__ */ jsx14("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+        /* @__PURE__ */ jsx14(StatusPill, { status: r.status }),
+        /* @__PURE__ */ jsx14("span", { className: "truncate flex-1 font-medium", children: r.title })
       ]
     }
   ) }, r.id)) });
 }
 
 // src/chat/SynthesisCard.tsx
-import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
+import { jsx as jsx15, jsxs as jsxs11 } from "react/jsx-runtime";
 function SectionTitle({ label }) {
-  return /* @__PURE__ */ jsx14("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: label });
+  return /* @__PURE__ */ jsx15("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: label });
 }
 function PersonasBlock({ personas }) {
-  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx14(SectionTitle, { label: "Personas" }),
-    /* @__PURE__ */ jsx14("ul", { className: "flex flex-col gap-2 text-sm text-foreground", children: personas.map((p, idx) => /* @__PURE__ */ jsxs10(
+  return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx15(SectionTitle, { label: "Personas" }),
+    /* @__PURE__ */ jsx15("ul", { className: "flex flex-col gap-2 text-sm text-foreground", children: personas.map((p, idx) => /* @__PURE__ */ jsxs11(
       "li",
       {
         className: "rounded border border-input/60 bg-muted/30 px-2 py-1",
         children: [
-          /* @__PURE__ */ jsx14("p", { className: "font-medium", children: p.name }),
-          /* @__PURE__ */ jsxs10("p", { className: "text-xs text-muted-foreground", children: [
+          /* @__PURE__ */ jsx15("p", { className: "font-medium", children: p.name }),
+          /* @__PURE__ */ jsxs11("p", { className: "text-xs text-muted-foreground", children: [
             "Objetivo: ",
             p.goal
           ] }),
-          /* @__PURE__ */ jsxs10("p", { className: "text-xs text-muted-foreground", children: [
+          /* @__PURE__ */ jsxs11("p", { className: "text-xs text-muted-foreground", children: [
             "Fricci\xF3n: ",
             p.frustration
           ] })
@@ -1501,26 +1558,26 @@ function BulletList({
   items,
   muted = false
 }) {
-  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx14(SectionTitle, { label }),
-    /* @__PURE__ */ jsx14(
+  return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx15(SectionTitle, { label }),
+    /* @__PURE__ */ jsx15(
       "ul",
       {
         className: `list-disc space-y-1 pl-5 text-sm ${muted ? "text-muted-foreground" : "text-foreground"}`,
-        children: items.map((item, idx) => /* @__PURE__ */ jsx14("li", { children: item }, `${label}-${idx}-${item.slice(0, 16)}`))
+        children: items.map((item, idx) => /* @__PURE__ */ jsx15("li", { children: item }, `${label}-${idx}-${item.slice(0, 16)}`))
       }
     )
   ] });
 }
 function DiagramBlock({ source }) {
-  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx14(SectionTitle, { label: "Diagrama" }),
-    /* @__PURE__ */ jsx14(
+  return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx15(SectionTitle, { label: "Diagrama" }),
+    /* @__PURE__ */ jsx15(
       "pre",
       {
         "data-feedback-mermaid-source": "true",
         className: "overflow-x-auto rounded border border-input/60 bg-muted/40 p-2 text-xs text-foreground",
-        children: /* @__PURE__ */ jsx14("code", { children: source })
+        children: /* @__PURE__ */ jsx15("code", { children: source })
       }
     )
   ] });
@@ -1529,27 +1586,27 @@ function SynthesisCard({ synthesis }) {
   const extraStories = (synthesis.user_stories ?? []).filter(
     (s) => s && s !== synthesis.user_story
   );
-  return /* @__PURE__ */ jsxs10(
+  return /* @__PURE__ */ jsxs11(
     "div",
     {
       className: "mx-4 my-3 flex flex-col gap-3 rounded-lg border border-input bg-card p-4 shadow-sm",
       "data-feedback-id": "feedback.chat_synthesis_card",
       children: [
-        /* @__PURE__ */ jsx14("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
-        /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
-        /* @__PURE__ */ jsx14("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
-        extraStories.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
-        synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx14(PersonasBlock, { personas: synthesis.personas }) : null,
-        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx14(
+        /* @__PURE__ */ jsx15("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
+        /* @__PURE__ */ jsx15("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
+        /* @__PURE__ */ jsx15("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
+        extraStories.length > 0 ? /* @__PURE__ */ jsx15(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
+        synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx15(PersonasBlock, { personas: synthesis.personas }) : null,
+        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx15(
           BulletList,
           {
             label: "Criterios de aceptaci\xF3n",
             items: synthesis.acceptance_criteria
           }
         ) : null,
-        synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
-        synthesis.diagram ? /* @__PURE__ */ jsx14(DiagramBlock, { source: synthesis.diagram }) : null,
-        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx14(
+        synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx15(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
+        synthesis.diagram ? /* @__PURE__ */ jsx15(DiagramBlock, { source: synthesis.diagram }) : null,
+        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx15(
           BulletList,
           {
             label: "Preguntas abiertas",
@@ -1564,8 +1621,8 @@ function SynthesisCard({ synthesis }) {
 
 // src/chat/TicketDetail.tsx
 import { Send } from "lucide-react";
-import { useState as useState3 } from "react";
-import { Fragment, jsx as jsx15, jsxs as jsxs11 } from "react/jsx-runtime";
+import { useState as useState4 } from "react";
+import { Fragment, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
 function _formatTs(dt) {
   if (!dt) return "";
   return dt.slice(0, 16).replace("T", " ");
@@ -1577,7 +1634,7 @@ function TicketDetail({ feedbackId, onBack }) {
   const detail = useFeedbackDetailQuery(feedbackId);
   const comments = useFeedbackCommentsQuery(feedbackId);
   const post = usePostFeedbackCommentMutation();
-  const [draft, setDraft] = useState3("");
+  const [draft, setDraft] = useState4("");
   const onSend = () => {
     const body = draft.trim();
     if (!body) return;
@@ -1602,9 +1659,9 @@ function TicketDetail({ feedbackId, onBack }) {
       }
     );
   };
-  return /* @__PURE__ */ jsxs11("div", { className: "flex h-full flex-col gap-3 p-1", children: [
-    /* @__PURE__ */ jsxs11("div", { className: "flex items-center justify-between gap-2", children: [
-      /* @__PURE__ */ jsx15(
+  return /* @__PURE__ */ jsxs12("div", { className: "flex h-full flex-col gap-3 p-1", children: [
+    /* @__PURE__ */ jsxs12("div", { className: "flex items-center justify-between gap-2", children: [
+      /* @__PURE__ */ jsx16(
         "button",
         {
           type: "button",
@@ -1614,38 +1671,38 @@ function TicketDetail({ feedbackId, onBack }) {
           children: "\u2190 Volver"
         }
       ),
-      detail.data ? /* @__PURE__ */ jsxs11("div", { className: "flex items-center gap-2", children: [
-        /* @__PURE__ */ jsx15("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: detail.data.ticket_code || "\u2014" }),
-        /* @__PURE__ */ jsx15(StatusPill, { status: detail.data.status })
+      detail.data ? /* @__PURE__ */ jsxs12("div", { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsx16("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: detail.data.ticket_code || "\u2014" }),
+        /* @__PURE__ */ jsx16(StatusPill, { status: detail.data.status })
       ] }) : null
     ] }),
-    detail.isLoading ? /* @__PURE__ */ jsx15("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx15("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs11(Fragment, { children: [
-      /* @__PURE__ */ jsxs11(
+    detail.isLoading ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs12(Fragment, { children: [
+      /* @__PURE__ */ jsxs12(
         "section",
         {
           className: "flex flex-col gap-2 rounded-lg border border-input bg-card p-3 shadow-sm",
           "data-feedback-id": "feedback.ticket_detail.summary",
           children: [
-            /* @__PURE__ */ jsx15("h3", { className: "text-base font-bold text-foreground", children: detail.data.title }),
-            detail.data.description ? /* @__PURE__ */ jsx15("p", { className: "whitespace-pre-wrap text-sm text-muted-foreground", children: detail.data.description }) : /* @__PURE__ */ jsx15("p", { className: "text-sm italic text-muted-foreground", children: t("feedback.mine.no_description") }),
-            detail.data.triage_note ? /* @__PURE__ */ jsxs11("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-2 text-xs", children: [
-              /* @__PURE__ */ jsx15("p", { className: "font-semibold uppercase tracking-wide text-primary mb-1", children: t("feedback.mine.triage_note") }),
-              /* @__PURE__ */ jsx15("p", { className: "whitespace-pre-wrap text-foreground", children: detail.data.triage_note })
+            /* @__PURE__ */ jsx16("h3", { className: "text-base font-bold text-foreground", children: detail.data.title }),
+            detail.data.description ? /* @__PURE__ */ jsx16("p", { className: "whitespace-pre-wrap text-sm text-muted-foreground", children: detail.data.description }) : /* @__PURE__ */ jsx16("p", { className: "text-sm italic text-muted-foreground", children: t("feedback.mine.no_description") }),
+            detail.data.triage_note ? /* @__PURE__ */ jsxs12("div", { className: "rounded-md border border-primary/30 bg-primary/5 p-2 text-xs", children: [
+              /* @__PURE__ */ jsx16("p", { className: "font-semibold uppercase tracking-wide text-primary mb-1", children: t("feedback.mine.triage_note") }),
+              /* @__PURE__ */ jsx16("p", { className: "whitespace-pre-wrap text-foreground", children: detail.data.triage_note })
             ] }) : null
           ]
         }
       ),
-      /* @__PURE__ */ jsxs11("section", { className: "flex flex-1 min-h-0 flex-col gap-2", children: [
-        /* @__PURE__ */ jsx15("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
-        /* @__PURE__ */ jsx15("div", { className: "flex-1 min-h-0 overflow-y-auto", children: comments.isLoading ? /* @__PURE__ */ jsx15("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : comments.isError ? /* @__PURE__ */ jsx15("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (comments.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx15("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx15("ul", { className: "flex flex-col gap-2", children: comments.data?.data.map((c) => {
+      /* @__PURE__ */ jsxs12("section", { className: "flex flex-1 min-h-0 flex-col gap-2", children: [
+        /* @__PURE__ */ jsx16("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
+        /* @__PURE__ */ jsx16("div", { className: "flex-1 min-h-0 overflow-y-auto", children: comments.isLoading ? /* @__PURE__ */ jsx16("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : comments.isError ? /* @__PURE__ */ jsx16("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : (comments.data?.data?.length ?? 0) === 0 ? /* @__PURE__ */ jsx16("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx16("ul", { className: "flex flex-col gap-2", children: comments.data?.data.map((c) => {
           const isMine = currentUser !== null && c.author_user_id === currentUser.id;
           const role = isMine ? "user" : "admin";
           const caption = role === "admin" ? `${t("feedback.comments.admin_label")} \xB7 ${_formatTs(c.created_at)}` : void 0;
-          return /* @__PURE__ */ jsx15("li", { children: /* @__PURE__ */ jsx15(ChatBubble, { role, text: c.body, caption }) }, c.id);
+          return /* @__PURE__ */ jsx16("li", { children: /* @__PURE__ */ jsx16(ChatBubble, { role, text: c.body, caption }) }, c.id);
         }) }) })
       ] }),
-      /* @__PURE__ */ jsxs11("div", { className: "space-y-1.5", children: [
-        /* @__PURE__ */ jsx15(
+      /* @__PURE__ */ jsxs12("div", { className: "space-y-1.5", children: [
+        /* @__PURE__ */ jsx16(
           Textarea,
           {
             value: draft,
@@ -1657,7 +1714,7 @@ function TicketDetail({ feedbackId, onBack }) {
             "data-feedback-id": "feedback.ticket_detail.draft"
           }
         ),
-        /* @__PURE__ */ jsx15("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs11(
+        /* @__PURE__ */ jsx16("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs12(
           Button,
           {
             type: "button",
@@ -1666,7 +1723,7 @@ function TicketDetail({ feedbackId, onBack }) {
             disabled: post.isPending || draft.trim().length === 0,
             "data-feedback-id": "feedback.ticket_detail.send",
             children: [
-              /* @__PURE__ */ jsx15(Send, { className: "mr-1 h-3.5 w-3.5" }),
+              /* @__PURE__ */ jsx16(Send, { className: "mr-1 h-3.5 w-3.5" }),
               post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
             ]
           }
@@ -1678,8 +1735,8 @@ function TicketDetail({ feedbackId, onBack }) {
 
 // src/chat/VoiceRecorder.tsx
 import { Check as Check2, Loader2 as Loader22, X } from "lucide-react";
-import { useEffect as useEffect4, useRef as useRef4 } from "react";
-import { Fragment as Fragment2, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
+import { useEffect as useEffect5, useRef as useRef4 } from "react";
+import { Fragment as Fragment2, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 3e4;
 var _BAR_MIN_PX = 3;
 var _BAR_MAX_PX = 26;
@@ -1696,7 +1753,7 @@ function _Waveform({
 }) {
   const barRefs = useRef4([]);
   const rafRef = useRef4(null);
-  useEffect4(() => {
+  useEffect5(() => {
     if (!active) {
       if (rafRef.current !== null) {
         window.cancelAnimationFrame(rafRef.current);
@@ -1727,7 +1784,7 @@ function _Waveform({
       }
     };
   }, [active, getAudioLevels]);
-  return /* @__PURE__ */ jsx16("div", { className: "flex flex-1 items-center justify-center gap-[2px] h-8 px-2", "aria-hidden": "true", children: Array.from({ length: AUDIO_LEVEL_BARS }).map((_, i) => /* @__PURE__ */ jsx16(
+  return /* @__PURE__ */ jsx17("div", { className: "flex flex-1 items-center justify-center gap-[2px] h-8 px-2", "aria-hidden": "true", children: Array.from({ length: AUDIO_LEVEL_BARS }).map((_, i) => /* @__PURE__ */ jsx17(
     "span",
     {
       ref: (el) => {
@@ -1750,7 +1807,7 @@ function VoiceRecorder({
   const isRecording = state === "recording";
   const isWorking = state === "stopping" || state === "transcribing";
   const timer = _formatMs(duration_ms);
-  return /* @__PURE__ */ jsxs12(
+  return /* @__PURE__ */ jsxs13(
     "output",
     {
       "aria-live": "polite",
@@ -1758,7 +1815,7 @@ function VoiceRecorder({
       "data-feedback-id": "feedback.voice_recorder",
       className: "flex items-center gap-2 border-t border-input bg-background px-3 py-3",
       children: [
-        /* @__PURE__ */ jsx16(
+        /* @__PURE__ */ jsx17(
           Button,
           {
             type: "button",
@@ -1769,15 +1826,15 @@ function VoiceRecorder({
             "aria-label": "Descartar grabaci\xF3n",
             "data-feedback-id": "feedback.voice_cancel",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx16(X, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx17(X, { className: "h-4 w-4" })
           }
         ),
-        /* @__PURE__ */ jsx16("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs12("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
-          /* @__PURE__ */ jsx16(Loader22, { className: "h-4 w-4 animate-spin" }),
-          /* @__PURE__ */ jsx16("span", { children: "Transcribiendo\u2026" })
-        ] }) : /* @__PURE__ */ jsxs12(Fragment2, { children: [
-          /* @__PURE__ */ jsx16(_Waveform, { active: isRecording, getAudioLevels }),
-          /* @__PURE__ */ jsx16(
+        /* @__PURE__ */ jsx17("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
+          /* @__PURE__ */ jsx17(Loader22, { className: "h-4 w-4 animate-spin" }),
+          /* @__PURE__ */ jsx17("span", { children: "Transcribiendo\u2026" })
+        ] }) : /* @__PURE__ */ jsxs13(Fragment2, { children: [
+          /* @__PURE__ */ jsx17(_Waveform, { active: isRecording, getAudioLevels }),
+          /* @__PURE__ */ jsx17(
             "span",
             {
               className: "shrink-0 pr-1 text-[10px] tabular-nums text-muted-foreground",
@@ -1786,7 +1843,7 @@ function VoiceRecorder({
             }
           )
         ] }) }),
-        /* @__PURE__ */ jsx16(
+        /* @__PURE__ */ jsx17(
           Button,
           {
             type: "button",
@@ -1796,7 +1853,7 @@ function VoiceRecorder({
             "aria-label": "Detener y enviar",
             "data-feedback-id": "feedback.voice_stop",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx16(Check2, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx17(Check2, { className: "h-4 w-4" })
           }
         )
       ]
@@ -1805,7 +1862,7 @@ function VoiceRecorder({
 }
 
 // src/chat/useFeedbackChat.ts
-import { useCallback as useCallback4, useEffect as useEffect5, useRef as useRef6, useState as useState5 } from "react";
+import { useCallback as useCallback4, useEffect as useEffect6, useRef as useRef6, useState as useState6 } from "react";
 
 // src/capture/diagnostics.ts
 var MAX_CONSOLE_ENTRIES = 20;
@@ -2046,7 +2103,7 @@ function _xpathOf(el) {
 }
 
 // src/chat/useChatRunStream.ts
-import { useCallback as useCallback3, useRef as useRef5, useState as useState4 } from "react";
+import { useCallback as useCallback3, useRef as useRef5, useState as useState5 } from "react";
 
 // src/client/idempotency.ts
 function newIdempotencyKey() {
@@ -2104,11 +2161,11 @@ function _parseSseFrame(raw) {
 }
 function useChatRunStream(args) {
   const { bindings, sessionId } = args;
-  const [state, setState] = useState4("idle");
-  const [messages, setMessages] = useState4([]);
-  const [partial_text, setPartialText] = useState4("");
-  const [synthesis, setSynthesis] = useState4(null);
-  const [error, setError] = useState4(null);
+  const [state, setState] = useState5("idle");
+  const [messages, setMessages] = useState5([]);
+  const [partial_text, setPartialText] = useState5("");
+  const [synthesis, setSynthesis] = useState5(null);
+  const [error, setError] = useState5(null);
   const abortRef = useRef5(null);
   const reset = useCallback3(() => {
     abortRef.current?.abort();
@@ -2321,22 +2378,22 @@ function useFeedbackChat() {
   const bindings = useFeedbackBindings();
   const adapter = useFeedbackAdapter();
   const user = adapter.useCurrentUser();
-  const [sessionId, setSessionId] = useState5(null);
+  const [sessionId, setSessionId] = useState6(null);
   const stream = useChatRunStream({ bindings, sessionId });
-  const [overrideState, setOverrideState] = useState5(null);
-  const [openError, setOpenError] = useState5(null);
-  const [screenshotBlob, setScreenshotBlob] = useState5(null);
+  const [overrideState, setOverrideState] = useState6(null);
+  const [openError, setOpenError] = useState6(null);
+  const [screenshotBlob, setScreenshotBlob] = useState6(null);
   const openingRef = useRef6(false);
-  const [captureMode, setCaptureMode] = useState5("page");
-  const [lockedElement, setLockedElement] = useState5(null);
-  const [activeTab, setActiveTab] = useState5("compose");
+  const [captureMode, setCaptureMode] = useState6("page");
+  const [lockedElement, setLockedElement] = useState6(null);
+  const [activeTab, setActiveTab] = useState6("compose");
   const voiceCapture = useVoiceCapture();
-  const [voiceState, setVoiceState] = useState5("idle");
-  const [voiceTranscript, setVoiceTranscript] = useState5("");
-  const [voiceLang, setVoiceLang] = useState5("");
-  const [voiceError, setVoiceError] = useState5(null);
-  const [composerValue, setComposerValue] = useState5("");
-  const [composerAutoFocus, setComposerAutoFocus] = useState5(false);
+  const [voiceState, setVoiceState] = useState6("idle");
+  const [voiceTranscript, setVoiceTranscript] = useState6("");
+  const [voiceLang, setVoiceLang] = useState6("");
+  const [voiceError, setVoiceError] = useState6(null);
+  const [composerValue, setComposerValue] = useState6("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState6(false);
   const composerFromVoiceRef = useRef6(false);
   const setMode = useCallback4((mode) => {
     setCaptureMode(mode);
@@ -2758,7 +2815,7 @@ function useFeedbackChat() {
       return next;
     });
   }, []);
-  useEffect5(() => {
+  useEffect6(() => {
     if (!composerAutoFocus) return;
     const id = window.requestAnimationFrame(() => {
       setComposerAutoFocus(false);
@@ -2784,6 +2841,7 @@ function useFeedbackChat() {
     captureMode,
     lockedElement,
     activeTab,
+    screenshotBlob,
     setMode,
     clearLocked,
     acceptLocked,
@@ -2805,7 +2863,7 @@ function useFeedbackChat() {
 }
 
 // src/chat/FeedbackChatSheet.tsx
-import { Fragment as Fragment3, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx18, jsxs as jsxs14 } from "react/jsx-runtime";
 var _SHEET_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-[520px]";
 function _thinkingLabel(state) {
   if (state === "synthesizing") return "Sintetizando\u2026";
@@ -2846,6 +2904,7 @@ function FeedbackChatSheet({
     captureMode,
     lockedElement,
     activeTab,
+    screenshotBlob,
     setMode,
     clearLocked: clearHookLocked,
     acceptLocked,
@@ -2861,22 +2920,22 @@ function FeedbackChatSheet({
     setComposerValue,
     composerAutoFocus
   } = chat;
-  const [selectedFeedbackId, setSelectedFeedbackId] = useState6(null);
-  useEffect6(() => {
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState7(null);
+  useEffect7(() => {
     if (activeTab !== "mine") setSelectedFeedbackId(null);
   }, [activeTab]);
-  useEffect6(() => {
+  useEffect7(() => {
     if (open) {
       void openSheet();
     } else {
       closeSheet();
     }
   }, [open]);
-  useEffect6(() => {
+  useEffect7(() => {
     if (locked) acceptLocked(locked);
     else clearHookLocked();
   }, [locked]);
-  useEffect6(() => {
+  useEffect7(() => {
     if (state !== "done") return;
     const tid = window.setTimeout(() => onOpenChange(false), 3e3);
     return () => window.clearTimeout(tid);
@@ -2891,21 +2950,21 @@ function FeedbackChatSheet({
     [state, abandonSession, onOpenChange]
   );
   const showSynthesis = state === "confirming" && synthesis !== null;
-  return /* @__PURE__ */ jsx17(Sheet, { open, onOpenChange: handleOpenChange, children: /* @__PURE__ */ jsxs13(
+  return /* @__PURE__ */ jsx18(Sheet, { open, onOpenChange: handleOpenChange, children: /* @__PURE__ */ jsxs14(
     SheetContent,
     {
       side: "right",
       className: `${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`,
       "data-feedback-widget-root": "true",
       children: [
-        /* @__PURE__ */ jsxs13(SheetHeader, { className: "border-b border-input px-4 pt-4 pb-2", children: [
-          /* @__PURE__ */ jsxs13(SheetTitle, { className: "flex items-center gap-2", children: [
-            /* @__PURE__ */ jsx17(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
-            /* @__PURE__ */ jsx17("span", { children: t("feedback.panel_title") })
+        /* @__PURE__ */ jsxs14(SheetHeader, { className: "border-b border-input px-4 pt-4 pb-2", children: [
+          /* @__PURE__ */ jsxs14(SheetTitle, { className: "flex items-center gap-2", children: [
+            /* @__PURE__ */ jsx18(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
+            /* @__PURE__ */ jsx18("span", { children: t("feedback.panel_title") })
           ] }),
-          /* @__PURE__ */ jsx17(SheetDescription, { className: "text-xs", children: t("feedback.panel_description") })
+          /* @__PURE__ */ jsx18(SheetDescription, { className: "text-xs", children: t("feedback.panel_description") })
         ] }),
-        /* @__PURE__ */ jsx17("div", { className: "px-4 pt-3 pb-2", children: /* @__PURE__ */ jsx17(
+        /* @__PURE__ */ jsx18("div", { className: "px-4 pt-3 pb-2", children: /* @__PURE__ */ jsx18(
           FeedbackTabs,
           {
             activeTab,
@@ -2913,8 +2972,8 @@ function FeedbackChatSheet({
             onTabChange: selectTab
           }
         ) }),
-        activeTab === "compose" ? /* @__PURE__ */ jsxs13(Fragment3, { children: [
-          /* @__PURE__ */ jsx17("div", { className: "px-4 pb-2", children: /* @__PURE__ */ jsx17(
+        activeTab === "compose" ? /* @__PURE__ */ jsxs14(Fragment3, { children: [
+          /* @__PURE__ */ jsx18("div", { className: "px-4 pb-2", children: /* @__PURE__ */ jsx18(
             CapturePicker,
             {
               mode: captureMode,
@@ -2924,8 +2983,9 @@ function FeedbackChatSheet({
               onModeChange: setMode
             }
           ) }),
-          /* @__PURE__ */ jsxs13("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
-            /* @__PURE__ */ jsx17(
+          /* @__PURE__ */ jsx18(CapturePreview, { blob: screenshotBlob }),
+          /* @__PURE__ */ jsxs14("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
+            /* @__PURE__ */ jsx18(
               ChatTimeline,
               {
                 messages,
@@ -2933,11 +2993,11 @@ function FeedbackChatSheet({
                 thinkingLabel: _thinkingLabel(state)
               }
             ),
-            error ? /* @__PURE__ */ jsx17("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: error }) : null,
-            voiceError ? /* @__PURE__ */ jsx17("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: voiceError }) : null,
-            showSynthesis ? /* @__PURE__ */ jsx17(SynthesisCard, { synthesis }) : null
+            error ? /* @__PURE__ */ jsx18("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: error }) : null,
+            voiceError ? /* @__PURE__ */ jsx18("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: voiceError }) : null,
+            showSynthesis ? /* @__PURE__ */ jsx18(SynthesisCard, { synthesis }) : null
           ] }),
-          voiceState === "recording" || voiceState === "transcribing" ? /* @__PURE__ */ jsx17(
+          voiceState === "recording" || voiceState === "transcribing" ? /* @__PURE__ */ jsx18(
             VoiceRecorder,
             {
               state: voiceState === "transcribing" ? "transcribing" : "recording",
@@ -2946,7 +3006,7 @@ function FeedbackChatSheet({
               onStop: () => void stopVoice(),
               onCancel: cancelVoice
             }
-          ) : _showComposer(state) ? /* @__PURE__ */ jsx17(
+          ) : _showComposer(state) ? /* @__PURE__ */ jsx18(
             Composer,
             {
               onSend: sendUserMessage,
@@ -2957,7 +3017,7 @@ function FeedbackChatSheet({
               autoFocus: composerAutoFocus
             }
           ) : null,
-          _showFooter(state) ? /* @__PURE__ */ jsx17(
+          _showFooter(state) ? /* @__PURE__ */ jsx18(
             FooterActions,
             {
               state,
@@ -2966,13 +3026,13 @@ function FeedbackChatSheet({
               onRetry: () => void newConversation()
             }
           ) : null
-        ] }) : /* @__PURE__ */ jsx17("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-4", children: selectedFeedbackId ? /* @__PURE__ */ jsx17(
+        ] }) : /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-4", children: selectedFeedbackId ? /* @__PURE__ */ jsx18(
           TicketDetail,
           {
             feedbackId: selectedFeedbackId,
             onBack: () => setSelectedFeedbackId(null)
           }
-        ) : /* @__PURE__ */ jsx17(MineFeedTab, { onSelectFeedback: (fid) => setSelectedFeedbackId(fid) }) })
+        ) : /* @__PURE__ */ jsx18(MineFeedTab, { onSelectFeedback: (fid) => setSelectedFeedbackId(fid) }) })
       ]
     }
   ) });
@@ -3014,4 +3074,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-3C6JHKE6.js.map
+//# sourceMappingURL=chunk-AGYE2PMW.js.map
