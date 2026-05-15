@@ -26,7 +26,17 @@ export interface ChatInferred {
   severity: string;
 }
 
-/** Synthesis card payload (D-015, terminal turn). */
+/** Persona entry inside the enriched synthesis (Sprint B / capture_v3). */
+export interface SynthesisPersona {
+  name: string;
+  goal: string;
+  frustration: string;
+}
+
+/** Synthesis card payload (D-015 + Sprint B / capture_v3 — legacy
+ * iter-module parity. Sprint B optional fields land tolerantly: the
+ * LLM may emit them or not; SynthesisCard renders only the populated
+ * sections.) */
 export interface Synthesis {
   title: string;
   summary: string;
@@ -35,6 +45,14 @@ export interface Synthesis {
   user_need: string;
   acceptance_criteria: string[];
   open_questions: string[];
+  // Sprint B optional enrichment:
+  personas?: SynthesisPersona[];
+  user_stories?: string[];
+  assumptions?: string[];
+  /** Optional Mermaid source string. Null when the LLM judged no
+   * diagram useful. Rendered as a code block fallback when the host
+   * has no mermaid runtime. */
+  diagram?: string | null;
 }
 
 /** Server response from POST /chat/sessions. */
@@ -135,11 +153,20 @@ export interface AutoContextPayload {
   app_version: string | null;
   git_commit_sha: string | null;
   user_role: string | null;
+  /** Sprint B / capture_v3 — best-effort framework fingerprint
+   * (next.js, nuxt, react, vue, angular, sveltekit, remix, null). */
+  framework?: string | null;
   console_tail: string[];
+  /** Sprint B / capture_v3 — last 20 fetch/XHR responses with status
+   * ≥ 400 or network failures. Helps the LLM diagnose silently. */
+  network_errors_tail?: string[];
   /** CSS selector of the user-locked element (S3F shell-hybrid). Null
    * when the user is filing whole-page feedback. Sprint A Phase 2
    * promotes these to feedback.element_* columns on confirm. */
   element_selector?: string | null;
   element_xpath?: string | null;
   element_bounding_box?: { x: number; y: number; w: number; h: number } | null;
+  /** Sprint B / capture_v3 — element outerHTML, truncated to 4096
+   * chars client-side so the backend pydantic cap doesn't reject. */
+  element_outer_html?: string | null;
 }

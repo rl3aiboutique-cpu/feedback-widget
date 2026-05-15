@@ -291,11 +291,15 @@ class ChatService:
             prior_user_turns >= max_turns or prior_coverage_total >= coverage_threshold
         )
 
+        # Sprint B / capture_v3: pass the detected language so the LLM
+        # replies in the user's tongue. Falls back to "the user's
+        # language" when None (turn 1, before any utterance).
         prompt_messages = build_user_message(
             messages=msgs,
             auto_context=row.auto_context,
             glossary=glossary,
             brand=brand,
+            language=row.detected_language,
             screenshot=screenshot,
             force_synthesize=force_synth,
         )

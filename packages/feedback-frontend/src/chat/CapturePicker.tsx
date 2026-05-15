@@ -9,6 +9,9 @@ export interface LockedElementInfo {
   selector: string;
   xpath: string | null;
   bounding_box: { x: number; y: number; w: number; h: number };
+  /** Sprint B / capture_v3 — element outerHTML snapshot, truncated to
+   * the backend cap (4096 chars). Null when capture failed. */
+  outer_html?: string | null;
 }
 
 export interface CapturePickerProps {

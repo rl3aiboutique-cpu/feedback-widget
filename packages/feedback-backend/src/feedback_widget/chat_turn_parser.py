@@ -1,21 +1,33 @@
 """Parse one capture-mode turn response from the LLM.
 
-Output shape (D-015)::
+Output shape (D-015 + Sprint B / capture_v3)::
 
     {
       "mode": "discover" | "synthesize",
-      "reply": "<= 25 words>",
+      "reply": "<= 25 words in user's language>",
       "covered": { problem, context, expectation, reality, impact,
                    change, example, importance },  # all 0..1
       "active_branch": "1|2|3|4|5|6|leaf",
       "inferred": { "type": "...", "severity": "..." },
-      "synthesis": null | { title, summary, user_story, context,
-                            user_need, acceptance_criteria, open_questions }
+      "synthesis": null | {
+          # Always-required base fields:
+          title, summary, user_story, context, user_need,
+          acceptance_criteria, open_questions,
+          # Sprint B / capture_v3 — legacy iter-module parity. Each is
+          # optional so older prompt versions and incomplete syntheses
+          # still pass parsing:
+          personas: [{name, goal, frustration}],
+          user_stories: [<canonical "As a / I want / so that" lines>],
+          assumptions: [<plain-language assumptions>],
+          diagram: "<optional Mermaid source or null>"
+      }
     }
 
-We deliberately keep this looser than ``IterationOutput`` — chat
-output is more conversational and Batch B may tighten typing once
-the SSE wire format is locked. Repair-hint loop mirrors the iter
+We deliberately keep the synthesis sub-object loose — the parser
+validates only the top-level shape (``synthesis`` is a dict or null).
+Sprint B optional fields land tolerantly: if the model omits them
+the row still saves, if the model includes them the frontend
+SynthesisCard renders the extras. Repair-hint loop mirrors the iter
 parser's ``parse_with_one_retry`` semantics.
 """
 

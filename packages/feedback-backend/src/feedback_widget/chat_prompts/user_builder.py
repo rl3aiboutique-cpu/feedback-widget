@@ -25,21 +25,35 @@ from feedback_widget.iter_llm.protocol import LLMAttachment
 # Default placeholder rendered into the prompt when the host supplies
 # no glossary. Mirrors the iter convention so the model knows there is
 # no domain vocabulary to honour, instead of seeing a dangling "{...}".
-_NO_GLOSSARY_TOKEN = "(sin glosario provisto)"
+_NO_GLOSSARY_TOKEN = "(no glossary supplied)"
 
 
 def format_capture_system_prompt(
     *,
     brand: str,
     glossary: dict[str, str] | None,
+    language: str | None = None,
 ) -> str:
-    """Inject ``{BRAND}`` and ``{GLOSSARY}`` into the capture prompt.
+    """Inject ``{BRAND}``, ``{GLOSSARY}`` and ``{LANGUAGE}`` into the
+    capture prompt (Sprint B v3).
 
     Other ``{...}`` blocks in the prompt body are pre-escaped as
     ``{{...}}`` so :meth:`str.format` leaves them intact.
+
+    ``language`` is the natural-language name the model should use for
+    the user-facing ``reply`` (e.g. "Spanish", "English"). When the
+    chat session has not yet detected a language (turn 1, before any
+    user utterance), pass ``None`` and the prompt falls back to
+    "the user's language" so the model auto-mirrors the first user
+    turn.
     """
     rendered_glossary = _format_glossary(glossary)
-    return CAPTURE_SYSTEM_PROMPT.format(BRAND=brand, GLOSSARY=rendered_glossary)
+    rendered_language = (language or "").strip() or "the user's language"
+    return CAPTURE_SYSTEM_PROMPT.format(
+        BRAND=brand,
+        GLOSSARY=rendered_glossary,
+        LANGUAGE=rendered_language,
+    )
 
 
 def _format_glossary(glossary: dict[str, str] | None) -> str:
@@ -58,8 +72,12 @@ def _format_glossary(glossary: dict[str, str] | None) -> str:
 def _format_auto_context_block(auto_context: dict[str, Any] | None) -> str:
     """Compact JSON of the technical context we want the model to see.
 
-    Mirrors D-015's "CONTEXTO TÉCNICO" list: url, route, viewport,
-    app_version, user_role, console_tail. Anything else in
+    Sprint B / capture_v3 expands the field list to match the legacy
+    iter-module's "technical_metadata" block: url, route, viewport,
+    app_version, git_commit_sha, user_role, framework,
+    console_errors_tail (kept as console_tail for backwards compat),
+    network_errors_tail, element_selector, element_xpath,
+    element_outer_html (truncated client-side). Anything else in
     ``auto_context`` is intentionally dropped — the prompt is a
     contract, not a dumping ground.
     """
@@ -69,8 +87,16 @@ def _format_auto_context_block(auto_context: dict[str, Any] | None) -> str:
         "route": ac.get("route"),
         "viewport": ac.get("viewport"),
         "app_version": ac.get("app_version"),
+        "git_commit_sha": ac.get("git_commit_sha"),
         "user_role": ac.get("user_role"),
+        "framework": ac.get("framework"),
+        # Legacy field name preserved for backwards compat with v2 prompt;
+        # frontend Sprint B writes the extended capture under the same key.
         "console_tail": ac.get("console_tail") or [],
+        "network_errors_tail": ac.get("network_errors_tail") or [],
+        "element_selector": ac.get("element_selector"),
+        "element_xpath": ac.get("element_xpath"),
+        "element_outer_html": ac.get("element_outer_html"),
     }
     return json.dumps(picked, ensure_ascii=False)
 
@@ -81,6 +107,7 @@ def build_user_message(
     auto_context: dict[str, Any] | None,
     glossary: dict[str, str] | None,
     brand: str,
+    language: str | None = None,
     screenshot: LLMAttachment | None = None,
     force_synthesize: bool = False,
 ) -> list[dict[str, Any]]:
@@ -108,14 +135,16 @@ def build_user_message(
         flips this to true and we append a hard instruction telling
         the model to emit ``mode="synthesize"`` on this turn.
     """
-    system_content = format_capture_system_prompt(brand=brand, glossary=glossary)
+    system_content = format_capture_system_prompt(
+        brand=brand, glossary=glossary, language=language
+    )
     if force_synthesize:
         system_content += (
-            "\n\nINSTRUCCIÓN FORZADA PARA ESTE TURNO: ya alcanzamos el "
-            "tope de turnos o la cobertura mínima. Emite "
-            'mode="synthesize" con el mejor "synthesis" que puedas '
-            "armar a partir del contexto disponible. No hagas más "
-            "preguntas."
+            "\n\nFORCED INSTRUCTION FOR THIS TURN: the turn cap or the "
+            "minimum coverage threshold has been reached. Emit "
+            'mode="synthesize" with the best possible "synthesis" you '
+            "can build from the context available. Do not ask any more "
+            "questions."
         )
     out: list[dict[str, Any]] = [{"role": "system", "content": system_content}]
 
@@ -133,36 +162,40 @@ def build_user_message(
             continue
         if role == "user":
             user_turn_index += 1
-            if user_turn_index == 1:
-                out.append(
-                    _build_turn_one_user_message(
-                        text=text,
-                        auto_context=auto_context,
-                        screenshot=screenshot,
-                    )
+            # Sprint B / capture_v3: the auto_context block is heavy
+            # (URLs, console/network errors, element outerHTML); we
+            # render it ONLY on turn 1 to keep cost bounded. The
+            # screenshot, however, attaches to every user turn so the
+            # model can reason visually about follow-up grilling turns.
+            include_context = user_turn_index == 1
+            out.append(
+                _build_user_message(
+                    text=text,
+                    auto_context=auto_context if include_context else None,
+                    screenshot=screenshot,
                 )
-            else:
-                out.append({"role": "user", "content": text})
+            )
         else:
             out.append({"role": "assistant", "content": text})
 
     return out
 
 
-def _build_turn_one_user_message(
+def _build_user_message(
     *,
     text: str,
     auto_context: dict[str, Any] | None,
     screenshot: LLMAttachment | None,
 ) -> dict[str, Any]:
-    """First user turn carries the technical context block + optional screenshot.
+    """Compose a user message: optional auto_context tag block + text +
+    optional multimodal screenshot.
 
-    If a screenshot is present we emit OpenAI-style multimodal
-    content (list of parts); otherwise a plain ``content`` string.
-    Providers that don't honour multimodal fall back to ignoring the
-    image part — the parser layer is robust to that path.
+    The screenshot is rendered as an ``image_url`` data URL part using
+    OpenAI-style multimodal content. Providers that don't honour
+    multimodal fall back to ignoring the image part — the parser is
+    robust to that path.
     """
-    context_block = _format_auto_context_block(auto_context)
+    context_block = _format_auto_context_block(auto_context) if auto_context else ""
     text_block = (
         f"<auto_context>\n{context_block}\n</auto_context>\n\n{text}"
         if context_block
@@ -170,8 +203,6 @@ def _build_turn_one_user_message(
     )
     if screenshot is None:
         return {"role": "user", "content": text_block}
-    # Multimodal shape. ``LLMAttachment.bytes_b64`` is already
-    # base64-encoded so we can stitch the data URL inline.
     return {
         "role": "user",
         "content": [

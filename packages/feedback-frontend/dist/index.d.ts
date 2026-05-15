@@ -147,6 +147,9 @@ interface LockedElementInfo {
         w: number;
         h: number;
     };
+    /** Sprint B / capture_v3 — element outerHTML snapshot, truncated to
+     * the backend cap (4096 chars). Null when capture failed. */
+    outer_html?: string | null;
 }
 interface CapturePickerProps {
     mode: CaptureMode;
@@ -201,7 +204,16 @@ interface FeedbackChatSheetProps {
 }
 declare function FeedbackChatSheet({ open, onOpenChange, locked, onActivatePicker, onClearLocked, }: FeedbackChatSheetProps): ReactElement;
 
-/** Synthesis card payload (D-015, terminal turn). */
+/** Persona entry inside the enriched synthesis (Sprint B / capture_v3). */
+interface SynthesisPersona {
+    name: string;
+    goal: string;
+    frustration: string;
+}
+/** Synthesis card payload (D-015 + Sprint B / capture_v3 — legacy
+ * iter-module parity. Sprint B optional fields land tolerantly: the
+ * LLM may emit them or not; SynthesisCard renders only the populated
+ * sections.) */
 interface Synthesis {
     title: string;
     summary: string;
@@ -210,6 +222,13 @@ interface Synthesis {
     user_need: string;
     acceptance_criteria: string[];
     open_questions: string[];
+    personas?: SynthesisPersona[];
+    user_stories?: string[];
+    assumptions?: string[];
+    /** Optional Mermaid source string. Null when the LLM judged no
+     * diagram useful. Rendered as a code block fallback when the host
+     * has no mermaid runtime. */
+    diagram?: string | null;
 }
 /**
  * Top-level state machine for the chat panel.
@@ -228,19 +247,24 @@ interface Synthesis {
 type ChatState = "idle" | "opening" | "awaiting_user" | "user_typing" | "bot_thinking" | "synthesizing" | "confirming" | "finalizing" | "done" | "error";
 
 /**
- * Final synthesis card for the chat-first feedback flow (D-015, D-012).
+ * Final synthesis card for the chat-first feedback flow (D-015, D-012,
+ * Sprint B / capture_v3).
  *
- * Rendered once the backend emits the `synthesis` SSE event. Surfaces the
- * structured turn payload (title / summary / user_story / acceptance
- * criteria / open questions).
+ * Rendered once the backend emits the `synthesis` SSE event. Surfaces
+ * the base shape (title / summary / user_story / acceptance criteria /
+ * open questions) plus the Sprint B enrichment that recovers the
+ * legacy iter-module output: personas, additional user_stories,
+ * assumptions and an optional Mermaid diagram block.
  *
  * Type + severity are deliberately NOT rendered (D-008: admin-only).
  *
- * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet footer
- * via `<FooterActions>` per S3F shell-hybrid — this card is content-only.
+ * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet
+ * footer via `<FooterActions>` per S3F shell-hybrid — this card is
+ * content-only.
  *
- * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts inherit
- * that. Locale-aware copy lands later if a non-es host appears.
+ * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts
+ * inherit that. Locale-aware copy lands later if a non-es host
+ * appears.
  */
 
 interface SynthesisCardProps {

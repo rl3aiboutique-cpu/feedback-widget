@@ -14,14 +14,29 @@ from pydantic import BaseModel, Field
 
 
 class AutoContext(BaseModel):
+    """Browser/runtime context the widget snapshots and sends to the
+    backend on chat session start. Sprint B / capture_v3 expanded the
+    payload to recover legacy iter-module's technical fingerprint
+    (framework, network errors, element outerHTML) while keeping the
+    forward shape extensible (``extra="ignore"`` on the inner config
+    so unknown fields from older or newer widgets don't trip
+    validation)."""
+
+    model_config = {"extra": "ignore"}
+
     url: str
     route: str | None = None
     viewport: dict[str, Any] | None = None
     app_version: str | None = None
     git_commit_sha: str | None = None
     user_role: str | None = None
+    framework: str | None = None
     console_tail: list[str] = Field(default_factory=list)
-    screenshot_attachment_id: uuid.UUID | None = None
+    network_errors_tail: list[str] = Field(default_factory=list)
+    element_selector: str | None = None
+    element_xpath: str | None = None
+    element_bounding_box: dict[str, Any] | None = None
+    element_outer_html: str | None = Field(default=None, max_length=4096)
 
 
 class CreateChatSessionRequest(BaseModel):

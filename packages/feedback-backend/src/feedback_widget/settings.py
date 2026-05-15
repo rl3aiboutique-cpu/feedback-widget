@@ -187,6 +187,18 @@ class FeedbackSettings(BaseSettings):
     # bundle and would blow the 300KB size budget.
     ITER_RENDER_MERMAID: bool = False
 
+    # Product glossary — comma-separated ``term:definition`` pairs used
+    # by BOTH the iter-module (legacy spec refinement) and the chat-first
+    # capture prompt (Sprint B / capture_v3). The host injects its own
+    # domain vocabulary so the LLM stays inside the customer's language
+    # ("KYC", "AML", "OFAC", "MIFID", "ESEF", etc.). Example::
+    #
+    #     FEEDBACK_ITER_GLOSSARY="KYC:know-your-customer,AML:anti-money-laundering"
+    #
+    # Empty string ⇒ the prompt renders "(no glossary supplied)" so
+    # admin tooling can still hash the system prompt deterministically.
+    ITER_GLOSSARY: str = ""
+
     # Email an admin/notify list when a session is finalized. Reuses
     # the existing FEEDBACK_NOTIFY_EMAILS list.
     ITER_NOTIFY_ON_FINALIZE: bool = True
@@ -222,6 +234,27 @@ class FeedbackSettings(BaseSettings):
         normalising once at parse time avoids per-call work.
         """
         return [w.strip().lower() for w in self.ITER_FORBIDDEN_WORDS.split(",") if w.strip()]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def glossary_dict(self) -> dict[str, str]:
+        """Parse ``ITER_GLOSSARY`` (``term:definition,...``) into a dict.
+
+        Shared by the iter-module and the chat-first capture prompt
+        (Sprint B / capture_v3). Empty / malformed entries are dropped
+        silently so a typo in env does not crash the request path —
+        the LLM simply sees a smaller glossary.
+        """
+        out: dict[str, str] = {}
+        for pair in self.ITER_GLOSSARY.split(","):
+            if ":" not in pair:
+                continue
+            key, _, value = pair.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                out[key] = value
+        return out
 
     @computed_field  # type: ignore[prop-decorator]
     @property

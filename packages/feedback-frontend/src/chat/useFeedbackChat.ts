@@ -15,6 +15,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import type { FeedbackHostBindings } from "../adapter";
+import {
+  getDiagnosticsSnapshot,
+  installDiagnostics,
+  snapshotElementOuterHtml,
+} from "../capture/diagnostics";
 import { capturePageScreenshot } from "../capture/screenshot";
 import { DEFAULT_REDACTION_SELECTORS } from "../redactors";
 import type { CaptureMode, LockedElementInfo } from "./CapturePicker";
@@ -165,6 +170,11 @@ function _buildAutoContext(args: {
     typeof window !== "undefined"
       ? { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio }
       : null;
+  // Sprint B / capture_v3: enrich auto_context with the runtime
+  // diagnostics ring buffers (console errors, network errors, framework
+  // fingerprint) plus the locked element's outerHTML so the LLM has the
+  // same technical_metadata the legacy iter-module receives.
+  const diag = getDiagnosticsSnapshot();
   return {
     url,
     route,
@@ -172,13 +182,16 @@ function _buildAutoContext(args: {
     app_version: args.appVersion || null,
     git_commit_sha: args.gitSha || null,
     user_role: args.userRole,
-    console_tail: [],
+    framework: diag.framework,
+    console_tail: diag.console_tail,
+    network_errors_tail: diag.network_errors_tail,
     // S3F shell-hybrid: forward the locked element so backend can hang
     // turn context (and downstream feedback row) off the right DOM node.
     // Sprint A Phase 2 promotes these to feedback.element_* columns.
     element_selector: args.locked?.selector ?? null,
     element_xpath: args.locked?.xpath ?? null,
     element_bounding_box: args.locked?.bounding_box ?? null,
+    element_outer_html: args.locked?.outer_html ?? null,
   };
 }
 
@@ -250,7 +263,23 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   }, []);
 
   const acceptLocked = useCallback((info: LockedElementInfo) => {
-    setLockedElement(info);
+    // Sprint B / capture_v3: capture the locked element's outerHTML so
+    // the LLM can reason about the DOM target the user pointed at.
+    // querySelector best-effort; null when the page already mutated
+    // the node away.
+    let enriched: LockedElementInfo = info;
+    if (info.outer_html === undefined && typeof document !== "undefined") {
+      try {
+        const node = document.querySelector(info.selector);
+        const html = snapshotElementOuterHtml(node);
+        if (html) {
+          enriched = { ...info, outer_html: html };
+        }
+      } catch {
+        /* invalid selector — ignore, leave outer_html undefined */
+      }
+    }
+    setLockedElement(enriched);
     setCaptureMode("element");
   }, []);
 
@@ -261,6 +290,11 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const openSheet = useCallback(async () => {
     if (openingRef.current) return;
     openingRef.current = true;
+    // Sprint B / capture_v3: install diagnostics hooks at the first
+    // chat-open so the console/network ring buffers start filling
+    // before the user submits anything. Idempotent — re-opens are
+    // no-ops in the installer.
+    installDiagnostics();
     setOverrideState("opening");
     setOpenError(null);
     try {

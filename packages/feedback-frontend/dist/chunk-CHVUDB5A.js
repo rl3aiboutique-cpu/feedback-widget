@@ -1470,7 +1470,65 @@ function MineFeedTab({ onSelectFeedback }) {
 
 // src/chat/SynthesisCard.tsx
 import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
+function SectionTitle({ label }) {
+  return /* @__PURE__ */ jsx14("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: label });
+}
+function PersonasBlock({ personas }) {
+  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx14(SectionTitle, { label: "Personas" }),
+    /* @__PURE__ */ jsx14("ul", { className: "flex flex-col gap-2 text-sm text-foreground", children: personas.map((p, idx) => /* @__PURE__ */ jsxs10(
+      "li",
+      {
+        className: "rounded border border-input/60 bg-muted/30 px-2 py-1",
+        children: [
+          /* @__PURE__ */ jsx14("p", { className: "font-medium", children: p.name }),
+          /* @__PURE__ */ jsxs10("p", { className: "text-xs text-muted-foreground", children: [
+            "Objetivo: ",
+            p.goal
+          ] }),
+          /* @__PURE__ */ jsxs10("p", { className: "text-xs text-muted-foreground", children: [
+            "Fricci\xF3n: ",
+            p.frustration
+          ] })
+        ]
+      },
+      `persona-${idx}-${p.name.slice(0, 16)}`
+    )) })
+  ] });
+}
+function BulletList({
+  label,
+  items,
+  muted = false
+}) {
+  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx14(SectionTitle, { label }),
+    /* @__PURE__ */ jsx14(
+      "ul",
+      {
+        className: `list-disc space-y-1 pl-5 text-sm ${muted ? "text-muted-foreground" : "text-foreground"}`,
+        children: items.map((item, idx) => /* @__PURE__ */ jsx14("li", { children: item }, `${label}-${idx}-${item.slice(0, 16)}`))
+      }
+    )
+  ] });
+}
+function DiagramBlock({ source }) {
+  return /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
+    /* @__PURE__ */ jsx14(SectionTitle, { label: "Diagrama" }),
+    /* @__PURE__ */ jsx14(
+      "pre",
+      {
+        "data-feedback-mermaid-source": "true",
+        className: "overflow-x-auto rounded border border-input/60 bg-muted/40 p-2 text-xs text-foreground",
+        children: /* @__PURE__ */ jsx14("code", { children: source })
+      }
+    )
+  ] });
+}
 function SynthesisCard({ synthesis }) {
+  const extraStories = (synthesis.user_stories ?? []).filter(
+    (s) => s && s !== synthesis.user_story
+  );
   return /* @__PURE__ */ jsxs10(
     "div",
     {
@@ -1480,14 +1538,25 @@ function SynthesisCard({ synthesis }) {
         /* @__PURE__ */ jsx14("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
         /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
         /* @__PURE__ */ jsx14("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
-        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
-          /* @__PURE__ */ jsx14("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Criterios de aceptaci\xF3n" }),
-          /* @__PURE__ */ jsx14("ul", { className: "list-disc space-y-1 pl-5 text-sm text-foreground", children: synthesis.acceptance_criteria.map((ac, idx) => /* @__PURE__ */ jsx14("li", { children: ac }, `ac-${idx}-${ac.slice(0, 16)}`)) })
-        ] }) : null,
-        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsxs10("div", { className: "flex flex-col gap-1", children: [
-          /* @__PURE__ */ jsx14("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Preguntas abiertas" }),
-          /* @__PURE__ */ jsx14("ul", { className: "list-disc space-y-1 pl-5 text-sm text-muted-foreground", children: synthesis.open_questions.map((q, idx) => /* @__PURE__ */ jsx14("li", { children: q }, `oq-${idx}-${q.slice(0, 16)}`)) })
-        ] }) : null
+        extraStories.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
+        synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx14(PersonasBlock, { personas: synthesis.personas }) : null,
+        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx14(
+          BulletList,
+          {
+            label: "Criterios de aceptaci\xF3n",
+            items: synthesis.acceptance_criteria
+          }
+        ) : null,
+        synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
+        synthesis.diagram ? /* @__PURE__ */ jsx14(DiagramBlock, { source: synthesis.diagram }) : null,
+        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx14(
+          BulletList,
+          {
+            label: "Preguntas abiertas",
+            items: synthesis.open_questions,
+            muted: true
+          }
+        ) : null
       ]
     }
   );
@@ -1737,6 +1806,102 @@ function VoiceRecorder({
 
 // src/chat/useFeedbackChat.ts
 import { useCallback as useCallback4, useEffect as useEffect5, useRef as useRef6, useState as useState5 } from "react";
+
+// src/capture/diagnostics.ts
+var MAX_CONSOLE_ENTRIES = 20;
+var MAX_NETWORK_ENTRIES = 20;
+var MAX_TEXT_LENGTH = 240;
+var consoleRing = [];
+var networkRing = [];
+var installed = false;
+var originalConsoleError = null;
+var originalConsoleWarn = null;
+var originalFetch = null;
+function truncate(s) {
+  return s.length > MAX_TEXT_LENGTH ? `${s.slice(0, MAX_TEXT_LENGTH - 1)}\u2026` : s;
+}
+function pushRing(ring, entry, cap) {
+  ring.push(truncate(entry));
+  while (ring.length > cap) {
+    ring.shift();
+  }
+}
+function formatArgs(args) {
+  return args.map((a) => {
+    if (a instanceof Error) return `${a.name}: ${a.message}`;
+    if (typeof a === "string") return a;
+    try {
+      return JSON.stringify(a);
+    } catch {
+      return String(a);
+    }
+  }).join(" ");
+}
+function installDiagnostics() {
+  if (installed || typeof window === "undefined") return;
+  installed = true;
+  originalConsoleError = console.error.bind(console);
+  console.error = (...args) => {
+    pushRing(consoleRing, `[error] ${formatArgs(args)}`, MAX_CONSOLE_ENTRIES);
+    originalConsoleError?.(...args);
+  };
+  originalConsoleWarn = console.warn.bind(console);
+  console.warn = (...args) => {
+    pushRing(consoleRing, `[warn] ${formatArgs(args)}`, MAX_CONSOLE_ENTRIES);
+    originalConsoleWarn?.(...args);
+  };
+  if (typeof window.fetch === "function") {
+    originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const start = performance.now();
+      try {
+        const resp = await originalFetch(input, init);
+        if (resp.status >= 400) {
+          const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          const dur = Math.round(performance.now() - start);
+          pushRing(
+            networkRing,
+            `${resp.status} ${init?.method ?? "GET"} ${url} (${dur}ms)`,
+            MAX_NETWORK_ENTRIES
+          );
+        }
+        return resp;
+      } catch (err) {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        pushRing(
+          networkRing,
+          `network-error ${init?.method ?? "GET"} ${url}: ${err.message}`,
+          MAX_NETWORK_ENTRIES
+        );
+        throw err;
+      }
+    };
+  }
+}
+function getDiagnosticsSnapshot() {
+  return {
+    console_tail: [...consoleRing],
+    network_errors_tail: [...networkRing],
+    framework: detectFramework()
+  };
+}
+function detectFramework() {
+  if (typeof window === "undefined") return null;
+  const w = window;
+  if (w.__NEXT_DATA__) return "next.js";
+  if (w.__NUXT__) return "nuxt";
+  if (w.__REMIX_CONTEXT__) return "remix";
+  if (w.__SVELTEKIT_DEV__ || w.__sveltekit_dev) return "sveltekit";
+  if (w.ng) return "angular";
+  if (w.Vue) return "vue";
+  if (w.React) return "react";
+  return null;
+}
+function snapshotElementOuterHtml(el) {
+  if (!el) return null;
+  const raw = el.outerHTML ?? "";
+  return raw.length > 4096 ? `${raw.slice(0, 4095)}\u2026` : raw;
+}
 
 // src/capture/screenshot.ts
 var DEFAULT_MAX_PIXELS = 1920 * 1080 * 2;
@@ -2269,6 +2434,7 @@ function _buildAutoContext(args) {
   const url = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}${window.location.search}${window.location.hash}` : "";
   const route = typeof window !== "undefined" ? window.location.pathname + window.location.search + window.location.hash : null;
   const viewport = typeof window !== "undefined" ? { w: window.innerWidth, h: window.innerHeight, dpr: window.devicePixelRatio } : null;
+  const diag = getDiagnosticsSnapshot();
   return {
     url,
     route,
@@ -2276,13 +2442,16 @@ function _buildAutoContext(args) {
     app_version: args.appVersion || null,
     git_commit_sha: args.gitSha || null,
     user_role: args.userRole,
-    console_tail: [],
+    framework: diag.framework,
+    console_tail: diag.console_tail,
+    network_errors_tail: diag.network_errors_tail,
     // S3F shell-hybrid: forward the locked element so backend can hang
     // turn context (and downstream feedback row) off the right DOM node.
     // Sprint A Phase 2 promotes these to feedback.element_* columns.
     element_selector: args.locked?.selector ?? null,
     element_xpath: args.locked?.xpath ?? null,
-    element_bounding_box: args.locked?.bounding_box ?? null
+    element_bounding_box: args.locked?.bounding_box ?? null,
+    element_outer_html: args.locked?.outer_html ?? null
   };
 }
 async function _blobToBase64(blob) {
@@ -2324,7 +2493,18 @@ function useFeedbackChat() {
     setCaptureMode("page");
   }, []);
   const acceptLocked = useCallback4((info) => {
-    setLockedElement(info);
+    let enriched = info;
+    if (info.outer_html === void 0 && typeof document !== "undefined") {
+      try {
+        const node = document.querySelector(info.selector);
+        const html = snapshotElementOuterHtml(node);
+        if (html) {
+          enriched = { ...info, outer_html: html };
+        }
+      } catch {
+      }
+    }
+    setLockedElement(enriched);
     setCaptureMode("element");
   }, []);
   const selectTab = useCallback4((tab) => {
@@ -2333,6 +2513,7 @@ function useFeedbackChat() {
   const openSheet = useCallback4(async () => {
     if (openingRef.current) return;
     openingRef.current = true;
+    installDiagnostics();
     setOverrideState("opening");
     setOpenError(null);
     try {
@@ -2991,4 +3172,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-4FZ6VBQE.js.map
+//# sourceMappingURL=chunk-CHVUDB5A.js.map

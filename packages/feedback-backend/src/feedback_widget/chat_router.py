@@ -344,12 +344,22 @@ def build_chat_router(
                 detail=f"LLM provider unavailable: {exc}",
             ) from exc
 
+        # Glossary resolution order (Sprint B / capture_v3):
+        #   1. session.glossary_snapshot — the dict captured when the
+        #      session was created, frozen so mid-session env changes
+        #      don't mutate the prompt mid-conversation.
+        #   2. settings.glossary_dict — the host-supplied
+        #      ``FEEDBACK_ITER_GLOSSARY`` env var. Provides the same
+        #      vocabulary the iter-module already honours.
+        #   3. None — prompt renders "(no glossary supplied)".
         glossary_raw = row.glossary_snapshot
         glossary: dict[str, str] | None
         if isinstance(glossary_raw, dict):
             glossary = {
                 str(k): str(v) for k, v in glossary_raw.items() if isinstance(v, str)
             }
+        elif settings.glossary_dict:
+            glossary = dict(settings.glossary_dict)
         else:
             glossary = None
         brand = settings.BRAND_NAME

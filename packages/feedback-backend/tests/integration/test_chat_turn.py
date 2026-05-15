@@ -273,7 +273,7 @@ async def test_run_turn_forces_synthesize_at_turn_5(
 
     # System prompt should carry the forced-synthesize suffix.
     assert provider.last_system_prompt is not None
-    assert "INSTRUCCIÓN FORZADA" in provider.last_system_prompt
+    assert "FORCED INSTRUCTION" in provider.last_system_prompt
 
     types = [ev["type"] for ev in events]
     assert types[-2:] == ["synthesizing", "synthesis"]
