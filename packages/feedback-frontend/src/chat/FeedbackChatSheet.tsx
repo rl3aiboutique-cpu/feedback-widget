@@ -109,6 +109,7 @@ export function FeedbackChatSheet({
     lockedElement,
     activeTab,
     screenshotBlob,
+    clearScreenshot,
     setMode,
     clearLocked: clearHookLocked,
     acceptLocked,
@@ -218,7 +219,12 @@ export function FeedbackChatSheet({
               />
             </div>
 
-            <CapturePreview blob={screenshotBlob} />
+            <CapturePreview
+              blob={screenshotBlob}
+              mode={captureMode}
+              selector={lockedElement?.selector ?? null}
+              onClear={clearScreenshot}
+            />
 
             <div className="flex-1 min-h-0 overflow-y-auto">
               <ChatTimeline

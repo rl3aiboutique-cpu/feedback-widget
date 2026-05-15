@@ -20,7 +20,7 @@ import {
   installDiagnostics,
   snapshotElementOuterHtml,
 } from "../capture/diagnostics";
-import { capturePageScreenshot } from "../capture/screenshot";
+import { capturePageScreenshot, cropImageBlob } from "../capture/screenshot";
 import { DEFAULT_REDACTION_SELECTORS } from "../redactors";
 import type { CaptureMode, LockedElementInfo } from "./CapturePicker";
 import type { FeedbackTab } from "./FeedbackTabs";
@@ -114,8 +114,12 @@ export interface UseFeedbackChatResult {
   /** Auto-captured screenshot blob (D-007). Shipped under
    * ``screenshot_b64`` in the confirm body; exposed here so the sheet
    * can render a thumbnail under CAPTURE so the user sees the evidence
-   * the LLM will attach. */
+   * the LLM will attach. Cropped to the locked element when capture
+   * mode is "element" + the element has a non-empty bounding box. */
   screenshotBlob: Blob | null;
+  /** Explicit user-driven discard of the captured screenshot. Hides
+   * the thumbnail and ships ``screenshot_b64=null`` on confirm. */
+  clearScreenshot: () => void;
   setMode: (mode: CaptureMode) => void;
   clearLocked: () => void;
   acceptLocked: (info: LockedElementInfo) => void;
@@ -229,7 +233,20 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const [openError, setOpenError] = useState<string | null>(null);
   // Phase 5: auto-captured PNG blob held in state until confirm() wires
   // it into the request body as base64 → backend S3 upload.
+  //
+  // ``pageScreenshotBlob`` is the raw full-page capture taken once at
+  // openSheet — it is the source of truth and never mutates. The
+  // ``screenshotBlob`` returned to consumers (sheet preview + confirm
+  // payload) is **derived**:
+  //   - capture mode "page" or unlocked → equal to the page blob
+  //   - capture mode "element" + locked → cropped to the bounding box
+  //   - user explicitly cleared → null (no blob shipped to backend)
+  const [pageScreenshotBlob, setPageScreenshotBlob] = useState<Blob | null>(null);
   const [screenshotBlob, setScreenshotBlob] = useState<Blob | null>(null);
+  /** Flips true when the user clicks the × on the preview thumbnail.
+   * Suppresses the auto-recompute effect so the preview stays empty
+   * until the sheet closes / next openSheet. */
+  const [screenshotCleared, setScreenshotCleared] = useState(false);
   /** Prevents double-open on rapid sheet toggles. */
   const openingRef = useRef(false);
 
@@ -322,6 +339,13 @@ export function useFeedbackChat(): UseFeedbackChatResult {
           redactionSelectors: DEFAULT_REDACTION_SELECTORS,
         });
         if (result?.blob) {
+          // Reset the "explicit clear" flag on every fresh open so the
+          // user can recover from a previous discard by simply opening
+          // the sheet again. The display blob defaults to the full
+          // page; the lockedElement-watch effect crops it later when
+          // the user picks an element.
+          setScreenshotCleared(false);
+          setPageScreenshotBlob(result.blob);
           setScreenshotBlob(result.blob);
         }
       } catch (err) {
@@ -390,8 +414,40 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     setVoiceError(null);
     setVoiceState("idle");
     setScreenshotBlob(null);
+    setPageScreenshotBlob(null);
+    setScreenshotCleared(false);
     openingRef.current = false;
   }, [stream]);
+
+  /** User-driven discard of the captured screenshot. The thumbnail
+   * disappears and the confirm payload ships ``screenshot_b64=null``.
+   * The original page capture is freed too so closing + reopening the
+   * sheet snaps a fresh image instead of resurrecting the dropped one. */
+  const clearScreenshot = useCallback(() => {
+    setScreenshotBlob(null);
+    setPageScreenshotBlob(null);
+    setScreenshotCleared(true);
+  }, []);
+
+  // Recompute the display blob whenever the user toggles capture mode
+  // or locks/unlocks an element. The original page capture stays in
+  // ``pageScreenshotBlob`` untouched so a back-and-forth toggle never
+  // requires re-snapping the DOM.
+  useEffect(() => {
+    if (screenshotCleared || !pageScreenshotBlob) return;
+    let cancelled = false;
+    const bbox = lockedElement?.bounding_box;
+    if (captureMode === "element" && bbox && bbox.w > 0 && bbox.h > 0) {
+      void cropImageBlob(pageScreenshotBlob, bbox).then((cropped) => {
+        if (!cancelled) setScreenshotBlob(cropped);
+      });
+    } else {
+      setScreenshotBlob(pageScreenshotBlob);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [captureMode, lockedElement, pageScreenshotBlob, screenshotCleared]);
 
   const sendUserMessage = useCallback(
     async (content: string) => {
@@ -844,6 +900,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     lockedElement,
     activeTab,
     screenshotBlob,
+    clearScreenshot,
     setMode,
     clearLocked,
     acceptLocked,

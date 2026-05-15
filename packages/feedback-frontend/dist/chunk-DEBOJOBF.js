@@ -773,16 +773,67 @@ function CapturePicker({
 }
 
 // src/chat/CapturePreview.tsx
-import { Image as ImageIcon2 } from "lucide-react";
+import { Image as ImageIcon2, X as X2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
+import { Fragment, jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
 function formatBytes(size) {
   if (size < 1024) return `${size} B`;
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
-function CapturePreview({ blob }) {
+function _Lightbox({
+  url,
+  onClose
+}) {
+  useEffect(() => {
+    function handler(e) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+  function onBackdropClick(e) {
+    if (e.target === e.currentTarget) onClose();
+  }
+  return /* @__PURE__ */ jsxs4(
+    "div",
+    {
+      className: "fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6",
+      role: "dialog",
+      "aria-modal": "true",
+      "aria-label": "Captura adjunta \u2014 vista ampliada",
+      onClick: onBackdropClick,
+      children: [
+        /* @__PURE__ */ jsx5(
+          "button",
+          {
+            type: "button",
+            onClick: onClose,
+            "aria-label": "Cerrar vista ampliada",
+            className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
+            children: /* @__PURE__ */ jsx5(X2, { className: "h-4 w-4" })
+          }
+        ),
+        /* @__PURE__ */ jsx5(
+          "img",
+          {
+            src: url,
+            alt: "Captura adjunta \u2014 vista ampliada",
+            className: "max-h-[90vh] max-w-[90vw] rounded-md border border-input/40 shadow-2xl"
+          }
+        )
+      ]
+    }
+  );
+}
+function CapturePreview({
+  blob,
+  mode,
+  selector,
+  onClear
+}) {
   const [url, setUrl] = useState(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   useEffect(() => {
     if (!blob) {
       setUrl(null);
@@ -797,35 +848,53 @@ function CapturePreview({ blob }) {
   if (!blob || !url) {
     return null;
   }
-  return /* @__PURE__ */ jsxs4("div", { className: "mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2", children: [
-    /* @__PURE__ */ jsx5(
-      "a",
-      {
-        href: url,
-        target: "_blank",
-        rel: "noopener noreferrer",
-        className: "block shrink-0 overflow-hidden rounded border border-input",
-        "aria-label": "Abrir captura en tama\xF1o completo",
-        children: /* @__PURE__ */ jsx5(
-          "img",
-          {
-            src: url,
-            alt: "Captura de la pantalla",
-            className: "h-16 w-24 object-cover"
-          }
-        )
-      }
-    ),
-    /* @__PURE__ */ jsxs4("div", { className: "flex min-w-0 flex-1 flex-col gap-0.5", children: [
-      /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1 text-xs font-medium text-foreground", children: [
-        /* @__PURE__ */ jsx5(ImageIcon2, { className: "h-3 w-3" }),
-        "Captura adjunta"
+  const isElement = mode === "element" && selector;
+  const captionPrimary = isElement ? "Elemento capturado" : "P\xE1gina completa";
+  return /* @__PURE__ */ jsxs4(Fragment, { children: [
+    /* @__PURE__ */ jsxs4("div", { className: "mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2", children: [
+      /* @__PURE__ */ jsx5(
+        "button",
+        {
+          type: "button",
+          onClick: () => setLightboxOpen(true),
+          "aria-label": "Ampliar captura",
+          className: "block shrink-0 overflow-hidden rounded border border-input transition hover:ring-2 hover:ring-primary/30",
+          children: /* @__PURE__ */ jsx5(
+            "img",
+            {
+              src: url,
+              alt: "Captura adjunta",
+              className: "h-16 w-24 object-cover"
+            }
+          )
+        }
+      ),
+      /* @__PURE__ */ jsxs4("div", { className: "flex min-w-0 flex-1 flex-col gap-0.5", children: [
+        /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1 text-xs font-medium text-foreground", children: [
+          /* @__PURE__ */ jsx5(ImageIcon2, { className: "h-3 w-3" }),
+          captionPrimary
+        ] }),
+        /* @__PURE__ */ jsx5("span", { className: "truncate text-[10px] text-muted-foreground", children: isElement ? /* @__PURE__ */ jsx5("code", { className: "font-mono", children: selector }) : /* @__PURE__ */ jsxs4(Fragment, { children: [
+          formatBytes(blob.size),
+          " \xB7 click para ampliar"
+        ] }) }),
+        isElement ? /* @__PURE__ */ jsxs4("span", { className: "text-[10px] text-muted-foreground", children: [
+          formatBytes(blob.size),
+          " \xB7 click para ampliar"
+        ] }) : null
       ] }),
-      /* @__PURE__ */ jsxs4("span", { className: "text-[10px] text-muted-foreground", children: [
-        formatBytes(blob.size),
-        " \xB7 click para ampliar"
-      ] })
-    ] })
+      onClear ? /* @__PURE__ */ jsx5(
+        "button",
+        {
+          type: "button",
+          onClick: onClear,
+          "aria-label": "Quitar captura",
+          className: "ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-destructive",
+          children: /* @__PURE__ */ jsx5(X2, { className: "h-3.5 w-3.5" })
+        }
+      ) : null
+    ] }),
+    lightboxOpen ? /* @__PURE__ */ jsx5(_Lightbox, { url, onClose: () => setLightboxOpen(false) }) : null
   ] });
 }
 
@@ -1685,7 +1754,7 @@ function SynthesisCard({ synthesis }) {
 // src/chat/TicketDetail.tsx
 import { Send } from "lucide-react";
 import { useState as useState4 } from "react";
-import { Fragment, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
+import { Fragment as Fragment2, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
 function _formatTs(dt) {
   if (!dt) return "";
   return dt.slice(0, 16).replace("T", " ");
@@ -1739,7 +1808,7 @@ function TicketDetail({ feedbackId, onBack }) {
         /* @__PURE__ */ jsx16(StatusPill, { status: detail.data.status })
       ] }) : null
     ] }),
-    detail.isLoading ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs12(Fragment, { children: [
+    detail.isLoading ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx16("p", { className: "text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs12(Fragment2, { children: [
       /* @__PURE__ */ jsxs12(
         "section",
         {
@@ -1797,9 +1866,9 @@ function TicketDetail({ feedbackId, onBack }) {
 }
 
 // src/chat/VoiceRecorder.tsx
-import { Check as Check2, Loader2 as Loader22, X as X2 } from "lucide-react";
+import { Check as Check2, Loader2 as Loader22, X as X3 } from "lucide-react";
 import { useEffect as useEffect5, useRef as useRef4 } from "react";
-import { Fragment as Fragment2, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
+import { Fragment as Fragment3, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 3e4;
 var _BAR_MIN_PX = 3;
 var _BAR_MAX_PX = 26;
@@ -1889,13 +1958,13 @@ function VoiceRecorder({
             "aria-label": "Descartar grabaci\xF3n",
             "data-feedback-id": "feedback.voice_cancel",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx17(X2, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx17(X3, { className: "h-4 w-4" })
           }
         ),
         /* @__PURE__ */ jsx17("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
           /* @__PURE__ */ jsx17(Loader22, { className: "h-4 w-4 animate-spin" }),
           /* @__PURE__ */ jsx17("span", { children: "Transcribiendo\u2026" })
-        ] }) : /* @__PURE__ */ jsxs13(Fragment2, { children: [
+        ] }) : /* @__PURE__ */ jsxs13(Fragment3, { children: [
           /* @__PURE__ */ jsx17(_Waveform, { active: isRecording, getAudioLevels }),
           /* @__PURE__ */ jsx17(
             "span",
@@ -2146,6 +2215,43 @@ function _cssSelectorOf(el) {
     cur = cur.parentElement;
   }
   return parts.join(" > ");
+}
+async function cropImageBlob(source, bbox) {
+  if (typeof document === "undefined") return source;
+  if (!bbox || bbox.w <= 0 || bbox.h <= 0) return source;
+  const url = URL.createObjectURL(source);
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("decode failed"));
+      el.src = url;
+    });
+    const scale = typeof window !== "undefined" && window.innerWidth > 0 ? img.naturalWidth / window.innerWidth : 1;
+    const sx = Math.max(0, Math.round(bbox.x * scale));
+    const sy = Math.max(0, Math.round(bbox.y * scale));
+    const sw = Math.max(1, Math.round(bbox.w * scale));
+    const sh = Math.max(1, Math.round(bbox.h * scale));
+    if (sx >= img.naturalWidth || sy >= img.naturalHeight) {
+      return source;
+    }
+    const clampedW = Math.min(sw, img.naturalWidth - sx);
+    const clampedH = Math.min(sh, img.naturalHeight - sy);
+    const canvas = document.createElement("canvas");
+    canvas.width = clampedW;
+    canvas.height = clampedH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return source;
+    ctx.drawImage(img, sx, sy, clampedW, clampedH, 0, 0, clampedW, clampedH);
+    const cropped = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/png");
+    });
+    return cropped ?? source;
+  } catch {
+    return source;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 function _xpathOf(el) {
   if (typeof document === "undefined") return null;
@@ -2445,7 +2551,9 @@ function useFeedbackChat() {
   const stream = useChatRunStream({ bindings, sessionId });
   const [overrideState, setOverrideState] = useState6(null);
   const [openError, setOpenError] = useState6(null);
+  const [pageScreenshotBlob, setPageScreenshotBlob] = useState6(null);
   const [screenshotBlob, setScreenshotBlob] = useState6(null);
+  const [screenshotCleared, setScreenshotCleared] = useState6(false);
   const openingRef = useRef6(false);
   const [captureMode, setCaptureMode] = useState6("page");
   const [lockedElement, setLockedElement] = useState6(null);
@@ -2495,6 +2603,8 @@ function useFeedbackChat() {
           redactionSelectors: DEFAULT_REDACTION_SELECTORS
         });
         if (result?.blob) {
+          setScreenshotCleared(false);
+          setPageScreenshotBlob(result.blob);
           setScreenshotBlob(result.blob);
         }
       } catch (err) {
@@ -2557,8 +2667,30 @@ function useFeedbackChat() {
     setVoiceError(null);
     setVoiceState("idle");
     setScreenshotBlob(null);
+    setPageScreenshotBlob(null);
+    setScreenshotCleared(false);
     openingRef.current = false;
   }, [stream]);
+  const clearScreenshot = useCallback4(() => {
+    setScreenshotBlob(null);
+    setPageScreenshotBlob(null);
+    setScreenshotCleared(true);
+  }, []);
+  useEffect6(() => {
+    if (screenshotCleared || !pageScreenshotBlob) return;
+    let cancelled = false;
+    const bbox = lockedElement?.bounding_box;
+    if (captureMode === "element" && bbox && bbox.w > 0 && bbox.h > 0) {
+      void cropImageBlob(pageScreenshotBlob, bbox).then((cropped) => {
+        if (!cancelled) setScreenshotBlob(cropped);
+      });
+    } else {
+      setScreenshotBlob(pageScreenshotBlob);
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [captureMode, lockedElement, pageScreenshotBlob, screenshotCleared]);
   const sendUserMessage = useCallback4(
     async (content) => {
       const via = composerFromVoiceRef.current ? "voice" : "text";
@@ -2905,6 +3037,7 @@ function useFeedbackChat() {
     lockedElement,
     activeTab,
     screenshotBlob,
+    clearScreenshot,
     setMode,
     clearLocked,
     acceptLocked,
@@ -2926,7 +3059,7 @@ function useFeedbackChat() {
 }
 
 // src/chat/FeedbackChatSheet.tsx
-import { Fragment as Fragment3, jsx as jsx18, jsxs as jsxs14 } from "react/jsx-runtime";
+import { Fragment as Fragment4, jsx as jsx18, jsxs as jsxs14 } from "react/jsx-runtime";
 var _SHEET_WIDTH = "w-full sm:max-w-md md:max-w-lg lg:max-w-[520px]";
 function _thinkingLabel(state) {
   if (state === "synthesizing") return "Sintetizando\u2026";
@@ -2968,6 +3101,7 @@ function FeedbackChatSheet({
     lockedElement,
     activeTab,
     screenshotBlob,
+    clearScreenshot,
     setMode,
     clearLocked: clearHookLocked,
     acceptLocked,
@@ -3035,7 +3169,7 @@ function FeedbackChatSheet({
             onTabChange: selectTab
           }
         ) }),
-        activeTab === "compose" ? /* @__PURE__ */ jsxs14(Fragment3, { children: [
+        activeTab === "compose" ? /* @__PURE__ */ jsxs14(Fragment4, { children: [
           /* @__PURE__ */ jsx18("div", { className: "px-4 pb-2", children: /* @__PURE__ */ jsx18(
             CapturePicker,
             {
@@ -3046,7 +3180,15 @@ function FeedbackChatSheet({
               onModeChange: setMode
             }
           ) }),
-          /* @__PURE__ */ jsx18(CapturePreview, { blob: screenshotBlob }),
+          /* @__PURE__ */ jsx18(
+            CapturePreview,
+            {
+              blob: screenshotBlob,
+              mode: captureMode,
+              selector: lockedElement?.selector ?? null,
+              onClear: clearScreenshot
+            }
+          ),
           /* @__PURE__ */ jsxs14("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
             /* @__PURE__ */ jsx18(
               ChatTimeline,
@@ -3137,4 +3279,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-OYBFSBQG.js.map
+//# sourceMappingURL=chunk-DEBOJOBF.js.map
