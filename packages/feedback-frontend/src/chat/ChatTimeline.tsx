@@ -5,8 +5,14 @@
  * thinking. Crucially does NOT render `partial_text` — the streaming
  * delta events carry raw JSON, which the user must never see. We only
  * show a 3-dot thinking indicator while the bot is composing.
+ *
+ * Empty-state hint (post-baseline-audit 2026-05-15): when the timeline
+ * is empty (turn 0) we render a soft helper card below the greeting so
+ * the user understands the flow before they start typing — "Te haré
+ * 1-2 preguntas para entender qué buscas".
  */
 
+import { Sparkles } from "lucide-react";
 import { type ReactElement, useEffect, useRef } from "react";
 
 import { ChatBubble } from "./ChatBubble";
@@ -34,13 +40,30 @@ export function ChatTimeline({
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, isThinking]);
 
+  const isEmpty = messages.length === 0 && !isThinking;
+  const hasOnlyGreeting =
+    messages.length === 1 && messages[0]?.role === "assistant" && !isThinking;
+
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
       {messages.map((m, idx) => (
         <ChatBubble key={`${m.role}-${m.ts}-${idx}`} role={m.role} text={m.text} />
       ))}
       {isThinking ? <_ThinkingIndicator label={thinkingLabel} /> : null}
+      {(isEmpty || hasOnlyGreeting) ? <_HelperHint /> : null}
       <div ref={endRef} aria-hidden="true" />
+    </div>
+  );
+}
+
+function _HelperHint(): ReactElement {
+  return (
+    <div className="mx-auto mt-2 flex max-w-[85%] flex-col items-center gap-1 rounded-xl border border-dashed border-input/50 bg-muted/20 px-4 py-3 text-center">
+      <Sparkles className="h-4 w-4 text-primary/70" aria-hidden="true" />
+      <p className="text-xs text-muted-foreground">
+        Te haré 1-2 preguntas cortas para entender qué buscas. Empieza
+        contándome qué pasó.
+      </p>
     </div>
   );
 }

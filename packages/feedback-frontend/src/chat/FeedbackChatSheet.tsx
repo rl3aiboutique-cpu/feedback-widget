@@ -183,15 +183,17 @@ export function FeedbackChatSheet({
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className={`${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`}
+        className={`${_SHEET_WIDTH} flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0`}
         data-feedback-widget-root="true"
       >
-        <SheetHeader className="border-b border-input px-4 pt-4 pb-2">
-          <SheetTitle className="flex items-center gap-2">
+        <SheetHeader className="border-b border-input/60 px-4 pt-4 pb-3">
+          <SheetTitle className="flex items-center gap-2 text-base">
             <Rl3Mark className="h-6 w-6 shrink-0" />
             <span>{t("feedback.panel_title")}</span>
           </SheetTitle>
-          <SheetDescription className="text-xs">{t("feedback.panel_description")}</SheetDescription>
+          <SheetDescription className="text-xs text-muted-foreground/80">
+            {t("feedback.panel_description")}
+          </SheetDescription>
         </SheetHeader>
 
         <div className="px-4 pt-3 pb-2">

@@ -34,7 +34,7 @@ export const en: Record<string, string> = {
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
   "feedback.panel_description":
-    "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
+    "Tell us what's on your mind. We capture page context for triage.",
   "feedback.powered_by": "powered by",
   "feedback.powered_by_aria": "Powered by RL3 AI Agency",
 

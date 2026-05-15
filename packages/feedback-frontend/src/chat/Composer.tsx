@@ -9,6 +9,14 @@
  * `MediaRecorder` + `getUserMedia` (Safari < 14, HTTP-only origins) so
  * the chat still works text-only.
  *
+ * Modern UX (post-baseline-audit 2026-05-15):
+ *
+ *   - Elevated surface wraps the textarea + buttons so the composer
+ *     reads as a single tactile block rather than an inline strip.
+ *   - Focus ring on the wrapper highlights when the textarea has focus.
+ *   - Send button gradient activates only when text is present.
+ *   - Subtle hint row below ("⏎ envía · ⇧⏎ salto") gives quick guidance.
+ *
  * v1.0.0 chat-first (Claude-AI voice pattern): the Composer can be
  * **controlled** — pass `value` + `onValueChange` and the parent owns
  * the textarea state. This is what the voice flow needs: when a
@@ -66,6 +74,7 @@ export function Composer({
   autoFocus = false,
 }: ComposerProps): ReactElement {
   const [localValue, setLocalValue] = useState("");
+  const [focused, setFocused] = useState(false);
   const isControlled = valueProp !== undefined;
   const value = isControlled ? valueProp : localValue;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -76,12 +85,6 @@ export function Composer({
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
 
-  // When the parent flips autoFocus on (voice transcript just landed),
-  // move caret to end so Enter sends immediately and the user sees the
-  // cursor without hunting. The textarea's current value at the moment
-  // the effect runs already reflects the transcript because the parent
-  // updates `value` and `autoFocus` in the same React batch — reading
-  // it via the DOM ref avoids a redundant `value` dep that biome flags.
   useEffect(() => {
     if (!autoFocus) return;
     const el = textareaRef.current;
@@ -120,42 +123,65 @@ export function Composer({
     [submit],
   );
 
+  const hasText = value.trim().length > 0;
+
   return (
-    <div className="flex items-end gap-2 border-t border-input bg-background px-3 py-3">
-      <Textarea
-        ref={textareaRef}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={handleKeyDown}
-        disabled={disabled}
-        placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
-        rows={2}
-        className="max-h-40 min-h-[2.5rem] resize-none text-sm"
-        data-feedback-id="feedback.chat_composer"
-      />
-      {showVoice ? (
+    <div className="border-t border-input/60 bg-background/95 px-3 pb-2 pt-3 backdrop-blur">
+      <div
+        className={[
+          "flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5 transition",
+          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60",
+        ].join(" ")}
+      >
+        <Textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          disabled={disabled}
+          placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
+          rows={2}
+          className="max-h-40 min-h-[2.5rem] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+          data-feedback-id="feedback.chat_composer"
+        />
+        {showVoice ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={onVoiceToggle}
+            disabled={disabled}
+            aria-label="Grabar mensaje de voz"
+            data-feedback-id="feedback.chat_mic"
+            className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+        ) : null}
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onVoiceToggle}
-          disabled={disabled}
-          aria-label="Grabar mensaje de voz"
-          data-feedback-id="feedback.chat_mic"
+          size="icon"
+          onClick={() => void submit()}
+          disabled={disabled || !hasText}
+          aria-label="Enviar"
+          data-feedback-id="feedback.chat_send"
+          className={[
+            "h-9 w-9 shrink-0 rounded-full transition",
+            hasText
+              ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md"
+              : "bg-muted text-muted-foreground",
+          ].join(" ")}
         >
-          <Mic className="h-4 w-4" />
+          <SendHorizontal className="h-4 w-4" />
         </Button>
-      ) : null}
-      <Button
-        type="button"
-        size="sm"
-        onClick={() => void submit()}
-        disabled={disabled || value.trim().length === 0}
-        aria-label="Enviar"
-        data-feedback-id="feedback.chat_send"
-      >
-        <SendHorizontal className="h-4 w-4" />
-      </Button>
+      </div>
+      <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
+        <kbd className="rounded bg-muted/60 px-1 py-px text-foreground/80">⏎</kbd> envía
+        <span className="mx-1.5">·</span>
+        <kbd className="rounded bg-muted/60 px-1 py-px text-foreground/80">⇧⏎</kbd> nueva línea
+      </p>
     </div>
   );
 }

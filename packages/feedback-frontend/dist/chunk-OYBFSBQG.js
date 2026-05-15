@@ -42,7 +42,7 @@ var en = {
   "feedback.comments.you_label": "You",
   "feedback.button_label": "Feedback",
   "feedback.panel_title": "RL3 Feedback",
-  "feedback.panel_description": "Tell us what's happening, what you'd expect instead, and attach anything that helps. We capture page URL and basic context to help triage.",
+  "feedback.panel_description": "Tell us what's on your mind. We capture page context for triage.",
   "feedback.powered_by": "powered by",
   "feedback.powered_by_aria": "Powered by RL3 AI Agency",
   "feedback.optional": "optional",
@@ -688,10 +688,241 @@ function SheetDescription({
   );
 }
 
+// src/chat/CapturePicker.tsx
+import { Image as ImageIcon, MousePointer2, X } from "lucide-react";
+import { jsx as jsx4, jsxs as jsxs3 } from "react/jsx-runtime";
+function CapturePicker({
+  mode,
+  locked,
+  onActivatePicker,
+  onClearLocked,
+  onModeChange,
+  readOnly = false
+}) {
+  const adapter = useFeedbackAdapter();
+  const t = adapter.useTranslation();
+  if (readOnly) {
+    return /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 text-[11px] text-muted-foreground", children: [
+      /* @__PURE__ */ jsx4("span", { className: "uppercase tracking-wide", children: t("feedback.mode_label") }),
+      mode === "element" && locked ? /* @__PURE__ */ jsxs3("code", { className: "font-mono truncate max-w-[220px] rounded bg-muted px-1.5 py-0.5", children: [
+        /* @__PURE__ */ jsx4(MousePointer2, { className: "mr-1 inline h-3 w-3" }),
+        locked.selector
+      ] }) : /* @__PURE__ */ jsxs3("span", { className: "inline-flex items-center gap-1 rounded bg-muted px-1.5 py-0.5", children: [
+        /* @__PURE__ */ jsx4(ImageIcon, { className: "h-3 w-3" }),
+        t("feedback.mode_whole_page")
+      ] })
+    ] });
+  }
+  return /* @__PURE__ */ jsxs3("div", { className: "flex flex-wrap items-center gap-2", children: [
+    /* @__PURE__ */ jsx4("span", { className: "text-[10px] uppercase tracking-wider text-muted-foreground", children: t("feedback.mode_label") }),
+    /* @__PURE__ */ jsxs3("div", { className: "inline-flex items-center rounded-full border border-input/60 bg-muted/30 p-0.5", children: [
+      /* @__PURE__ */ jsxs3(
+        "button",
+        {
+          type: "button",
+          onClick: () => {
+            onModeChange("page");
+            onClearLocked();
+          },
+          "data-feedback-id": "feedback.mode_whole_page",
+          className: [
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition",
+            mode === "page" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          ].join(" "),
+          children: [
+            /* @__PURE__ */ jsx4(ImageIcon, { className: "h-3.5 w-3.5" }),
+            t("feedback.mode_whole_page")
+          ]
+        }
+      ),
+      /* @__PURE__ */ jsxs3(
+        "button",
+        {
+          type: "button",
+          onClick: onActivatePicker,
+          "data-feedback-id": "feedback.mode_select_element",
+          className: [
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition",
+            mode === "element" ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+          ].join(" "),
+          children: [
+            /* @__PURE__ */ jsx4(MousePointer2, { className: "h-3.5 w-3.5" }),
+            t("feedback.mode_select_element")
+          ]
+        }
+      )
+    ] }),
+    mode === "element" && locked ? /* @__PURE__ */ jsxs3("span", { className: "ml-auto inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px]", children: [
+      /* @__PURE__ */ jsx4("code", { className: "font-mono truncate max-w-[180px]", children: locked.selector }),
+      /* @__PURE__ */ jsx4(
+        "button",
+        {
+          type: "button",
+          onClick: () => {
+            onClearLocked();
+            onModeChange("page");
+          },
+          className: "rounded-full p-0.5 text-primary hover:bg-primary/20",
+          "data-feedback-id": "feedback.clear_element",
+          "aria-label": "Clear locked element",
+          children: /* @__PURE__ */ jsx4(X, { className: "h-3 w-3" })
+        }
+      )
+    ] }) : null
+  ] });
+}
+
+// src/chat/CapturePreview.tsx
+import { Image as ImageIcon2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
+function formatBytes(size) {
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+function CapturePreview({ blob }) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!blob) {
+      setUrl(null);
+      return;
+    }
+    const next = URL.createObjectURL(blob);
+    setUrl(next);
+    return () => {
+      URL.revokeObjectURL(next);
+    };
+  }, [blob]);
+  if (!blob || !url) {
+    return null;
+  }
+  return /* @__PURE__ */ jsxs4("div", { className: "mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2", children: [
+    /* @__PURE__ */ jsx5(
+      "a",
+      {
+        href: url,
+        target: "_blank",
+        rel: "noopener noreferrer",
+        className: "block shrink-0 overflow-hidden rounded border border-input",
+        "aria-label": "Abrir captura en tama\xF1o completo",
+        children: /* @__PURE__ */ jsx5(
+          "img",
+          {
+            src: url,
+            alt: "Captura de la pantalla",
+            className: "h-16 w-24 object-cover"
+          }
+        )
+      }
+    ),
+    /* @__PURE__ */ jsxs4("div", { className: "flex min-w-0 flex-1 flex-col gap-0.5", children: [
+      /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1 text-xs font-medium text-foreground", children: [
+        /* @__PURE__ */ jsx5(ImageIcon2, { className: "h-3 w-3" }),
+        "Captura adjunta"
+      ] }),
+      /* @__PURE__ */ jsxs4("span", { className: "text-[10px] text-muted-foreground", children: [
+        formatBytes(blob.size),
+        " \xB7 click para ampliar"
+      ] })
+    ] })
+  ] });
+}
+
+// src/chat/ChatTimeline.tsx
+import { Sparkles } from "lucide-react";
+import { useEffect as useEffect2, useRef } from "react";
+
+// src/chat/ChatBubble.tsx
+import { Users } from "lucide-react";
+import { jsx as jsx6, jsxs as jsxs5 } from "react/jsx-runtime";
+function AssistantAvatar() {
+  return /* @__PURE__ */ jsx6(
+    "div",
+    {
+      className: "flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-primary/90 to-primary/60 text-[10px] font-bold text-primary-foreground shadow-sm",
+      "aria-hidden": "true",
+      children: "RL3"
+    }
+  );
+}
+function ChatBubble({ role, text, caption }) {
+  const isUser = role === "user";
+  const isAdmin = role === "admin";
+  const isAssistant = role === "assistant";
+  const bubbleClass = isUser ? "rounded-2xl rounded-tr-md border-primary/30 bg-primary/10 text-foreground" : isAdmin ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/10 text-foreground" : "rounded-2xl rounded-tl-md border-input/60 bg-muted/60 text-foreground shadow-sm";
+  return /* @__PURE__ */ jsxs5("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: [
+    isAssistant || isAdmin ? /* @__PURE__ */ jsx6("div", { className: "mr-2 mt-0.5", children: /* @__PURE__ */ jsx6(AssistantAvatar, {}) }) : null,
+    /* @__PURE__ */ jsxs5("div", { className: `flex max-w-[78%] flex-col gap-1 ${isUser ? "items-end" : "items-start"}`, children: [
+      isAdmin && caption ? /* @__PURE__ */ jsxs5("span", { className: "inline-flex items-center gap-1 text-[10px] font-medium text-violet-700", children: [
+        /* @__PURE__ */ jsx6(Users, { className: "h-3 w-3", "aria-hidden": "true" }),
+        caption
+      ] }) : null,
+      /* @__PURE__ */ jsx6(
+        "div",
+        {
+          className: [
+            "whitespace-pre-wrap break-words border px-3.5 py-2 text-sm leading-relaxed",
+            bubbleClass
+          ].join(" "),
+          "data-feedback-id": isAdmin ? "feedback.chat_bubble.admin" : isAssistant ? "feedback.chat_bubble.assistant" : "feedback.chat_bubble.user",
+          children: text
+        }
+      )
+    ] })
+  ] });
+}
+
+// src/chat/ChatTimeline.tsx
+import { jsx as jsx7, jsxs as jsxs6 } from "react/jsx-runtime";
+function ChatTimeline({
+  messages,
+  isThinking = false,
+  thinkingLabel
+}) {
+  const endRef = useRef(null);
+  useEffect2(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages.length, isThinking]);
+  const isEmpty = messages.length === 0 && !isThinking;
+  const hasOnlyGreeting = messages.length === 1 && messages[0]?.role === "assistant" && !isThinking;
+  return /* @__PURE__ */ jsxs6("div", { className: "flex flex-col gap-3 px-4 py-3", children: [
+    messages.map((m, idx) => /* @__PURE__ */ jsx7(ChatBubble, { role: m.role, text: m.text }, `${m.role}-${m.ts}-${idx}`)),
+    isThinking ? /* @__PURE__ */ jsx7(_ThinkingIndicator, { label: thinkingLabel }) : null,
+    isEmpty || hasOnlyGreeting ? /* @__PURE__ */ jsx7(_HelperHint, {}) : null,
+    /* @__PURE__ */ jsx7("div", { ref: endRef, "aria-hidden": "true" })
+  ] });
+}
+function _HelperHint() {
+  return /* @__PURE__ */ jsxs6("div", { className: "mx-auto mt-2 flex max-w-[85%] flex-col items-center gap-1 rounded-xl border border-dashed border-input/50 bg-muted/20 px-4 py-3 text-center", children: [
+    /* @__PURE__ */ jsx7(Sparkles, { className: "h-4 w-4 text-primary/70", "aria-hidden": "true" }),
+    /* @__PURE__ */ jsx7("p", { className: "text-xs text-muted-foreground", children: "Te har\xE9 1-2 preguntas cortas para entender qu\xE9 buscas. Empieza cont\xE1ndome qu\xE9 pas\xF3." })
+  ] });
+}
+function _ThinkingIndicator({ label }) {
+  return /* @__PURE__ */ jsx7("div", { className: "flex w-full justify-start", children: /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2 rounded-2xl border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground", children: [
+    /* @__PURE__ */ jsxs6("span", { className: "flex items-center gap-1", "aria-hidden": "true", children: [
+      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" }),
+      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" }),
+      /* @__PURE__ */ jsx7("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current" })
+    ] }),
+    label ? /* @__PURE__ */ jsx7("span", { className: "text-xs", children: label }) : null
+  ] }) });
+}
+
+// src/chat/Composer.tsx
+import { Mic, SendHorizontal } from "lucide-react";
+import {
+  useCallback as useCallback2,
+  useEffect as useEffect4,
+  useRef as useRef3,
+  useState as useState3
+} from "react";
+
 // src/ui/button.tsx
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
-import { jsx as jsx4 } from "react/jsx-runtime";
+import { jsx as jsx8 } from "react/jsx-runtime";
 var buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
   {
@@ -727,7 +958,7 @@ function Button({
   ...props
 }) {
   const Comp = asChild ? Slot : "button";
-  return /* @__PURE__ */ jsx4(
+  return /* @__PURE__ */ jsx8(
     Comp,
     {
       "data-slot": "button",
@@ -736,201 +967,6 @@ function Button({
     }
   );
 }
-
-// src/chat/CapturePicker.tsx
-import { jsx as jsx5, jsxs as jsxs3 } from "react/jsx-runtime";
-function CapturePicker({
-  mode,
-  locked,
-  onActivatePicker,
-  onClearLocked,
-  onModeChange,
-  readOnly = false
-}) {
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
-  if (readOnly) {
-    return /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 text-[11px] text-muted-foreground", children: [
-      /* @__PURE__ */ jsx5("span", { className: "uppercase tracking-wide", children: t("feedback.mode_label") }),
-      mode === "element" && locked ? /* @__PURE__ */ jsxs3("code", { className: "font-mono truncate max-w-[220px] rounded bg-muted px-1.5 py-0.5", children: [
-        "\u{1F4CD} ",
-        locked.selector
-      ] }) : /* @__PURE__ */ jsxs3("span", { className: "rounded bg-muted px-1.5 py-0.5", children: [
-        "\u{1F310} ",
-        t("feedback.mode_whole_page")
-      ] })
-    ] });
-  }
-  return /* @__PURE__ */ jsxs3("div", { className: "flex flex-wrap items-center gap-2", children: [
-    /* @__PURE__ */ jsx5("span", { className: "text-[11px] uppercase tracking-wide text-muted-foreground", children: t("feedback.mode_label") }),
-    /* @__PURE__ */ jsx5(
-      Button,
-      {
-        type: "button",
-        variant: mode === "page" ? "default" : "outline",
-        size: "sm",
-        onClick: () => {
-          onModeChange("page");
-          onClearLocked();
-        },
-        "data-feedback-id": "feedback.mode_whole_page",
-        children: t("feedback.mode_whole_page")
-      }
-    ),
-    /* @__PURE__ */ jsx5(
-      Button,
-      {
-        type: "button",
-        variant: mode === "element" ? "default" : "outline",
-        size: "sm",
-        onClick: onActivatePicker,
-        "data-feedback-id": "feedback.mode_select_element",
-        children: t("feedback.mode_select_element")
-      }
-    ),
-    mode === "element" && locked ? /* @__PURE__ */ jsxs3("span", { className: "ml-auto inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px]", children: [
-      /* @__PURE__ */ jsx5("code", { className: "font-mono truncate max-w-[180px]", children: locked.selector }),
-      /* @__PURE__ */ jsx5(
-        "button",
-        {
-          type: "button",
-          onClick: () => {
-            onClearLocked();
-            onModeChange("page");
-          },
-          className: "text-primary underline-offset-2 hover:underline",
-          "data-feedback-id": "feedback.clear_element",
-          "aria-label": "Clear locked element",
-          children: "\u2715"
-        }
-      )
-    ] }) : null
-  ] });
-}
-
-// src/chat/CapturePreview.tsx
-import { Image as ImageIcon } from "lucide-react";
-import { useEffect, useState } from "react";
-import { jsx as jsx6, jsxs as jsxs4 } from "react/jsx-runtime";
-function formatBytes(size) {
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`;
-  return `${(size / 1024 / 1024).toFixed(1)} MB`;
-}
-function CapturePreview({ blob }) {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    if (!blob) {
-      setUrl(null);
-      return;
-    }
-    const next = URL.createObjectURL(blob);
-    setUrl(next);
-    return () => {
-      URL.revokeObjectURL(next);
-    };
-  }, [blob]);
-  if (!blob || !url) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxs4("div", { className: "mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2", children: [
-    /* @__PURE__ */ jsx6(
-      "a",
-      {
-        href: url,
-        target: "_blank",
-        rel: "noopener noreferrer",
-        className: "block shrink-0 overflow-hidden rounded border border-input",
-        "aria-label": "Abrir captura en tama\xF1o completo",
-        children: /* @__PURE__ */ jsx6(
-          "img",
-          {
-            src: url,
-            alt: "Captura de la pantalla",
-            className: "h-16 w-24 object-cover"
-          }
-        )
-      }
-    ),
-    /* @__PURE__ */ jsxs4("div", { className: "flex min-w-0 flex-1 flex-col gap-0.5", children: [
-      /* @__PURE__ */ jsxs4("span", { className: "flex items-center gap-1 text-xs font-medium text-foreground", children: [
-        /* @__PURE__ */ jsx6(ImageIcon, { className: "h-3 w-3" }),
-        "Captura adjunta"
-      ] }),
-      /* @__PURE__ */ jsxs4("span", { className: "text-[10px] text-muted-foreground", children: [
-        formatBytes(blob.size),
-        " \xB7 click para ampliar"
-      ] })
-    ] })
-  ] });
-}
-
-// src/chat/ChatTimeline.tsx
-import { useEffect as useEffect2, useRef } from "react";
-
-// src/chat/ChatBubble.tsx
-import { Users } from "lucide-react";
-import { jsx as jsx7, jsxs as jsxs5 } from "react/jsx-runtime";
-function ChatBubble({ role, text, caption }) {
-  const isUser = role === "user";
-  const isAdmin = role === "admin";
-  const isAssistant = role === "assistant";
-  const bubbleClass = isUser ? "border-primary/30 bg-primary/10 text-foreground" : isAdmin ? "border-violet-500/40 bg-violet-500/10 text-foreground" : "border-input bg-muted/40 text-foreground";
-  return /* @__PURE__ */ jsx7("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: /* @__PURE__ */ jsxs5("div", { className: "flex max-w-[85%] flex-col gap-1", children: [
-    isAdmin && caption ? /* @__PURE__ */ jsxs5("span", { className: "inline-flex items-center gap-1 text-[10px] font-medium text-violet-700", children: [
-      /* @__PURE__ */ jsx7(Users, { className: "h-3 w-3", "aria-hidden": "true" }),
-      caption
-    ] }) : null,
-    /* @__PURE__ */ jsx7(
-      "div",
-      {
-        className: [
-          "whitespace-pre-wrap break-words rounded-2xl border px-3 py-2 text-sm leading-snug",
-          bubbleClass
-        ].join(" "),
-        "data-feedback-id": isAdmin ? "feedback.chat_bubble.admin" : isAssistant ? "feedback.chat_bubble.assistant" : "feedback.chat_bubble.user",
-        children: text
-      }
-    )
-  ] }) });
-}
-
-// src/chat/ChatTimeline.tsx
-import { jsx as jsx8, jsxs as jsxs6 } from "react/jsx-runtime";
-function ChatTimeline({
-  messages,
-  isThinking = false,
-  thinkingLabel
-}) {
-  const endRef = useRef(null);
-  useEffect2(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [messages.length, isThinking]);
-  return /* @__PURE__ */ jsxs6("div", { className: "flex flex-col gap-3 px-4 py-3", children: [
-    messages.map((m, idx) => /* @__PURE__ */ jsx8(ChatBubble, { role: m.role, text: m.text }, `${m.role}-${m.ts}-${idx}`)),
-    isThinking ? /* @__PURE__ */ jsx8(_ThinkingIndicator, { label: thinkingLabel }) : null,
-    /* @__PURE__ */ jsx8("div", { ref: endRef, "aria-hidden": "true" })
-  ] });
-}
-function _ThinkingIndicator({ label }) {
-  return /* @__PURE__ */ jsx8("div", { className: "flex w-full justify-start", children: /* @__PURE__ */ jsxs6("div", { className: "flex items-center gap-2 rounded-2xl border border-input bg-muted/40 px-3 py-2 text-sm text-muted-foreground", children: [
-    /* @__PURE__ */ jsxs6("span", { className: "flex items-center gap-1", "aria-hidden": "true", children: [
-      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.3s]" }),
-      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current [animation-delay:-0.15s]" }),
-      /* @__PURE__ */ jsx8("span", { className: "h-1.5 w-1.5 animate-bounce rounded-full bg-current" })
-    ] }),
-    label ? /* @__PURE__ */ jsx8("span", { className: "text-xs", children: label }) : null
-  ] }) });
-}
-
-// src/chat/Composer.tsx
-import { Mic, SendHorizontal } from "lucide-react";
-import {
-  useCallback as useCallback2,
-  useEffect as useEffect4,
-  useRef as useRef3,
-  useState as useState3
-} from "react";
 
 // src/ui/textarea.tsx
 import { jsx as jsx9 } from "react/jsx-runtime";
@@ -1272,6 +1308,7 @@ function Composer({
   autoFocus = false
 }) {
   const [localValue, setLocalValue] = useState3("");
+  const [focused, setFocused] = useState3(false);
   const isControlled = valueProp !== void 0;
   const value = isControlled ? valueProp : localValue;
   const textareaRef = useRef3(null);
@@ -1310,46 +1347,72 @@ function Composer({
     },
     [submit]
   );
-  return /* @__PURE__ */ jsxs7("div", { className: "flex items-end gap-2 border-t border-input bg-background px-3 py-3", children: [
-    /* @__PURE__ */ jsx10(
-      Textarea,
+  const hasText = value.trim().length > 0;
+  return /* @__PURE__ */ jsxs7("div", { className: "border-t border-input/60 bg-background/95 px-3 pb-2 pt-3 backdrop-blur", children: [
+    /* @__PURE__ */ jsxs7(
+      "div",
       {
-        ref: textareaRef,
-        value,
-        onChange: (e) => setValue(e.target.value),
-        onKeyDown: handleKeyDown,
-        disabled,
-        placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
-        rows: 2,
-        className: "max-h-40 min-h-[2.5rem] resize-none text-sm",
-        "data-feedback-id": "feedback.chat_composer"
+        className: [
+          "flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5 transition",
+          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60"
+        ].join(" "),
+        children: [
+          /* @__PURE__ */ jsx10(
+            Textarea,
+            {
+              ref: textareaRef,
+              value,
+              onChange: (e) => setValue(e.target.value),
+              onKeyDown: handleKeyDown,
+              onFocus: () => setFocused(true),
+              onBlur: () => setFocused(false),
+              disabled,
+              placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
+              rows: 2,
+              className: "max-h-40 min-h-[2.5rem] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0",
+              "data-feedback-id": "feedback.chat_composer"
+            }
+          ),
+          showVoice ? /* @__PURE__ */ jsx10(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "icon",
+              onClick: onVoiceToggle,
+              disabled,
+              "aria-label": "Grabar mensaje de voz",
+              "data-feedback-id": "feedback.chat_mic",
+              className: "h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
+              children: /* @__PURE__ */ jsx10(Mic, { className: "h-4 w-4" })
+            }
+          ) : null,
+          /* @__PURE__ */ jsx10(
+            Button,
+            {
+              type: "button",
+              size: "icon",
+              onClick: () => void submit(),
+              disabled: disabled || !hasText,
+              "aria-label": "Enviar",
+              "data-feedback-id": "feedback.chat_send",
+              className: [
+                "h-9 w-9 shrink-0 rounded-full transition",
+                hasText ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md" : "bg-muted text-muted-foreground"
+              ].join(" "),
+              children: /* @__PURE__ */ jsx10(SendHorizontal, { className: "h-4 w-4" })
+            }
+          )
+        ]
       }
     ),
-    showVoice ? /* @__PURE__ */ jsx10(
-      Button,
-      {
-        type: "button",
-        variant: "ghost",
-        size: "sm",
-        onClick: onVoiceToggle,
-        disabled,
-        "aria-label": "Grabar mensaje de voz",
-        "data-feedback-id": "feedback.chat_mic",
-        children: /* @__PURE__ */ jsx10(Mic, { className: "h-4 w-4" })
-      }
-    ) : null,
-    /* @__PURE__ */ jsx10(
-      Button,
-      {
-        type: "button",
-        size: "sm",
-        onClick: () => void submit(),
-        disabled: disabled || value.trim().length === 0,
-        "aria-label": "Enviar",
-        "data-feedback-id": "feedback.chat_send",
-        children: /* @__PURE__ */ jsx10(SendHorizontal, { className: "h-4 w-4" })
-      }
-    )
+    /* @__PURE__ */ jsxs7("p", { className: "mt-1.5 px-1 text-[10px] text-muted-foreground", children: [
+      /* @__PURE__ */ jsx10("kbd", { className: "rounded bg-muted/60 px-1 py-px text-foreground/80", children: "\u23CE" }),
+      " env\xEDa",
+      /* @__PURE__ */ jsx10("span", { className: "mx-1.5", children: "\xB7" }),
+      /* @__PURE__ */ jsx10("kbd", { className: "rounded bg-muted/60 px-1 py-px text-foreground/80", children: "\u21E7\u23CE" }),
+      " nueva l\xEDnea"
+    ] })
   ] });
 }
 
@@ -1734,7 +1797,7 @@ function TicketDetail({ feedbackId, onBack }) {
 }
 
 // src/chat/VoiceRecorder.tsx
-import { Check as Check2, Loader2 as Loader22, X } from "lucide-react";
+import { Check as Check2, Loader2 as Loader22, X as X2 } from "lucide-react";
 import { useEffect as useEffect5, useRef as useRef4 } from "react";
 import { Fragment as Fragment2, jsx as jsx17, jsxs as jsxs13 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 3e4;
@@ -1826,7 +1889,7 @@ function VoiceRecorder({
             "aria-label": "Descartar grabaci\xF3n",
             "data-feedback-id": "feedback.voice_cancel",
             className: "rounded-full",
-            children: /* @__PURE__ */ jsx17(X, { className: "h-4 w-4" })
+            children: /* @__PURE__ */ jsx17(X2, { className: "h-4 w-4" })
           }
         ),
         /* @__PURE__ */ jsx17("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
@@ -2954,15 +3017,15 @@ function FeedbackChatSheet({
     SheetContent,
     {
       side: "right",
-      className: `${_SHEET_WIDTH} flex h-full flex-col gap-0 p-0`,
+      className: `${_SHEET_WIDTH} flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0`,
       "data-feedback-widget-root": "true",
       children: [
-        /* @__PURE__ */ jsxs14(SheetHeader, { className: "border-b border-input px-4 pt-4 pb-2", children: [
-          /* @__PURE__ */ jsxs14(SheetTitle, { className: "flex items-center gap-2", children: [
+        /* @__PURE__ */ jsxs14(SheetHeader, { className: "border-b border-input/60 px-4 pt-4 pb-3", children: [
+          /* @__PURE__ */ jsxs14(SheetTitle, { className: "flex items-center gap-2 text-base", children: [
             /* @__PURE__ */ jsx18(Rl3Mark, { className: "h-6 w-6 shrink-0" }),
             /* @__PURE__ */ jsx18("span", { children: t("feedback.panel_title") })
           ] }),
-          /* @__PURE__ */ jsx18(SheetDescription, { className: "text-xs", children: t("feedback.panel_description") })
+          /* @__PURE__ */ jsx18(SheetDescription, { className: "text-xs text-muted-foreground/80", children: t("feedback.panel_description") })
         ] }),
         /* @__PURE__ */ jsx18("div", { className: "px-4 pt-3 pb-2", children: /* @__PURE__ */ jsx18(
           FeedbackTabs,
@@ -3074,4 +3137,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-AGYE2PMW.js.map
+//# sourceMappingURL=chunk-OYBFSBQG.js.map

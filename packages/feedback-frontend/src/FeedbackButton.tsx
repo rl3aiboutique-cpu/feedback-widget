@@ -89,8 +89,15 @@ export function FeedbackButton(): React.ReactElement | null {
     ? ({ "--feedback-brand": config.brandPrimaryHex } as React.CSSProperties)
     : undefined;
 
+  // Hide the floating launcher whenever the sheet is open (post-baseline
+  // audit 2026-05-15) — otherwise it overlaps the lower-right of the
+  // Sheet content and clutters the UX.
+  const sheetActuallyOpen = open && !pickerActive;
+  const launcherHidden = sheetActuallyOpen;
+
   return (
     <div data-feedback-widget-root="true">
+      {launcherHidden ? null : (
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -123,6 +130,7 @@ export function FeedbackButton(): React.ReactElement | null {
         </span>
         <span className="text-sm font-semibold">{t("feedback.button_label")}</span>
       </button>
+      )}
 
       {/* v1.0.0 (S3F shell-hybrid) — the chat sheet is the only path.
           The sheet stays mounted while `pickerActive` is true so the

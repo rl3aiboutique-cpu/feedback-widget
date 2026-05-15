@@ -33,7 +33,7 @@ import {
   useMyFeedbackQuery,
   usePostFeedbackCommentMutation,
   useUpdateFeedbackStatusMutation
-} from "./chunk-AGYE2PMW.js";
+} from "./chunk-OYBFSBQG.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -1270,7 +1270,7 @@ function useMyPendingActionCount() {
 // src/FeedbackButton.tsx
 import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-TK5KUBIB.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-GOT5MFYU.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -1305,8 +1305,10 @@ function FeedbackButton() {
   if (!config.enabled) return null;
   const cornerClass = POSITION_CLASSES[config.position] ?? POSITION_CLASSES.bottom_right;
   const accentStyle = config.brandPrimaryHex ? { "--feedback-brand": config.brandPrimaryHex } : void 0;
+  const sheetActuallyOpen = open && !pickerActive;
+  const launcherHidden = sheetActuallyOpen;
   return /* @__PURE__ */ jsxs6("div", { "data-feedback-widget-root": "true", children: [
-    /* @__PURE__ */ jsxs6(
+    launcherHidden ? null : /* @__PURE__ */ jsxs6(
       "button",
       {
         type: "button",
