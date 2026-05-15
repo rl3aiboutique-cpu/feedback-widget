@@ -1020,24 +1020,6 @@ function Button({
   );
 }
 
-// src/ui/textarea.tsx
-import { jsx as jsx9 } from "react/jsx-runtime";
-function Textarea({ className, ...props }) {
-  return /* @__PURE__ */ jsx9(
-    "textarea",
-    {
-      "data-slot": "textarea",
-      className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      ),
-      ...props
-    }
-  );
-}
-
 // src/chat/useVoiceCapture.ts
 import { useCallback, useEffect as useEffect3, useRef as useRef2, useState as useState2 } from "react";
 var _MAX_DURATION_MS = 3e4;
@@ -1348,8 +1330,10 @@ function useVoiceCapture() {
 }
 
 // src/chat/Composer.tsx
-import { jsx as jsx10, jsxs as jsxs7 } from "react/jsx-runtime";
+import { jsx as jsx9, jsxs as jsxs7 } from "react/jsx-runtime";
 var DEFAULT_PLACEHOLDER = "Escribe lo que tienes en mente\u2026";
+var MIN_TEXTAREA_HEIGHT = 24;
+var MAX_TEXTAREA_HEIGHT = 160;
 function Composer({
   onSend,
   disabled = false,
@@ -1366,6 +1350,16 @@ function Composer({
   const textareaRef = useRef3(null);
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
+  useEffect4(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(
+      MAX_TEXTAREA_HEIGHT,
+      Math.max(MIN_TEXTAREA_HEIGHT, el.scrollHeight)
+    );
+    el.style.height = `${next}px`;
+  }, [value]);
   useEffect4(() => {
     if (!autoFocus) return;
     const el = textareaRef.current;
@@ -1400,76 +1394,68 @@ function Composer({
     [submit]
   );
   const hasText = value.trim().length > 0;
-  return /* @__PURE__ */ jsxs7("div", { className: "border-t border-input/60 bg-background/95 px-3 pb-2 pt-3 backdrop-blur", children: [
-    /* @__PURE__ */ jsxs7(
-      "div",
-      {
-        className: [
-          "flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5 transition",
-          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60"
-        ].join(" "),
-        children: [
-          /* @__PURE__ */ jsx10(
-            Textarea,
-            {
-              ref: textareaRef,
-              value,
-              onChange: (e) => setValue(e.target.value),
-              onKeyDown: handleKeyDown,
-              onFocus: () => setFocused(true),
-              onBlur: () => setFocused(false),
-              disabled,
-              placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
-              rows: 2,
-              className: "max-h-40 min-h-[2.5rem] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0",
-              "data-feedback-id": "feedback.chat_composer"
-            }
-          ),
-          showVoice ? /* @__PURE__ */ jsx10(
-            Button,
-            {
-              type: "button",
-              variant: "ghost",
-              size: "icon",
-              onClick: onVoiceToggle,
-              disabled,
-              "aria-label": "Grabar mensaje de voz",
-              "data-feedback-id": "feedback.chat_mic",
-              className: "h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
-              children: /* @__PURE__ */ jsx10(Mic, { className: "h-4 w-4" })
-            }
-          ) : null,
-          /* @__PURE__ */ jsx10(
-            Button,
-            {
-              type: "button",
-              size: "icon",
-              onClick: () => void submit(),
-              disabled: disabled || !hasText,
-              "aria-label": "Enviar",
-              "data-feedback-id": "feedback.chat_send",
-              className: [
-                "h-9 w-9 shrink-0 rounded-full transition",
-                hasText ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md" : "bg-muted text-muted-foreground"
-              ].join(" "),
-              children: /* @__PURE__ */ jsx10(SendHorizontal, { className: "h-4 w-4" })
-            }
-          )
-        ]
-      }
-    ),
-    /* @__PURE__ */ jsxs7("p", { className: "mt-1.5 px-1 text-[10px] text-muted-foreground", children: [
-      /* @__PURE__ */ jsx10("kbd", { className: "rounded bg-muted/60 px-1 py-px text-foreground/80", children: "\u23CE" }),
-      " env\xEDa",
-      /* @__PURE__ */ jsx10("span", { className: "mx-1.5", children: "\xB7" }),
-      /* @__PURE__ */ jsx10("kbd", { className: "rounded bg-muted/60 px-1 py-px text-foreground/80", children: "\u21E7\u23CE" }),
-      " nueva l\xEDnea"
-    ] })
-  ] });
+  return /* @__PURE__ */ jsx9("div", { className: "border-t border-input/40 bg-background/95 px-3 py-3 backdrop-blur", children: /* @__PURE__ */ jsxs7(
+    "div",
+    {
+      className: [
+        "flex items-center gap-1 rounded-full border bg-muted/30 px-3 py-1.5 transition",
+        focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/50"
+      ].join(" "),
+      children: [
+        /* @__PURE__ */ jsx9(
+          "textarea",
+          {
+            ref: textareaRef,
+            value,
+            onChange: (e) => setValue(e.target.value),
+            onKeyDown: handleKeyDown,
+            onFocus: () => setFocused(true),
+            onBlur: () => setFocused(false),
+            disabled,
+            placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
+            rows: 1,
+            className: "flex-1 resize-none border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50",
+            style: { minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` },
+            "data-feedback-id": "feedback.chat_composer"
+          }
+        ),
+        showVoice ? /* @__PURE__ */ jsx9(
+          Button,
+          {
+            type: "button",
+            variant: "ghost",
+            size: "icon",
+            onClick: onVoiceToggle,
+            disabled,
+            "aria-label": "Grabar mensaje de voz",
+            "data-feedback-id": "feedback.chat_mic",
+            className: "h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
+            children: /* @__PURE__ */ jsx9(Mic, { className: "h-4 w-4" })
+          }
+        ) : null,
+        /* @__PURE__ */ jsx9(
+          Button,
+          {
+            type: "button",
+            size: "icon",
+            onClick: () => void submit(),
+            disabled: disabled || !hasText,
+            "aria-label": "Enviar",
+            "data-feedback-id": "feedback.chat_send",
+            className: [
+              "h-8 w-8 shrink-0 rounded-full transition",
+              hasText ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md" : "bg-muted text-muted-foreground"
+            ].join(" "),
+            children: /* @__PURE__ */ jsx9(SendHorizontal, { className: "h-4 w-4" })
+          }
+        )
+      ]
+    }
+  ) });
 }
 
 // src/chat/FeedbackTabs.tsx
-import { jsx as jsx11, jsxs as jsxs8 } from "react/jsx-runtime";
+import { jsx as jsx10, jsxs as jsxs8 } from "react/jsx-runtime";
 function FeedbackTabs({
   activeTab,
   mineTotalCount,
@@ -1482,7 +1468,7 @@ function FeedbackTabs({
       className: "grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium",
       role: "tablist",
       children: [
-        /* @__PURE__ */ jsx11(
+        /* @__PURE__ */ jsx10(
           "button",
           {
             type: "button",
@@ -1504,8 +1490,8 @@ function FeedbackTabs({
             className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.mine",
             children: [
-              /* @__PURE__ */ jsx11("span", { children: "\u{1F4CB} Mis feedbacks" }),
-              mineTotalCount > 0 ? /* @__PURE__ */ jsx11(
+              /* @__PURE__ */ jsx10("span", { children: "\u{1F4CB} Mis feedbacks" }),
+              mineTotalCount > 0 ? /* @__PURE__ */ jsx10(
                 "span",
                 {
                   className: `rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${unreadAdminRepliesCount > 0 ? "bg-primary text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"}`,
@@ -1523,7 +1509,7 @@ function FeedbackTabs({
 
 // src/chat/FooterActions.tsx
 import { Check, Loader2, RotateCcw } from "lucide-react";
-import { jsx as jsx12, jsxs as jsxs9 } from "react/jsx-runtime";
+import { jsx as jsx11, jsxs as jsxs9 } from "react/jsx-runtime";
 function FooterActions({
   state,
   onConfirm,
@@ -1531,7 +1517,7 @@ function FooterActions({
   onRetry
 }) {
   if (state === "error") {
-    return /* @__PURE__ */ jsx12("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: /* @__PURE__ */ jsx12(Button, { type: "button", variant: "default", onClick: onRetry, className: "w-full", children: "\u21BB Reintentar" }) });
+    return /* @__PURE__ */ jsx11("div", { className: "flex gap-2 px-3 py-3 border-t border-border bg-background", children: /* @__PURE__ */ jsx11(Button, { type: "button", variant: "default", onClick: onRetry, className: "w-full", children: "\u21BB Reintentar" }) });
   }
   if (state === "confirming" || state === "synthesizing" || state === "finalizing") {
     const disabled = state !== "confirming";
@@ -1546,7 +1532,7 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.adjust",
           children: [
-            state === "synthesizing" ? /* @__PURE__ */ jsx12(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx12(RotateCcw, { className: "h-4 w-4 mr-1" }),
+            state === "synthesizing" ? /* @__PURE__ */ jsx11(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx11(RotateCcw, { className: "h-4 w-4 mr-1" }),
             "\u21BA Sigamos iterando"
           ]
         }
@@ -1561,7 +1547,7 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.confirm",
           children: [
-            state === "finalizing" ? /* @__PURE__ */ jsx12(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx12(Check, { className: "h-4 w-4 mr-1" }),
+            state === "finalizing" ? /* @__PURE__ */ jsx11(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx11(Check, { className: "h-4 w-4 mr-1" }),
             "\u2713 Confirmar"
           ]
         }
@@ -1572,7 +1558,7 @@ function FooterActions({
 }
 
 // src/chat/StatusPill.tsx
-import { jsx as jsx13 } from "react/jsx-runtime";
+import { jsx as jsx12 } from "react/jsx-runtime";
 var _STATUS_STYLES = {
   new: {
     label: "Recibido",
@@ -1597,7 +1583,7 @@ var _STATUS_STYLES = {
 };
 function StatusPill({ status }) {
   const style = _STATUS_STYLES[status] ?? _STATUS_STYLES.new;
-  return /* @__PURE__ */ jsx13(
+  return /* @__PURE__ */ jsx12(
     "span",
     {
       className: `inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-none ${style.classes}`,
@@ -1609,22 +1595,22 @@ function StatusPill({ status }) {
 }
 
 // src/chat/MineFeedTab.tsx
-import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
+import { jsx as jsx13, jsxs as jsxs10 } from "react/jsx-runtime";
 function MineFeedTab({ onSelectFeedback }) {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const query = useMyFeedbackQuery(25);
   if (query.isLoading) {
-    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") });
+    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") });
   }
   if (query.isError) {
-    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") });
+    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") });
   }
   const rows = query.data ?? [];
   if (rows.length === 0) {
-    return /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.empty") });
+    return /* @__PURE__ */ jsx13("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.empty") });
   }
-  return /* @__PURE__ */ jsx14("ul", { className: "space-y-2 p-1", children: rows.map((r) => /* @__PURE__ */ jsx14("li", { children: /* @__PURE__ */ jsxs10(
+  return /* @__PURE__ */ jsx13("ul", { className: "space-y-2 p-1", children: rows.map((r) => /* @__PURE__ */ jsx13("li", { children: /* @__PURE__ */ jsxs10(
     "button",
     {
       type: "button",
@@ -1632,28 +1618,28 @@ function MineFeedTab({ onSelectFeedback }) {
       className: "w-full p-2 text-sm flex items-center gap-2 rounded-md border border-input hover:bg-accent text-left",
       "data-feedback-id": "feedback.mine.row",
       children: [
-        /* @__PURE__ */ jsx14("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
-        /* @__PURE__ */ jsx14(StatusPill, { status: r.status }),
-        /* @__PURE__ */ jsx14("span", { className: "truncate flex-1 font-medium", children: r.title })
+        /* @__PURE__ */ jsx13("code", { className: "font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0", children: r.ticket_code || "\u2014" }),
+        /* @__PURE__ */ jsx13(StatusPill, { status: r.status }),
+        /* @__PURE__ */ jsx13("span", { className: "truncate flex-1 font-medium", children: r.title })
       ]
     }
   ) }, r.id)) });
 }
 
 // src/chat/SynthesisCard.tsx
-import { jsx as jsx15, jsxs as jsxs11 } from "react/jsx-runtime";
+import { jsx as jsx14, jsxs as jsxs11 } from "react/jsx-runtime";
 function SectionTitle({ label }) {
-  return /* @__PURE__ */ jsx15("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: label });
+  return /* @__PURE__ */ jsx14("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: label });
 }
 function PersonasBlock({ personas }) {
   return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx15(SectionTitle, { label: "Personas" }),
-    /* @__PURE__ */ jsx15("ul", { className: "flex flex-col gap-2 text-sm text-foreground", children: personas.map((p, idx) => /* @__PURE__ */ jsxs11(
+    /* @__PURE__ */ jsx14(SectionTitle, { label: "Personas" }),
+    /* @__PURE__ */ jsx14("ul", { className: "flex flex-col gap-2 text-sm text-foreground", children: personas.map((p, idx) => /* @__PURE__ */ jsxs11(
       "li",
       {
         className: "rounded border border-input/60 bg-muted/30 px-2 py-1",
         children: [
-          /* @__PURE__ */ jsx15("p", { className: "font-medium", children: p.name }),
+          /* @__PURE__ */ jsx14("p", { className: "font-medium", children: p.name }),
           /* @__PURE__ */ jsxs11("p", { className: "text-xs text-muted-foreground", children: [
             "Objetivo: ",
             p.goal
@@ -1674,25 +1660,25 @@ function BulletList({
   muted = false
 }) {
   return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx15(SectionTitle, { label }),
-    /* @__PURE__ */ jsx15(
+    /* @__PURE__ */ jsx14(SectionTitle, { label }),
+    /* @__PURE__ */ jsx14(
       "ul",
       {
         className: `list-disc space-y-1 pl-5 text-sm ${muted ? "text-muted-foreground" : "text-foreground"}`,
-        children: items.map((item, idx) => /* @__PURE__ */ jsx15("li", { children: item }, `${label}-${idx}-${item.slice(0, 16)}`))
+        children: items.map((item, idx) => /* @__PURE__ */ jsx14("li", { children: item }, `${label}-${idx}-${item.slice(0, 16)}`))
       }
     )
   ] });
 }
 function DiagramBlock({ source }) {
   return /* @__PURE__ */ jsxs11("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx15(SectionTitle, { label: "Diagrama" }),
-    /* @__PURE__ */ jsx15(
+    /* @__PURE__ */ jsx14(SectionTitle, { label: "Diagrama" }),
+    /* @__PURE__ */ jsx14(
       "pre",
       {
         "data-feedback-mermaid-source": "true",
         className: "overflow-x-auto rounded border border-input/60 bg-muted/40 p-2 text-xs text-foreground",
-        children: /* @__PURE__ */ jsx15("code", { children: source })
+        children: /* @__PURE__ */ jsx14("code", { children: source })
       }
     )
   ] });
@@ -1707,21 +1693,21 @@ function SynthesisCard({ synthesis }) {
       className: "mx-4 my-3 flex flex-col gap-3 rounded-lg border border-input bg-card p-4 shadow-sm",
       "data-feedback-id": "feedback.chat_synthesis_card",
       children: [
-        /* @__PURE__ */ jsx15("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
-        /* @__PURE__ */ jsx15("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
-        /* @__PURE__ */ jsx15("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
-        extraStories.length > 0 ? /* @__PURE__ */ jsx15(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
-        synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx15(PersonasBlock, { personas: synthesis.personas }) : null,
-        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx15(
+        /* @__PURE__ */ jsx14("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
+        /* @__PURE__ */ jsx14("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
+        /* @__PURE__ */ jsx14("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
+        extraStories.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
+        synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx14(PersonasBlock, { personas: synthesis.personas }) : null,
+        synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx14(
           BulletList,
           {
             label: "Criterios de aceptaci\xF3n",
             items: synthesis.acceptance_criteria
           }
         ) : null,
-        synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx15(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
-        synthesis.diagram ? /* @__PURE__ */ jsx15(DiagramBlock, { source: synthesis.diagram }) : null,
-        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx15(
+        synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx14(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
+        synthesis.diagram ? /* @__PURE__ */ jsx14(DiagramBlock, { source: synthesis.diagram }) : null,
+        synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx14(
           BulletList,
           {
             label: "Preguntas abiertas",
@@ -1737,6 +1723,26 @@ function SynthesisCard({ synthesis }) {
 // src/chat/TicketDetail.tsx
 import { Send } from "lucide-react";
 import { useState as useState4 } from "react";
+
+// src/ui/textarea.tsx
+import { jsx as jsx15 } from "react/jsx-runtime";
+function Textarea({ className, ...props }) {
+  return /* @__PURE__ */ jsx15(
+    "textarea",
+    {
+      "data-slot": "textarea",
+      className: cn(
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+        className
+      ),
+      ...props
+    }
+  );
+}
+
+// src/chat/TicketDetail.tsx
 import { Fragment as Fragment2, jsx as jsx16, jsxs as jsxs12 } from "react/jsx-runtime";
 function _formatTs(dt) {
   if (!dt) return "";
@@ -3262,4 +3268,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-ZM4WNGLS.js.map
+//# sourceMappingURL=chunk-E3MTBJVF.js.map

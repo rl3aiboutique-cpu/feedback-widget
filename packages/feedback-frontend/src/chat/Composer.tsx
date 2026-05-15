@@ -1,29 +1,24 @@
 /**
  * Input bar for the chat-first feedback sheet.
  *
- * Textarea + send button + mic toggle (S4). Enter (without Shift) sends;
- * Shift+Enter inserts a newline. Disabled while the bot is mid-stream
- * so the user can't fire two turns in parallel.
+ * Single-line pill (post-baseline-audit refresh 2026-05-15) modelled
+ * after the ChatGPT / Claude AI composer:
  *
- * The mic button is hidden when the browser doesn't support
- * `MediaRecorder` + `getUserMedia` (Safari < 14, HTTP-only origins) so
- * the chat still works text-only.
+ *   ╭───────────────────────────────────────────────────╮
+ *   │  Escribe lo que tienes en mente…       🎙   ➤   │
+ *   ╰───────────────────────────────────────────────────╯
  *
- * Modern UX (post-baseline-audit 2026-05-15):
+ * - Rounded full pill wraps the textarea + mic + send buttons.
+ * - Textarea starts at one row and auto-grows up to ~6 rows; resize
+ *   handle suppressed so the pill stays the dominant shape.
+ * - Send button gains a primary gradient when text is present.
+ * - No keyboard hint row — Enter / Shift+Enter behaviour matches the
+ *   broader ecosystem and the placeholder copy alone is enough.
  *
- *   - Elevated surface wraps the textarea + buttons so the composer
- *     reads as a single tactile block rather than an inline strip.
- *   - Focus ring on the wrapper highlights when the textarea has focus.
- *   - Send button gradient activates only when text is present.
- *   - Subtle hint row below ("⏎ envía · ⇧⏎ salto") gives quick guidance.
- *
- * v1.0.0 chat-first (Claude-AI voice pattern): the Composer can be
- * **controlled** — pass `value` + `onValueChange` and the parent owns
- * the textarea state. This is what the voice flow needs: when a
- * transcript comes back from Whisper, the parent writes it into
- * `composerValue` and the Composer renders it pre-filled, ready to
- * edit + send. When `value` is omitted the Composer falls back to
- * uncontrolled local state (pre-S4 behaviour).
+ * Enter sends; Shift+Enter inserts a newline. Disabled while the bot is
+ * mid-stream so the user can't fire two turns in parallel. The mic
+ * button is hidden when MediaRecorder is unavailable so the composer
+ * still works text-only on Safari < 14 / HTTP-only origins.
  */
 
 import { Mic, SendHorizontal } from "lucide-react";
@@ -37,7 +32,6 @@ import {
 } from "react";
 
 import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
 
 import { isVoiceCaptureSupported } from "./useVoiceCapture";
 
@@ -48,8 +42,7 @@ export interface ComposerProps {
   disabled?: boolean;
   placeholder?: string;
   /** Called when the user taps the mic button. Parent toggles into
-   * recording mode. When omitted, the mic button is hidden — keeps
-   * pre-S4 hosts working unchanged. */
+   * recording mode. When omitted, the mic button is hidden. */
   onVoiceToggle?: () => void;
   /** Controlled textarea value. When provided, the parent owns the
    * input state; pair with `onValueChange`. Omit to fall back to
@@ -63,6 +56,12 @@ export interface ComposerProps {
 }
 
 const DEFAULT_PLACEHOLDER = "Escribe lo que tienes en mente…";
+
+// Auto-grow caps. min keeps the pill compact when empty; max prevents
+// the textarea from eating the whole sheet when the user pastes a wall
+// of text.
+const MIN_TEXTAREA_HEIGHT = 24; // 1 line at 14px / 1.5 leading
+const MAX_TEXTAREA_HEIGHT = 160; // ~6 lines before scrolling
 
 export function Composer({
   onSend,
@@ -79,11 +78,21 @@ export function Composer({
   const value = isControlled ? valueProp : localValue;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Feature-detect once on mount — the answer never changes per session.
-  // Hiding the mic when MediaRecorder is missing keeps the chat usable
-  // text-only on Safari < 14 or HTTP-only origins.
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
+
+  // Auto-grow: reset height to read scrollHeight, then clamp inside
+  // [MIN, MAX]. Runs on every value change so paste / IME also adjust.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(
+      MAX_TEXTAREA_HEIGHT,
+      Math.max(MIN_TEXTAREA_HEIGHT, el.scrollHeight),
+    );
+    el.style.height = `${next}px`;
+  }, [value]);
 
   useEffect(() => {
     if (!autoFocus) return;
@@ -126,14 +135,14 @@ export function Composer({
   const hasText = value.trim().length > 0;
 
   return (
-    <div className="border-t border-input/60 bg-background/95 px-3 pb-2 pt-3 backdrop-blur">
+    <div className="border-t border-input/40 bg-background/95 px-3 py-3 backdrop-blur">
       <div
         className={[
-          "flex items-end gap-2 rounded-2xl border bg-muted/30 px-2 py-1.5 transition",
-          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60",
+          "flex items-center gap-1 rounded-full border bg-muted/30 px-3 py-1.5 transition",
+          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/50",
         ].join(" ")}
       >
-        <Textarea
+        <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -142,8 +151,9 @@ export function Composer({
           onBlur={() => setFocused(false)}
           disabled={disabled}
           placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
-          rows={2}
-          className="max-h-40 min-h-[2.5rem] resize-none border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
+          rows={1}
+          className="flex-1 resize-none border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50"
+          style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
           data-feedback-id="feedback.chat_composer"
         />
         {showVoice ? (
@@ -155,7 +165,7 @@ export function Composer({
             disabled={disabled}
             aria-label="Grabar mensaje de voz"
             data-feedback-id="feedback.chat_mic"
-            className="h-9 w-9 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+            className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
           >
             <Mic className="h-4 w-4" />
           </Button>
@@ -168,7 +178,7 @@ export function Composer({
           aria-label="Enviar"
           data-feedback-id="feedback.chat_send"
           className={[
-            "h-9 w-9 shrink-0 rounded-full transition",
+            "h-8 w-8 shrink-0 rounded-full transition",
             hasText
               ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md"
               : "bg-muted text-muted-foreground",
@@ -177,11 +187,6 @@ export function Composer({
           <SendHorizontal className="h-4 w-4" />
         </Button>
       </div>
-      <p className="mt-1.5 px-1 text-[10px] text-muted-foreground">
-        <kbd className="rounded bg-muted/60 px-1 py-px text-foreground/80">⏎</kbd> envía
-        <span className="mx-1.5">·</span>
-        <kbd className="rounded bg-muted/60 px-1 py-px text-foreground/80">⇧⏎</kbd> nueva línea
-      </p>
     </div>
   );
 }
