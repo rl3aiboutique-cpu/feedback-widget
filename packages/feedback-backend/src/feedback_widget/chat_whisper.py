@@ -10,7 +10,7 @@ body, hands it to this helper, and discards it. Only the resulting
 transcript lives in ``feedback_chat_session.messages[].text``.
 
 The ``openai`` package is gated behind the ``[iter-openai]`` optional
-extra (same as :mod:`feedback_widget.iter_llm.openai`). When the extra is
+extra (same as :mod:`feedback_widget.llm.openai`). When the extra is
 not installed OR ``FEEDBACK_ITER_OPENAI_API_KEY`` is unset, the helper
 raises a typed error and the endpoint returns 503 with a clear message.
 

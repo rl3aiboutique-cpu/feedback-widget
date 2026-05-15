@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from feedback_widget.models import (
     FeedbackAttachmentKind,
     FeedbackCommentAuthorRole,
+    FeedbackSeverity,
     FeedbackStatus,
     FeedbackType,
 )
@@ -107,6 +108,12 @@ class FeedbackRead(BaseModel):
     triaged_at: datetime | None = None
     triage_note: str | None = None
     ticket_code: str = ""
+    # Sprint A enrichment — chat-first link + LLM-inferred classification +
+    # the structured synthesis JSONB. NULL on rows created via the legacy
+    # multipart endpoint so admin tooling can filter "chat-first only".
+    chat_session_id: uuid.UUID | None = None
+    severity: FeedbackSeverity | None = None
+    synthesis_json: dict[str, Any] | None = None
     attachments: list[FeedbackAttachmentRead] = Field(default_factory=list)
 
 

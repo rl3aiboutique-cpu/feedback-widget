@@ -2048,176 +2048,24 @@ function _xpathOf(el) {
 // src/chat/useChatRunStream.ts
 import { useCallback as useCallback3, useRef as useRef5, useState as useState4 } from "react";
 
-// src/client/iter.ts
-var IterApiError = class extends Error {
-  constructor(status, path, detail, retryAfter) {
-    super(`${path} failed with ${status}`);
-    this.status = status;
-    this.path = path;
-    this.detail = detail;
-    this.retryAfter = retryAfter;
-    this.name = "IterApiError";
+// src/client/idempotency.ts
+function newIdempotencyKey() {
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj && typeof cryptoObj.randomUUID === "function") {
+    return cryptoObj.randomUUID();
   }
-  status;
-  path;
-  detail;
-  retryAfter;
-};
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    const v = c === "x" ? r : r & 3 | 8;
+    return v.toString(16);
+  });
+}
+
+// src/chat/useChatRunStream.ts
 function _base(b) {
   return b.apiBaseUrl.replace(/\/$/, "");
 }
 function _prefix(b) {
-  return b.apiPathPrefix ?? "/api/v1/feedback";
-}
-async function _headers(b, extra = {}) {
-  const out = { ...extra };
-  try {
-    const csrf = await b.getCsrfToken();
-    if (csrf) out["X-CSRF-Token"] = csrf;
-  } catch {
-  }
-  if (b.authHeader) {
-    try {
-      const auth = await b.authHeader();
-      if (auth) out.Authorization = auth;
-    } catch {
-    }
-  }
-  return out;
-}
-async function _throwOn(path, resp) {
-  let detail;
-  try {
-    const data = await resp.json();
-    detail = typeof data === "string" ? data : data && typeof data === "object" && "detail" in data ? String(data.detail) : JSON.stringify(data);
-  } catch {
-    detail = await resp.text().catch(() => "");
-  }
-  throw new IterApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
-}
-function newIdempotencyKey() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `k_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
-}
-async function startIterSession(bindings, body) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions`;
-  const resp = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...await _headers(bindings)
-    },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function getIterSession(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function listIterSessionsForFeedback(bindings, feedbackId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/feedbacks/${feedbackId}/sessions`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function abandonIterSession(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/abandon`;
-  const resp = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function listIterVersions(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/iterations`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function editIterVersionMarkdown(bindings, sessionId, versionId, body) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/iterations/${versionId}/markdown`;
-  const resp = await fetch(url, {
-    method: "PATCH",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...await _headers(bindings)
-    },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function listIterAssumptions(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/assumptions`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function resolveIterAssumption(bindings, assumptionId, body) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/assumptions/${assumptionId}`;
-  const resp = await fetch(url, {
-    method: "PATCH",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...await _headers(bindings)
-    },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function finalizeIterSession(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/finalize`;
-  const resp = await fetch(url, {
-    method: "POST",
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...await _headers(bindings)
-    },
-    body: JSON.stringify({})
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-async function getIterPackage(bindings, sessionId) {
-  const url = `${_base(bindings)}${_prefix(bindings)}/iterate/sessions/${sessionId}/package`;
-  const resp = await fetch(url, {
-    credentials: "include",
-    headers: await _headers(bindings)
-  });
-  if (!resp.ok) await _throwOn(url, resp);
-  return resp.json();
-}
-
-// src/chat/useChatRunStream.ts
-function _base2(b) {
-  return b.apiBaseUrl.replace(/\/$/, "");
-}
-function _prefix2(b) {
   return b.apiPathPrefix ?? "/api/v1/feedback";
 }
 async function _authHeaders(b) {
@@ -2311,7 +2159,7 @@ function useChatRunStream(args) {
       setState("bot_thinking");
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const url = `${_base2(bindings)}${_prefix2(bindings)}/chat/sessions/${encodeURIComponent(sessionId)}/messages`;
+      const url = `${_base(bindings)}${_prefix(bindings)}/chat/sessions/${encodeURIComponent(sessionId)}/messages`;
       try {
         const resp = await fetch(url, {
           method: "POST",
@@ -3141,18 +2989,6 @@ export {
   useFeedbackAdapter,
   useFeedbackConfig,
   useFeedbackBindings,
-  IterApiError,
-  newIdempotencyKey,
-  startIterSession,
-  getIterSession,
-  listIterSessionsForFeedback,
-  abandonIterSession,
-  listIterVersions,
-  editIterVersionMarkdown,
-  listIterAssumptions,
-  resolveIterAssumption,
-  finalizeIterSession,
-  getIterPackage,
   cn,
   Button,
   Sheet,
@@ -3170,6 +3006,7 @@ export {
   MineFeedTab,
   SynthesisCard,
   TicketDetail,
+  newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-CHVUDB5A.js.map
+//# sourceMappingURL=chunk-BZ6AAXS3.js.map

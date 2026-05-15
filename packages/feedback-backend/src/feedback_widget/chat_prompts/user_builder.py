@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from feedback_widget.chat_prompts.capture_prompt import CAPTURE_SYSTEM_PROMPT
-from feedback_widget.iter_llm.protocol import LLMAttachment
+from feedback_widget.llm.protocol import LLMAttachment
 
 # Default placeholder rendered into the prompt when the host supplies
 # no glossary. Mirrors the iter convention so the model knows there is

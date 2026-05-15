@@ -6,7 +6,6 @@ import {
   FeedbackProvider,
   FeedbackTabs,
   FooterActions,
-  IterApiError,
   MineFeedTab,
   Rl3Mark,
   Sheet,
@@ -19,21 +18,11 @@ import {
   SynthesisCard,
   Textarea,
   TicketDetail,
-  abandonIterSession,
   cn,
   createAdapter,
   describeElement,
-  editIterVersionMarkdown,
-  finalizeIterSession,
-  getIterPackage,
-  getIterSession,
-  listIterAssumptions,
-  listIterSessionsForFeedback,
-  listIterVersions,
   newIdempotencyKey,
   redactString,
-  resolveIterAssumption,
-  startIterSession,
   useDeleteFeedbackMutation,
   useFeedbackAdapter,
   useFeedbackBindings,
@@ -44,7 +33,7 @@ import {
   useMyFeedbackQuery,
   usePostFeedbackCommentMutation,
   useUpdateFeedbackStatusMutation
-} from "./chunk-CHVUDB5A.js";
+} from "./chunk-BZ6AAXS3.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -248,8 +237,7 @@ function installErrorWrap(capacity = DEFAULT_CAPACITY3) {
 }
 
 // src/admin/FeedbackTriagePage.tsx
-import { useQuery } from "@tanstack/react-query";
-import { Download, Sparkles } from "lucide-react";
+import { Download } from "lucide-react";
 import { useMemo, useState as useState2 } from "react";
 
 // src/ui/badge.tsx
@@ -849,7 +837,6 @@ function DetailBody({
       )) })
     ] }) : null,
     /* @__PURE__ */ jsx6(CommentThread, { feedbackId: data.id }),
-    /* @__PURE__ */ jsx6(IterSessionsSection, { feedbackId: data.id }),
     /* @__PURE__ */ jsxs3("details", { className: "text-xs", children: [
       /* @__PURE__ */ jsx6("summary", { className: "cursor-pointer font-medium text-foreground", children: "Technical metadata (redacted)" }),
       /* @__PURE__ */ jsx6("pre", { className: "whitespace-pre-wrap rounded-md bg-muted/50 p-3 border mt-2 max-h-96 overflow-auto", children: JSON.stringify(data.metadata_bundle, null, 2) })
@@ -930,108 +917,6 @@ function DetailBody({
           }
         )
       ] })
-    ] })
-  ] });
-}
-function IterSessionsSection({ feedbackId }) {
-  const bindings = useFeedbackBindings();
-  const sessions = useQuery({
-    queryKey: ["iter-sessions-for-feedback", feedbackId],
-    queryFn: () => listIterSessionsForFeedback(bindings, feedbackId)
-  });
-  const items = sessions.data ?? [];
-  const hasAny = items.length > 0;
-  const openSession = (sid) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("iter", sid);
-    window.history.pushState({}, "", url.toString());
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-  const startNew = () => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("startIter", feedbackId);
-    window.history.pushState({}, "", url.toString());
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-  return /* @__PURE__ */ jsxs3("section", { className: "rounded-md border p-3 space-y-3", children: [
-    /* @__PURE__ */ jsxs3("div", { className: "flex items-center justify-between gap-2", children: [
-      /* @__PURE__ */ jsxs3("h3", { className: "text-sm font-medium flex items-center gap-1.5", children: [
-        /* @__PURE__ */ jsx6(Sparkles, { className: "h-3.5 w-3.5 text-primary" }),
-        "AI iterations"
-      ] }),
-      /* @__PURE__ */ jsx6(Button, { type: "button", size: "sm", variant: "outline", onClick: startNew, children: "Start new iteration" })
-    ] }),
-    sessions.isLoading && /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: "Loading\u2026" }),
-    sessions.isError && /* @__PURE__ */ jsxs3("p", { className: "text-xs text-destructive", children: [
-      "Could not load AI iterations: ",
-      String(sessions.error)
-    ] }),
-    !sessions.isLoading && !hasAny && /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: "No AI iterations yet on this feedback." }),
-    hasAny && /* @__PURE__ */ jsx6("ul", { className: "space-y-1.5", children: items.map((s) => /* @__PURE__ */ jsx6(IterSessionRow, { session: s, onOpen: () => openSession(s.id) }, s.id)) })
-  ] });
-}
-function IterSessionRow({
-  session,
-  onOpen
-}) {
-  const adapter = useFeedbackAdapter();
-  const bindings = useFeedbackBindings();
-  const [downloading, setDownloading] = useState2(false);
-  const onDownload = async () => {
-    try {
-      setDownloading(true);
-      const pkg = await getIterPackage(bindings, session.id);
-      if (!pkg.presigned_zip_url) {
-        adapter.toast.error("Package URL is not available yet");
-        return;
-      }
-      const link = document.createElement("a");
-      link.href = pkg.presigned_zip_url;
-      link.download = `iter-${session.id.slice(0, 8)}.zip`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      adapter.toast.success("Download started");
-    } catch (err) {
-      adapter.toast.error(`Could not download: ${String(err)}`);
-    } finally {
-      setDownloading(false);
-    }
-  };
-  const isFinal = session.status === "finalized";
-  return /* @__PURE__ */ jsxs3("li", { className: "flex items-center justify-between gap-2 rounded-md border p-2 text-xs", children: [
-    /* @__PURE__ */ jsxs3("div", { className: "min-w-0 flex-1", children: [
-      /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-1.5", children: [
-        /* @__PURE__ */ jsx6("span", { className: "font-mono text-[10px] text-muted-foreground", children: session.id.slice(0, 8) }),
-        /* @__PURE__ */ jsx6(
-          Badge,
-          {
-            variant: isFinal ? "default" : session.status === "abandoned" ? "destructive" : "secondary",
-            children: session.status
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs3("div", { className: "text-muted-foreground", children: [
-        session.created_at?.slice(0, 16) ?? "",
-        session.finalized_at ? ` \u2192 finalized ${session.finalized_at.slice(0, 16)}` : ""
-      ] })
-    ] }),
-    /* @__PURE__ */ jsxs3("div", { className: "flex shrink-0 gap-1.5", children: [
-      /* @__PURE__ */ jsx6(Button, { type: "button", size: "sm", variant: "outline", onClick: onOpen, children: "Open" }),
-      isFinal && /* @__PURE__ */ jsxs3(
-        Button,
-        {
-          type: "button",
-          size: "sm",
-          variant: "outline",
-          onClick: onDownload,
-          disabled: downloading,
-          children: [
-            /* @__PURE__ */ jsx6(Download, { className: "mr-1 h-3.5 w-3.5" }),
-            downloading ? "\u2026" : "Package .zip"
-          ]
-        }
-      )
     ] })
   ] });
 }
@@ -1200,7 +1085,7 @@ function useMyPendingActionCount() {
 // src/FeedbackButton.tsx
 import { jsx as jsx8, jsxs as jsxs5 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-RD6HAZIA.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-VSHGWF3Q.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -1282,33 +1167,6 @@ function FeedbackButton() {
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
-
-// src/iter/IterWorkspace.tsx
-import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
-function IterWorkspace({
-  sessionId,
-  onExit,
-  onClose
-}) {
-  const handleBack = onExit ?? (onClose ? () => void onClose() : void 0);
-  return /* @__PURE__ */ jsxs6("div", { className: "flex h-full flex-col items-center justify-center gap-3 p-6 text-center", children: [
-    /* @__PURE__ */ jsx9("p", { className: "text-sm font-medium text-foreground", children: "Iterate workspace deprecated" }),
-    /* @__PURE__ */ jsx9("p", { className: "max-w-md text-xs text-muted-foreground", children: "Refinement now happens inside the chat-first feedback sheet (v1.0.0). This admin view will be replaced in v1.1.0 by the chat refine trigger." }),
-    /* @__PURE__ */ jsxs6("p", { className: "text-[10px] text-muted-foreground/70 font-mono", children: [
-      "session: ",
-      sessionId
-    ] }),
-    handleBack ? /* @__PURE__ */ jsx9(
-      "button",
-      {
-        type: "button",
-        onClick: handleBack,
-        className: "mt-2 rounded-md border border-input px-3 py-1.5 text-xs hover:bg-accent",
-        children: "\u2190 Volver"
-      }
-    ) : null
-  ] });
-}
 export {
   CapturePicker,
   FeedbackButton,
@@ -1318,29 +1176,17 @@ export {
   FeedbackTabs,
   FeedbackTriagePage,
   FooterActions,
-  IterApiError,
-  IterWorkspace,
   MineFeedTab,
   StatusPill,
   SubmitFeedbackError,
   SynthesisCard,
   TicketDetail,
   VERSION,
-  abandonIterSession,
   createAdapter,
-  editIterVersionMarkdown,
-  finalizeIterSession,
-  getIterPackage,
-  getIterSession,
   installConsoleWrap,
   installErrorWrap,
   installNetworkWrap,
-  listIterAssumptions,
-  listIterSessionsForFeedback,
-  listIterVersions,
   newIdempotencyKey,
-  resolveIterAssumption,
-  startIterSession,
   useCanTriageFeedback,
   useFeedbackAdapter,
   useFeedbackBindings,

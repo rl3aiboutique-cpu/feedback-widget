@@ -149,6 +149,28 @@ def parse_turn_response(raw: str) -> dict[str, Any]:
     if mode == "synthesize" and not isinstance(synthesis, dict):
         errors.append("'synthesis' must be an object when mode='synthesize'")
 
+    # Sprint C — structured validation of the synthesis payload via the
+    # ``ChatSynthesis`` Pydantic model (paridad legacy iter). When the
+    # model emits a shape we cannot coerce, surface as a parse error so
+    # the repair loop can re-prompt. Importing locally avoids a circular
+    # import (chat_schemas → models → exceptions).
+    if isinstance(synthesis, dict):
+        from feedback_widget.chat_schemas import ChatSynthesis
+        from pydantic import ValidationError as _ValidationError
+
+        try:
+            validated = ChatSynthesis.model_validate(synthesis)
+        except _ValidationError as exc:
+            # Surface the first 3 validation errors so the repair hint
+            # stays compact and the model can correct shape directly.
+            for err in exc.errors()[:3]:
+                loc = ".".join(str(p) for p in err.get("loc", ()))
+                errors.append(f"synthesis.{loc}: {err.get('msg', 'invalid')}")
+        else:
+            # Re-export as plain dict so downstream JSONB persistence
+            # keeps shape predictable (Pydantic drops extras).
+            synthesis = validated.model_dump(mode="json")
+
     if errors:
         raise ChatTurnParseError("turn response failed shape validation", errors=errors)
 

@@ -5,7 +5,7 @@ Endpoints currently mounted:
 * ``POST /chat/sessions``                          — create session, return greeting
 * ``GET  /chat/sessions/in-progress``              — list user's in_progress sessions
 * ``GET  /chat/sessions/{session_id}``             — full detail of a session (S3C resume)
-* ``POST /chat/sessions/{session_id}/messages``    — SSE stream of one LLM turn (S2 Batch B)
+* ``POST /chat/sessions/{session_id}/messages``    — SSE stream of one LLM turn
 * ``POST /chat/sessions/{session_id}/confirm``     — create feedback row (S5)
 * ``POST /chat/sessions/{session_id}/abandon``     — mark session abandoned (S5)
 
@@ -16,7 +16,7 @@ Future slices add:
 
 # NOTE: deliberately not using `from __future__ import annotations` so that
 # the SSE endpoint's typed signature (StreamingResponse return) resolves
-# eagerly under FastAPI's OpenAPI generator, matching the iter_router
+# eagerly under FastAPI's OpenAPI generator — same
 # discipline documented in deps.py.
 
 import asyncio
@@ -71,8 +71,8 @@ from feedback_widget.chat_whisper import (
     transcribe_audio,
 )
 from feedback_widget.deps import WidgetDependencies
-from feedback_widget.iter_llm import build_provider
-from feedback_widget.iter_llm.protocol import LLMAttachment, LLMProvider
+from feedback_widget.llm import build_provider
+from feedback_widget.llm.protocol import LLMAttachment, LLMProvider
 from feedback_widget.models import FeedbackAttachment
 from feedback_widget.settings import FeedbackSettings
 from feedback_widget.storage import StorageBackend

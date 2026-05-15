@@ -10,7 +10,7 @@ with a repair-hint loop, scrubs the assistant reply via
 onto ``feedback_chat_session.messages`` / ``.synthesis_json``.
 
 The SSE endpoint that adapts these events to ``text/event-stream``
-ships in S2 Batch B; the service yields plain ``dict`` events to keep
+ships in chat_router; the service yields plain ``dict`` events to keep
 it transport-agnostic and unit-testable.
 
 This service uses the synchronous SQLModel ``Session`` per ADR-006
@@ -32,8 +32,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlmodel import Session, col, select
 
 from feedback_widget.chat_models import (
+    ChatCallStatus,
     ChatSessionMode,
     ChatSessionStatus,
+    FeedbackChatCall,
     FeedbackChatSession,
 )
 from feedback_widget.chat_prompts import build_user_message
@@ -48,12 +50,12 @@ from feedback_widget.chat_turn_parser import (
     ChatTurnParseError,
     parse_with_repair,
 )
-from feedback_widget.iter_llm.protocol import (
+from feedback_widget.llm.protocol import (
     LLMAttachment,
     LLMProvider,
     LLMProviderError,
 )
-from feedback_widget.iter_scrubber import scrub_questions
+from feedback_widget.scrubber import scrub_questions
 from feedback_widget.models import (
     Feedback,
     FeedbackAttachmentKind,
@@ -306,6 +308,52 @@ class ChatService:
         system_prompt = prompt_messages[0]["content"]
         user_payload_text = _serialise_user_payload(prompt_messages[1:])
 
+        # Sprint C — audit trail. Hash the system + user payload so admin
+        # tooling can correlate behaviour across prompt revisions, time
+        # the round-trip, and record the outcome status. The row is
+        # appended after the stream/parse/scrub pipeline regardless of
+        # success or failure so every attempted call is observable.
+        import hashlib
+        import time
+
+        from feedback_widget.chat_prompts.capture_prompt import (
+            CAPTURE_SYSTEM_PROMPT_VERSION,
+        )
+
+        prompt_sha256 = hashlib.sha256(
+            (system_prompt + "\x00" + user_payload_text).encode("utf-8")
+        ).hexdigest()
+        call_started_at = time.perf_counter()
+        call_attempt = 1
+
+        def _persist_chat_call(
+            *,
+            status: ChatCallStatus,
+            attempt_number: int,
+            error_message: str | None = None,
+        ) -> None:
+            latency_ms = int((time.perf_counter() - call_started_at) * 1000)
+            row_call = FeedbackChatCall(
+                chat_session_id=row.id,
+                tenant_id=row.tenant_id,
+                turn_index=prior_user_turns,
+                model_id=getattr(provider, "model_id", None)
+                or getattr(provider, "name", None)
+                or "unknown",
+                model_provider=getattr(provider, "name", None) or "unknown",
+                input_tokens=0,
+                output_tokens=0,
+                cost_usd=None,
+                latency_ms=latency_ms,
+                status=status,
+                attempt_number=attempt_number,
+                error_message=error_message,
+                prompt_sha256=prompt_sha256,
+                prompt_version=CAPTURE_SYSTEM_PROMPT_VERSION,
+            )
+            session_db.add(row_call)
+            session_db.commit()
+
         # ── Stream the model ─────────────────────────────────────────
         buffer: list[str] = []
         try:
@@ -320,6 +368,12 @@ class ChatService:
                 yield {"type": "delta", "text": chunk}
         except LLMProviderError as exc:
             logger.warning("chat run_turn provider error: %s", exc)
+            await asyncio.to_thread(
+                _persist_chat_call,
+                status=ChatCallStatus.PROVIDER_ERROR,
+                attempt_number=call_attempt,
+                error_message=f"{type(exc).__name__}: {exc}"[:1000],
+            )
             yield {
                 "type": "error",
                 "detail": f"{type(exc).__name__}: {exc}",
@@ -344,8 +398,15 @@ class ChatService:
                 retry_runner=_retry_runner,
                 max_retries=2,
             )
+            call_attempt = max(1, _attempts)
         except ChatTurnParseError as exc:
             logger.warning("chat run_turn parse failed: %s", exc.errors)
+            await asyncio.to_thread(
+                _persist_chat_call,
+                status=ChatCallStatus.JSON_INVALID,
+                attempt_number=call_attempt + 1,
+                error_message=("; ".join(exc.errors))[:1000],
+            )
             yield {
                 "type": "error",
                 "detail": f"chat_parse_error: {'; '.join(exc.errors)[:1_000]}",
@@ -407,6 +468,11 @@ class ChatService:
             session_db.commit()
 
         await asyncio.to_thread(_persist)
+        await asyncio.to_thread(
+            _persist_chat_call,
+            status=ChatCallStatus.SUCCESS,
+            attempt_number=call_attempt,
+        )
 
         yield {"type": "turn_done", "turn": parsed_scrubbed}
         if is_synth and isinstance(parsed_scrubbed["synthesis"], dict):
@@ -729,9 +795,9 @@ def _serialise_user_payload(turns: list[dict[str, Any]]) -> str:
 
     Provider adapters in this codebase accept a single ``user_prompt``
     string; for chat we serialise the conversation array as a tagged
-    transcript so the model still sees prior turns. When/if Batch B
-    extends :class:`LLMProvider` to accept a native messages list,
-    this helper becomes a stub the new adapters can ignore.
+    transcript so the model still sees prior turns. A future provider
+    interface revision that accepts a native messages array would
+    reduce this helper to a stub.
     """
     lines: list[str] = []
     for t in turns:

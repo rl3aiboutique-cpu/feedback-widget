@@ -18,7 +18,7 @@
 import { useCallback, useRef, useState } from "react";
 
 import type { FeedbackHostBindings } from "../adapter";
-import { newIdempotencyKey } from "../client/iter";
+import { newIdempotencyKey } from "../client/idempotency";
 import type { ChatMessage, ChatState, ChatTurn, Synthesis } from "./types";
 
 export interface ChatRunStreamResult {

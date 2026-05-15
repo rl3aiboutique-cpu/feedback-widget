@@ -240,7 +240,7 @@ interface Synthesis {
  * bot_thinking   — request in-flight, streaming delta events
  * synthesizing   — got `synthesizing` SSE event, awaiting `synthesis`
  * confirming     — synthesis received, user reviewing the card
- * finalizing     — user confirmed, POST /confirm in flight (Batch B)
+ * finalizing     — user confirmed, POST /confirm in flight
  * done           — feedback created; sheet about to close
  * error          — terminal error state
  */
@@ -505,16 +505,6 @@ interface IterPackageRead {
     created_at: string;
     presigned_zip_url: string | null;
 }
-interface IterStartRequest {
-    feedback_id: string;
-}
-interface IterAssumptionResolveRequest {
-    status: "confirmed" | "corrected" | "irrelevant";
-    user_response?: string | null;
-}
-interface IterVersionMarkdownEditRequest {
-    output_markdown: string;
-}
 
 /**
  * Default + host-extensible string redactors.
@@ -661,54 +651,11 @@ declare function useFeedbackConfig(): Required<FeedbackConfig>;
 declare function useFeedbackBindings(): FeedbackHostBindings;
 
 /**
- * IterWorkspace — v1.0.0 stub (S7 cleanup).
- *
- * The full iter workspace UI was removed in v1.0.0 because refinement now
- * lives inside the chat sheet itself (D-002 → admin refine via chat).
- *
- * This stub exists ONLY because the admin Triage page (capellai-ai-crm)
- * still imports the symbol while we wait for S6 to land the admin refine
- * trigger from the chat-first flow. Renders a neutral placeholder so the
- * admin page compiles + ships v1.0.0 without breaking host integration.
- *
- * REMOVE in v1.1.0 once host admin pages migrate to the chat-refine flow
- * (S6) and stop importing `IterWorkspace`.
+ * Idempotency key helper — extracted from the deleted legacy
+ * ``client/iter.ts`` so the chat stream + any other widget caller can
+ * still generate replay-safe keys without depending on the iter
+ * surface (Sprint C deprecation).
  */
-
-interface IterWorkspaceProps {
-    sessionId: string;
-    feedbackId?: string;
-    onExit?: () => void;
-    onClose?: () => void | Promise<void>;
-}
-declare function IterWorkspace({ sessionId, onExit, onClose, }: IterWorkspaceProps): ReactElement;
-
-/**
- * HTTP + SSE client for the Iterate-with-AI module.
- *
- * Mirrors the patterns in ../adapter.ts (CSRF + optional bearer +
- * apiBaseUrl/apiPathPrefix) but stays scoped to iter endpoints so
- * the always-loaded bundle doesn't pull in markdown rendering or
- * SSE consumer code unless the user opens the workspace.
- */
-
-declare class IterApiError extends Error {
-    readonly status: number;
-    readonly path: string;
-    readonly detail: string;
-    readonly retryAfter: string | null;
-    constructor(status: number, path: string, detail: string, retryAfter: string | null);
-}
 declare function newIdempotencyKey(): string;
-declare function startIterSession(bindings: FeedbackHostBindings, body: IterStartRequest): Promise<IterSessionRead>;
-declare function getIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
-declare function listIterSessionsForFeedback(bindings: FeedbackHostBindings, feedbackId: string): Promise<IterSessionRead[]>;
-declare function abandonIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterSessionRead>;
-declare function listIterVersions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterVersionRead[]>;
-declare function editIterVersionMarkdown(bindings: FeedbackHostBindings, sessionId: string, versionId: string, body: IterVersionMarkdownEditRequest): Promise<IterVersionRead>;
-declare function listIterAssumptions(bindings: FeedbackHostBindings, sessionId: string): Promise<IterAssumptionRead[]>;
-declare function resolveIterAssumption(bindings: FeedbackHostBindings, assumptionId: string, body: IterAssumptionResolveRequest): Promise<IterAssumptionRead>;
-declare function finalizeIterSession(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
-declare function getIterPackage(bindings: FeedbackHostBindings, sessionId: string): Promise<IterPackageRead>;
 
-export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, IterApiError, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, IterWorkspace, type IterWorkspaceProps, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, abandonIterSession, createAdapter, editIterVersionMarkdown, finalizeIterSession, getIterPackage, getIterSession, installConsoleWrap, installErrorWrap, installNetworkWrap, listIterAssumptions, listIterSessionsForFeedback, listIterVersions, newIdempotencyKey, resolveIterAssumption, startIterSession, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, installConsoleWrap, installErrorWrap, installNetworkWrap, newIdempotencyKey, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

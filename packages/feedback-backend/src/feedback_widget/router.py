@@ -470,6 +470,122 @@ def build_router(
             ) from exc
 
     # ────────────────────────────────────────────────────────────────
+    # GET /{id}/chat — chat session detail (MASTER_ADMIN, Sprint C)
+    # ────────────────────────────────────────────────────────────────
+
+    @router.get("/{feedback_id}/chat")
+    def get_feedback_chat(
+        feedback_id: uuid.UUID,
+        session: Session = SessionDep,
+        admin: CurrentUserSnapshot = AdminDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> dict[str, object]:
+        """Admin view of the chat session that produced this feedback.
+
+        Returns the conversation transcript (``messages`` JSONB), the
+        structured synthesis, the auto_context snapshot, plus the
+        ``feedback_chat_call`` audit rows so admins can correlate
+        latency / status / prompt versions per turn.
+
+        Returns ``204`` (empty body via 404 detail) when the feedback was
+        created via the legacy multipart endpoint (no chat session
+        linked). The admin UI uses this signal to hide the "chat" tab.
+        """
+        from sqlmodel import select as _select
+
+        from feedback_widget.chat_models import (
+            FeedbackChatCall,
+            FeedbackChatSession,
+        )
+
+        try:
+            service = FeedbackService(
+                session=session,
+                storage=storage,
+                tenant_id=admin.tenant_id,
+                settings=cfg,
+            )
+            try:
+                feedback_row = service.get(feedback_id)
+            except FeedbackNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+                ) from exc
+
+            chat_session_id = feedback_row.chat_session_id
+            if chat_session_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="feedback has no chat session",
+                )
+
+            chat_row = session.get(FeedbackChatSession, chat_session_id)
+            if chat_row is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="chat session not found",
+                )
+
+            calls = list(
+                session.exec(
+                    _select(FeedbackChatCall)
+                    .where(FeedbackChatCall.chat_session_id == chat_session_id)
+                    .order_by(FeedbackChatCall.created_at)  # type: ignore[arg-type]
+                ).all()
+            )
+
+            return {
+                "feedback_id": str(feedback_row.id),
+                "chat_session_id": str(chat_row.id),
+                "mode": chat_row.mode.value,
+                "status": chat_row.status.value,
+                "messages": chat_row.messages or [],
+                "synthesis_json": chat_row.synthesis_json,
+                "auto_context": chat_row.auto_context or {},
+                "detected_language": chat_row.detected_language,
+                "created_at": chat_row.created_at.isoformat()
+                if chat_row.created_at
+                else None,
+                "confirmed_at": chat_row.confirmed_at.isoformat()
+                if chat_row.confirmed_at
+                else None,
+                "abandoned_at": chat_row.abandoned_at.isoformat()
+                if chat_row.abandoned_at
+                else None,
+                "calls": [
+                    {
+                        "id": str(c.id),
+                        "turn_index": c.turn_index,
+                        "model_id": c.model_id,
+                        "model_provider": c.model_provider,
+                        "input_tokens": c.input_tokens,
+                        "output_tokens": c.output_tokens,
+                        "cost_usd": float(c.cost_usd) if c.cost_usd is not None else None,
+                        "latency_ms": c.latency_ms,
+                        "status": c.status.value,
+                        "attempt_number": c.attempt_number,
+                        "error_message": c.error_message,
+                        "prompt_sha256": c.prompt_sha256,
+                        "prompt_version": c.prompt_version,
+                        "created_at": c.created_at.isoformat()
+                        if c.created_at
+                        else None,
+                    }
+                    for c in calls
+                ],
+            }
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "get_feedback_chat failed unexpectedly (id=%s)", feedback_id
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
     # GET /{id}/download — LLM-handoff ZIP (MASTER_ADMIN)
     # ────────────────────────────────────────────────────────────────
 

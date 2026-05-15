@@ -26,8 +26,8 @@ from feedback_widget.chat_models import (
     FeedbackChatSession,
 )
 from feedback_widget.chat_service import ChatService
-from feedback_widget.iter_llm.fake import FakeLLMProvider
-from feedback_widget.iter_llm.protocol import (
+from feedback_widget.llm.fake import FakeLLMProvider
+from feedback_widget.llm.protocol import (
     LLMAttachment,
     LLMResult,
     LLMUsage,

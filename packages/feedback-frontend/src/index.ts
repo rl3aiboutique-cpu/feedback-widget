@@ -99,21 +99,8 @@ export type {
   IterVersionRead,
 } from "./client/types";
 
-// v1.0.0 — `<IterWorkspace>` is a deprecated stub kept only so host
-// admin pages (capellai-ai-crm) still compile while S6 ships the
-// chat-first admin refine flow. Remove in v1.1.0.
-export { IterWorkspace, type IterWorkspaceProps } from "./iter/IterWorkspace";
-export {
-  abandonIterSession,
-  editIterVersionMarkdown,
-  finalizeIterSession,
-  getIterPackage,
-  getIterSession,
-  IterApiError,
-  listIterAssumptions,
-  listIterSessionsForFeedback,
-  listIterVersions,
-  newIdempotencyKey,
-  resolveIterAssumption,
-  startIterSession,
-} from "./client/iter";
+// Sprint C — legacy ``iter`` exports removed alongside the iter
+// backend module. Hosts that consumed ``IterWorkspace`` / iter API
+// clients must migrate to the chat-first surface
+// (``<FeedbackProvider>`` + ``GET /api/v1/feedback/{id}/chat``).
+export { newIdempotencyKey } from "./client/idempotency";

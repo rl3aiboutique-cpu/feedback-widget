@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AutoContext(BaseModel):
@@ -90,6 +90,50 @@ class ChatSessionDetailResponse(BaseModel):
 
 
 # ── S5: confirm / abandon ────────────────────────────────────────────
+
+
+class ChatSynthesisPersona(BaseModel):
+    """One persona entry inside an enriched synthesis (Sprint C, paridad
+    legacy iter Persona). Typed so the frontend SynthesisCard can render
+    deterministically and admin tooling can filter / query."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = Field(min_length=1, max_length=120)
+    goal: str = Field(default="", max_length=400)
+    frustration: str = Field(default="", max_length=400)
+
+
+class ChatSynthesis(BaseModel):
+    """Structured synthesis output produced by the LLM on ``mode='synthesize'``.
+
+    Sprint C tightens the schema: required base fields (title, summary,
+    user_story, context, user_need, acceptance_criteria, open_questions)
+    + optional typed enrichment fields (personas, user_stories,
+    assumptions, diagram). ``extra="ignore"`` so the model can emit
+    extra keys without breaking the parser — they are dropped silently
+    and logged so we can spot prompt drift.
+
+    Validation runs in :func:`chat_turn_parser.parse_turn_response`;
+    failures trigger the repair-hint retry loop mirroring legacy iter.
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    # ── Required base (capture_v2 contract) ─────────────────────────────
+    title: str = Field(min_length=1, max_length=200)
+    summary: str = Field(default="", max_length=4000)
+    user_story: str = Field(default="", max_length=1000)
+    context: str = Field(default="", max_length=2000)
+    user_need: str = Field(default="", max_length=2000)
+    acceptance_criteria: list[str] = Field(default_factory=list, max_length=20)
+    open_questions: list[str] = Field(default_factory=list, max_length=20)
+
+    # ── Optional enrichment (capture_v3 / Sprint B paridad legacy iter) ─
+    personas: list[ChatSynthesisPersona] = Field(default_factory=list, max_length=5)
+    user_stories: list[str] = Field(default_factory=list, max_length=10)
+    assumptions: list[str] = Field(default_factory=list, max_length=15)
+    diagram: str | None = Field(default=None, max_length=8000)
 
 
 class ConfirmChatSessionRequest(BaseModel):

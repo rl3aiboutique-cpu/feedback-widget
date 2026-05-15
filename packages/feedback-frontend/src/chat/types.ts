@@ -93,7 +93,7 @@ export interface ChatMessage {
  * bot_thinking   — request in-flight, streaming delta events
  * synthesizing   — got `synthesizing` SSE event, awaiting `synthesis`
  * confirming     — synthesis received, user reviewing the card
- * finalizing     — user confirmed, POST /confirm in flight (Batch B)
+ * finalizing     — user confirmed, POST /confirm in flight
  * done           — feedback created; sheet about to close
  * error          — terminal error state
  */
