@@ -33,6 +33,7 @@ import {
   useFeedbackListQuery,
   useUpdateFeedbackStatusMutation,
 } from "../adapter";
+import { ChatSessionViewer } from "./ChatSessionViewer";
 import { CommentThread } from "../comments/CommentThread";
 import { useCanTriageFeedback } from "../hooks/useCanTriageFeedback";
 
@@ -360,6 +361,8 @@ function DetailBody({
           </ul>
         </section>
       ) : null}
+
+      <ChatSessionViewer feedbackId={data.id} />
 
       <CommentThread feedbackId={data.id} />
 

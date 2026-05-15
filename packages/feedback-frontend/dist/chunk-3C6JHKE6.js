@@ -2291,6 +2291,11 @@ function _buildAutoContext(args) {
     git_commit_sha: args.gitSha || null,
     user_role: args.userRole,
     framework: diag.framework,
+    // Sprint D — ship navigator.userAgent so the LLM (and the
+    // resulting feedback row's metadata_bundle) carry browser/OS
+    // context. AutoContext pydantic caps at 512 chars; truncate
+    // here to stay deterministic.
+    user_agent: typeof navigator !== "undefined" && navigator.userAgent ? navigator.userAgent.slice(0, 512) : null,
     console_tail: diag.console_tail,
     network_errors_tail: diag.network_errors_tail,
     // S3F shell-hybrid: forward the locked element so backend can hang
@@ -3009,4 +3014,4 @@ export {
   newIdempotencyKey,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-BZ6AAXS3.js.map
+//# sourceMappingURL=chunk-3C6JHKE6.js.map

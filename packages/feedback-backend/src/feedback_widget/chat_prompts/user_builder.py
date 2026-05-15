@@ -90,6 +90,11 @@ def _format_auto_context_block(auto_context: dict[str, Any] | None) -> str:
         "git_commit_sha": ac.get("git_commit_sha"),
         "user_role": ac.get("user_role"),
         "framework": ac.get("framework"),
+        # Sprint D regression fix — user_agent is captured by the
+        # frontend and accepted by AutoContext but was missing from the
+        # auto_context block sent to the LLM. Include it so the model
+        # can reason about browser / OS context during grilling.
+        "user_agent": ac.get("user_agent"),
         # Legacy field name preserved for backwards compat with v2 prompt;
         # frontend Sprint B writes the extended capture under the same key.
         "console_tail": ac.get("console_tail") or [],

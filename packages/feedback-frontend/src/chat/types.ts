@@ -156,6 +156,9 @@ export interface AutoContextPayload {
   /** Sprint B / capture_v3 — best-effort framework fingerprint
    * (next.js, nuxt, react, vue, angular, sveltekit, remix, null). */
   framework?: string | null;
+  /** Sprint D — navigator.userAgent for the LLM context. Backend
+   * truncates to 512 chars. */
+  user_agent?: string | null;
   console_tail: string[];
   /** Sprint B / capture_v3 — last 20 fetch/XHR responses with status
    * ≥ 400 or network failures. Helps the LLM diagnose silently. */

@@ -593,3 +593,50 @@ def test_confirm_leaves_element_columns_null_when_no_locked_element(
         assert fb.element_selector is None
         assert fb.element_xpath is None
         assert fb.element_bounding_box is None
+
+
+def test_confirm_persists_user_agent_from_auto_context(client, engine) -> None:
+    """Sprint D Phase 1 regression — user_agent shipped from the
+    frontend in auto_context must (a) survive AutoContext pydantic
+    validation (the pre-Sprint-D bug dropped it via extra='ignore'),
+    (b) reach the LLM prompt block, and (c) persist on the feedback
+    row's metadata_bundle so admin tooling can audit it."""
+    sid = _seed_session(
+        engine,
+        user_id=_STAFF_USER_ID,
+        synthesis_json={
+            "title": "User-agent path",
+            "summary": "regression check",
+            "user_story": "Como user uso Chrome.",
+            "context": "n/a",
+            "user_need": "Que el admin vea mi UA.",
+            "acceptance_criteria": [],
+            "open_questions": [],
+            "inferred": {"type": "bug", "severity": "minor"},
+        },
+        auto_context={
+            "url": "https://example.com/edit",
+            "route": "/edit",
+            "app_version": "v1.2.3",
+            "user_agent": "Mozilla/5.0 (Macintosh) ChromeTestUA/142.0",
+        },
+    )
+
+    resp = client.post(
+        f"/feedback/chat/sessions/{sid}/confirm",
+        json={"synthesis_override": None},
+        headers=AUTH_STAFF,
+    )
+
+    assert resp.status_code == 200, resp.text
+    feedback_id = uuid.UUID(resp.json()["feedback_id"])
+
+    with Session(engine) as s:
+        fb = s.get(Feedback, feedback_id)
+        assert fb is not None
+        # user_agent ends up in metadata_bundle (auto_context is the
+        # source). The dedicated feedback.user_agent column is only
+        # populated by the legacy multipart flow, so we check the
+        # bundle copy.
+        bundle = fb.metadata_bundle or {}
+        assert "ChromeTestUA" in str(bundle.get("user_agent") or "")

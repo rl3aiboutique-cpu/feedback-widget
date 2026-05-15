@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Sprint D — Admin `ChatSessionViewer`**: nuevo componente
+  `packages/feedback-frontend/src/admin/ChatSessionViewer.tsx` que
+  consume `GET /api/v1/feedback/{id}/chat` (endpoint Sprint C) y
+  renderiza synthesis + transcript + LLM call audit trail dentro del
+  triage drawer. Cierra el gap visible que dejó la eliminación de
+  `IterSessionsSection` en Sprint C — admin recupera la visibilidad
+  de la conversación que produjo cada ticket chat-first.
+- **Sprint D — `user_agent` en `AutoContext` + prompt LLM**: el
+  campo se captura, valida y propaga end-to-end al modelo. El
+  frontend (`useFeedbackChat._buildAutoContext`) lo emite con
+  `navigator.userAgent.slice(0, 512)`, el schema pydantic
+  (`chat_schemas.AutoContext.user_agent`) lo acepta, y
+  `_format_auto_context_block` lo incluye en el bloque JSON que ve
+  el LLM en cada chat session.
+
+### Fixed
+
+- **Sprint D regresión bloqueante**: `user_agent` se perdía
+  silenciosamente en el camino al LLM. La schema `AutoContext`
+  declarada con `model_config = ConfigDict(extra="ignore")` dropeaba
+  el campo que el FE sí enviaba, así que el grilling perdía el
+  contexto de browser/OS. La regresión se introdujo en Sprint B al
+  desestructurar el bloque legacy `technical_metadata`. Cobertura
+  añadida en `tests/integration/test_chat_confirm_parity.py::
+  test_confirm_persists_user_agent_from_auto_context`.
+
+### Changed — **BREAKING**
+
+- **ZIP handoff layout**: la clave `raw/network_tail.json` pasa a
+  llamarse `raw/network_errors_tail.json` en
+  `bundle.build_feedback_bundle`. Hosts externos que parseen el ZIP
+  por nombre de archivo deben actualizar su pipeline. La intención
+  es alinear el nombre con el campo de `metadata_bundle`/`AutoContext`
+  que el frontend usa post-Sprint-B (`network_errors_tail`).
+
 ## [1.0.0] — 2026-05-14
 
 **Chat-first redesign.** The widget no longer ships a form. The

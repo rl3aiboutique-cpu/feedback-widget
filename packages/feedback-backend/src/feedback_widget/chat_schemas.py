@@ -31,6 +31,11 @@ class AutoContext(BaseModel):
     git_commit_sha: str | None = None
     user_role: str | None = None
     framework: str | None = None
+    # Sprint D regression fix — the frontend always captures
+    # ``navigator.userAgent`` and ships it in this field; before Sprint
+    # D the schema lacked the declaration so pydantic dropped it
+    # silently under ``extra="ignore"`` and the LLM never saw it.
+    user_agent: str | None = Field(default=None, max_length=512)
     console_tail: list[str] = Field(default_factory=list)
     network_errors_tail: list[str] = Field(default_factory=list)
     element_selector: str | None = None
