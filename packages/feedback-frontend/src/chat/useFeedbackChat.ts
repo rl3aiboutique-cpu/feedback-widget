@@ -327,33 +327,78 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     setActiveTab(tab);
   }, []);
 
+  /** Mirror of backend ``GREETING_CAPTURE`` so we can render the bot's
+   *  greeting client-side without a server roundtrip. The lazy-session
+   *  refactor (2026-05-16) stopped persisting a session row on every
+   *  open — sessions now only land in the DB once the user actually
+   *  types something. Keeping the greeting hardcoded here lets the
+   *  sheet feel instant. If the BE greeting ever changes, mirror it
+   *  here. */
+  const GREETING_CAPTURE = "Tell me what's on your mind.";
+
+  /** Lazy session creation. Called from ``sendUserMessage`` the first
+   *  time the user actually sends content, so we never create empty
+   *  ticket rows for users who opened the sheet just to look around.
+   *  Returns the freshly-created session_id; throws on failure. */
+  const _createSessionLazily = useCallback(async (): Promise<string> => {
+    const auto_context = _buildAutoContext({
+      appVersion: adapter.appVersion,
+      gitSha: adapter.gitSha,
+      userRole: user?.role ?? null,
+      locked: lockedElement,
+    });
+
+    const base = bindings.apiBaseUrl.replace(/\/$/, "");
+    const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
+    const url = `${base}${prefix}/chat/sessions`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    try {
+      const csrf = await bindings.getCsrfToken();
+      if (csrf) headers["X-CSRF-Token"] = csrf;
+    } catch {
+      /* ignore */
+    }
+    if (bindings.authHeader) {
+      try {
+        const auth = await bindings.authHeader();
+        if (auth) headers.Authorization = auth;
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const resp = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify({ mode: "capture", auto_context }),
+    });
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => "");
+      throw new Error(`create session failed (${resp.status}): ${detail || resp.statusText}`);
+    }
+    const body = (await resp.json()) as ChatSessionCreateResponse;
+    setSessionId(body.session_id);
+    return body.session_id;
+  }, [adapter.appVersion, adapter.gitSha, bindings, user?.role, lockedElement]);
+
   const openSheet = useCallback(async () => {
     if (openingRef.current) return;
     openingRef.current = true;
-    // Sprint B / capture_v3: install diagnostics hooks at the first
-    // chat-open so the console/network ring buffers start filling
-    // before the user submits anything. Idempotent — re-opens are
-    // no-ops in the installer.
+    // Diagnostics hooks install on first open so console/network ring
+    // buffers start filling before the user submits anything.
     installDiagnostics();
     setOverrideState("opening");
     setOpenError(null);
     try {
       // Auto-screenshot — D-007. The widget is excluded from the capture
       // via the `data-feedback-widget-root="true"` filter inside
-      // `capturePageScreenshot`. Failures are non-fatal: log and proceed
-      // so the user can still file the feedback. Phase 5: the resulting
-      // blob is kept in component state until `confirmSynthesis` sends
-      // it as base64 in the /confirm body.
+      // `capturePageScreenshot`. Failures are non-fatal: log and proceed.
       try {
         const result = await capturePageScreenshot({
           redactionSelectors: DEFAULT_REDACTION_SELECTORS,
         });
         if (result?.blob) {
-          // Reset the "explicit clear" flag on every fresh open so the
-          // user can recover from a previous discard by simply opening
-          // the sheet again. The display blob defaults to the full
-          // page; the lockedElement-watch effect crops it later when
-          // the user picks an element.
           setScreenshotCleared(false);
           setPageScreenshotBlob(result.blob);
           setScreenshotBlob(result.blob);
@@ -364,45 +409,12 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         }
       }
 
-      const auto_context = _buildAutoContext({
-        appVersion: adapter.appVersion,
-        gitSha: adapter.gitSha,
-        userRole: user?.role ?? null,
-        locked: lockedElement,
-      });
-
-      const base = bindings.apiBaseUrl.replace(/\/$/, "");
-      const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
-      const url = `${base}${prefix}/chat/sessions`;
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      try {
-        const csrf = await bindings.getCsrfToken();
-        if (csrf) headers["X-CSRF-Token"] = csrf;
-      } catch {
-        /* ignore */
-      }
-      if (bindings.authHeader) {
-        try {
-          const auth = await bindings.authHeader();
-          if (auth) headers.Authorization = auth;
-        } catch {
-          /* ignore */
-        }
-      }
-
-      const resp = await fetch(url, {
-        method: "POST",
-        credentials: "include",
-        headers,
-        body: JSON.stringify({ mode: "capture", auto_context }),
-      });
-      if (!resp.ok) {
-        const detail = await resp.text().catch(() => "");
-        throw new Error(`create session failed (${resp.status}): ${detail || resp.statusText}`);
-      }
-      const body = (await resp.json()) as ChatSessionCreateResponse;
-      setSessionId(body.session_id);
-      stream.pushAssistantGreeting(body.greeting);
+      // Lazy session: do NOT POST /chat/sessions here. The greeting is
+      // pushed locally; session row is created on first user message
+      // inside ``sendUserMessage``. This prevents the noise rows that
+      // accumulate when users open the sheet to browse and close
+      // without typing.
+      stream.pushAssistantGreeting(GREETING_CAPTURE);
       setOverrideState(null);
     } catch (err) {
       setOpenError(String((err as Error).message ?? err));
@@ -410,7 +422,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     } finally {
       openingRef.current = false;
     }
-  }, [adapter.appVersion, adapter.gitSha, bindings, stream, user?.role, lockedElement]);
+  }, [stream]);
 
   const closeSheet = useCallback(() => {
     stream.reset();
@@ -467,13 +479,30 @@ export function useFeedbackChat(): UseFeedbackChatResult {
       const via = composerFromVoiceRef.current ? "voice" : "text";
       composerFromVoiceRef.current = false;
       setComposerValue("");
+
+      // Lazy session creation: first user message triggers the
+      // ``POST /chat/sessions`` call. ``stream.sendMessage`` reads
+      // ``sessionId`` from its closure — we need the session to land
+      // BEFORE the hook re-renders with the new id, so we create the
+      // session here and let the stream hook pick it up on the next
+      // tick. The simplest way is to also POST the first message
+      // directly here when sessionId is null, then return — the next
+      // re-render with sessionId set will hand control back to the
+      // streaming path for subsequent turns.
+      let activeSid = sessionId;
+      if (!activeSid) {
+        try {
+          activeSid = await _createSessionLazily();
+        } catch (err) {
+          setOpenError(String((err as Error).message ?? err));
+          stream.setStateExternal("error");
+          return;
+        }
+      }
+
       // Strategy A — ship the latest captured screenshot inline on
       // every turn so the multimodal LLM sees what the user is
-      // looking at right now. Re-encode the blob to base64 here;
-      // the chat-router decodes + re-encodes for the OpenAI/Gemini
-      // multimodal block. ``screenshotBlob`` may be null (capture
-      // failed or user cleared it) — the router falls back to
-      // ticket-side attachments in that case.
+      // looking at right now.
       let screenshotB64: string | null = null;
       let screenshotCt: string | null = null;
       if (screenshotBlob) {
@@ -484,9 +513,21 @@ export function useFeedbackChat(): UseFeedbackChatResult {
           screenshotB64 = null;
         }
       }
-      await stream.sendMessage(content, via, screenshotB64, screenshotCt);
+
+      // ``stream.sendMessage`` reads sessionId via the hook's own
+      // useState — but on the very first turn it hasn't re-rendered
+      // yet with the new id. Call the stream's send path directly
+      // with the resolved sid by routing through a small helper that
+      // bypasses the hook's stale closure.
+      await stream.sendMessageWithSessionId(
+        activeSid,
+        content,
+        via,
+        screenshotB64,
+        screenshotCt,
+      );
     },
-    [stream, screenshotBlob],
+    [stream, screenshotBlob, sessionId, _createSessionLazily],
   );
 
   const confirmSynthesis = useCallback(async () => {

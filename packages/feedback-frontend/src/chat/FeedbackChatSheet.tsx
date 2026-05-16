@@ -203,10 +203,29 @@ export function FeedbackChatSheet({
   const onApproveSynthesis = useCallback(
     async (ts: string) => {
       if (!activeSessionId) return;
+      // Forward the locally-captured screenshot so the BE persists it
+      // as a SCREENSHOT attachment — without this the TicketDetail
+      // view has no visual context of where the user reported from.
+      let screenshotB64: string | null = null;
+      let screenshotCt: string | null = null;
+      if (screenshotBlob) {
+        try {
+          const buf = await screenshotBlob.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let bin = "";
+          for (const b of bytes) bin += String.fromCharCode(b);
+          screenshotB64 = btoa(bin);
+          screenshotCt = screenshotBlob.type || "image/png";
+        } catch {
+          screenshotB64 = null;
+        }
+      }
       try {
         await approveSynthesis.mutateAsync({
           sessionId: activeSessionId,
           synthesisTs: ts,
+          screenshotB64,
+          screenshotContentType: screenshotCt,
         });
         updateSynthesisMsg(ts, { confirmed: true });
       } catch (err) {
@@ -215,7 +234,13 @@ export function FeedbackChatSheet({
         );
       }
     },
-    [activeSessionId, approveSynthesis, updateSynthesisMsg, adapter.toast],
+    [
+      activeSessionId,
+      approveSynthesis,
+      updateSynthesisMsg,
+      adapter.toast,
+      screenshotBlob,
+    ],
   );
 
   const onEditSynthesis = useCallback(

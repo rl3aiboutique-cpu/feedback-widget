@@ -37,6 +37,16 @@ export interface ChatRunStreamResult {
     screenshotB64?: string | null,
     screenshotContentType?: string | null,
   ) => Promise<void>;
+  /** Same as ``sendMessage`` but accepts an explicit ``sid`` so a
+   *  caller that JUST created the session lazily can hand it through
+   *  without waiting on a re-render to flush ``setSessionId``. */
+  sendMessageWithSessionId: (
+    sid: string,
+    content: string,
+    via?: "text" | "voice",
+    screenshotB64?: string | null,
+    screenshotContentType?: string | null,
+  ) => Promise<void>;
   reset: () => void;
   /** Seed the timeline with the initial assistant greeting. */
   pushAssistantGreeting: (text: string) => void;
@@ -208,14 +218,20 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
     [],
   );
 
-  const sendMessage = useCallback(
+  /** Core send path — takes an explicit ``sid`` so callers that just
+   *  created the session lazily can use the fresh id without waiting
+   *  for the hook's ``setSessionId`` to flush through React's render
+   *  cycle. ``sendMessage`` keeps the legacy 4-arg signature for any
+   *  callers that already have ``sessionId`` in the hook state. */
+  const sendMessageWithSessionId = useCallback(
     async (
+      sid: string,
       content: string,
       via: "text" | "voice" = "text",
       screenshotB64?: string | null,
       screenshotContentType?: string | null,
     ) => {
-      if (!sessionId) {
+      if (!sid) {
         setError("session not initialised");
         setState("error");
         return;
@@ -234,7 +250,7 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
 
       const url =
         `${_base(bindings)}${_prefix(bindings)}` +
-        `/chat/sessions/${encodeURIComponent(sessionId)}/messages`;
+        `/chat/sessions/${encodeURIComponent(sid)}/messages`;
 
       try {
         const resp = await fetch(url, {
@@ -353,7 +369,33 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
         abortRef.current = null;
       }
     },
-    [bindings, sessionId],
+    [bindings],
+  );
+
+  /** Legacy 4-arg wrapper: reads ``sessionId`` from the hook's state.
+   *  Use ``sendMessageWithSessionId`` when you have a freshly-created
+   *  sid that hasn't propagated through React render yet. */
+  const sendMessage = useCallback(
+    async (
+      content: string,
+      via: "text" | "voice" = "text",
+      screenshotB64?: string | null,
+      screenshotContentType?: string | null,
+    ) => {
+      if (!sessionId) {
+        setError("session not initialised");
+        setState("error");
+        return;
+      }
+      return sendMessageWithSessionId(
+        sessionId,
+        content,
+        via,
+        screenshotB64,
+        screenshotContentType,
+      );
+    },
+    [sessionId, sendMessageWithSessionId],
   );
 
   return {
@@ -363,6 +405,7 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
     synthesis,
     error,
     sendMessage,
+    sendMessageWithSessionId,
     reset,
     pushAssistantGreeting,
     pushAssistantMessage,

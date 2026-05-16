@@ -63,9 +63,9 @@ function PersonasBlock({ personas }: { personas: SynthesisPersona[] }): ReactEle
             className="rounded border border-input/60 bg-muted/30 px-2 py-1"
           >
             <p className="font-medium">{p.name}</p>
-            <p className="text-xs text-muted-foreground">Objetivo: {p.goal}</p>
+            <p className="text-xs text-muted-foreground">Goal: {p.goal}</p>
             <p className="text-xs text-muted-foreground">
-              Fricción: {p.frustration}
+              Friction: {p.frustration}
             </p>
           </li>
         ))}
@@ -100,7 +100,7 @@ function BulletList({
 function DiagramBlock({ source }: { source: string }): ReactElement {
   return (
     <div className="flex flex-col gap-1">
-      <SectionTitle label="Diagrama" />
+      <SectionTitle label="Diagram" />
       <pre
         data-feedback-mermaid-source="true"
         className="overflow-x-auto rounded border border-input/60 bg-muted/40 p-2 text-xs text-foreground"
@@ -127,8 +127,12 @@ export function SynthesisCard({
     synthesis.acceptance_criteria.join("\n"),
   );
 
-  const editable = Boolean(onEdit) && !confirmed && !lockedByOtherWinner;
-  const approvable = Boolean(onApprove) && !confirmed && !lockedByOtherWinner;
+  // Edit + Approve are ALWAYS available on the current card, even
+  // after a previous approve. The user can keep iterating the spec
+  // (LLM follow-up turns) or edit manually + re-confirm. The card
+  // shows the "Confirmed" badge as state, not as a hard lock.
+  const editable = Boolean(onEdit) && !lockedByOtherWinner;
+  const approvable = Boolean(onApprove) && !lockedByOtherWinner;
 
   const enterEdit = () => {
     if (!editable || busy) return;
@@ -261,7 +265,7 @@ export function SynthesisCard({
           </blockquote>
 
           {extraStories.length > 0 ? (
-            <BulletList label="Historias de usuario adicionales" items={extraStories} />
+            <BulletList label="Additional user stories" items={extraStories} />
           ) : null}
 
           {synthesis.personas && synthesis.personas.length > 0 ? (
@@ -270,20 +274,20 @@ export function SynthesisCard({
 
           {synthesis.acceptance_criteria.length > 0 ? (
             <BulletList
-              label="Criterios de aceptación"
+              label="Acceptance criteria"
               items={synthesis.acceptance_criteria}
             />
           ) : null}
 
           {synthesis.assumptions && synthesis.assumptions.length > 0 ? (
-            <BulletList label="Supuestos" items={synthesis.assumptions} muted />
+            <BulletList label="Assumptions" items={synthesis.assumptions} muted />
           ) : null}
 
           {synthesis.diagram ? <DiagramBlock source={synthesis.diagram} /> : null}
 
           {synthesis.open_questions.length > 0 ? (
             <BulletList
-              label="Preguntas abiertas"
+              label="Open questions"
               items={synthesis.open_questions}
               muted
             />

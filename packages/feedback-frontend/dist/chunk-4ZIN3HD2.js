@@ -428,6 +428,31 @@ function usePostFeedbackAdminActionMutation() {
     }
   });
 }
+function useAdminHardDeleteTicketMutation() {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(input.ticketId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("DELETE /{id}", resp);
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.ticketId]
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+    }
+  });
+}
 function useAdminSoftDeleteTicketMutation() {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
@@ -540,11 +565,17 @@ function useApproveSynthesisMutation() {
   return useMutation({
     mutationFn: async (input) => {
       const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}/approve`;
-      const headers = await _buildHeaders(bindings);
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json"
+      });
       const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
-        headers
+        headers,
+        body: JSON.stringify({
+          screenshot_b64: input.screenshotB64 ?? null,
+          screenshot_content_type: input.screenshotContentType ?? null
+        })
       });
       if (!resp.ok) {
         await _throwApiError(
@@ -571,7 +602,9 @@ function useEditSynthesisMutation() {
   return useMutation({
     mutationFn: async (input) => {
       const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}`;
-      const headers = await _buildHeaders(bindings);
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json"
+      });
       const resp = await fetch(url, {
         method: "PATCH",
         credentials: "include",
@@ -665,7 +698,9 @@ function useFeedbackBindings() {
 import { jsx as jsx2, jsxs } from "react/jsx-runtime";
 function Rl3Mark({
   className,
-  gradientId = "rl3-feedback-grad"
+  // gradientId kept on the props for backward compat — the gradient
+  // itself was removed when the mark switched to flat RL3 brand.
+  gradientId: _gradientId = "rl3-feedback-grad"
 }) {
   return /* @__PURE__ */ jsxs(
     "svg",
@@ -677,22 +712,7 @@ function Rl3Mark({
       role: "img",
       "aria-label": "RL3",
       children: [
-        /* @__PURE__ */ jsx2("defs", { children: /* @__PURE__ */ jsxs(
-          "linearGradient",
-          {
-            id: gradientId,
-            x1: "0",
-            y1: "0",
-            x2: "32",
-            y2: "32",
-            gradientUnits: "userSpaceOnUse",
-            children: [
-              /* @__PURE__ */ jsx2("stop", { offset: "0%", stopColor: "#14b8a6" }),
-              /* @__PURE__ */ jsx2("stop", { offset: "100%", stopColor: "#0ea5e9" })
-            ]
-          }
-        ) }),
-        /* @__PURE__ */ jsx2("rect", { width: "32", height: "32", rx: "8", fill: `url(#${gradientId})` }),
+        /* @__PURE__ */ jsx2("rect", { width: "32", height: "32", rx: "8", fill: "#000000", stroke: "#C4B07F", strokeWidth: "1" }),
         /* @__PURE__ */ jsx2(
           "text",
           {
@@ -1130,7 +1150,8 @@ function AttachmentTray({
   captureMode,
   elementSelector,
   onClearScreenshot,
-  canRemove = true
+  canRemove = true,
+  includeScreenshots = false
 }) {
   const detail = useFeedbackDetailQuery(sessionId);
   const deleteAttachment = useDeleteChatAttachmentMutation();
@@ -1160,7 +1181,7 @@ function AttachmentTray({
   }
   const serverAttachments = detail.data?.attachments ?? [];
   for (const a of serverAttachments) {
-    if (a.kind === "screenshot") continue;
+    if (a.kind === "screenshot" && !includeScreenshots) continue;
     const isImage = a.content_type.startsWith("image/");
     items.push({
       key: `server-${a.id}`,
@@ -1430,11 +1451,11 @@ function PersonasBlock({ personas }) {
         children: [
           /* @__PURE__ */ jsx11("p", { className: "font-medium", children: p.name }),
           /* @__PURE__ */ jsxs7("p", { className: "text-xs text-muted-foreground", children: [
-            "Objetivo: ",
+            "Goal: ",
             p.goal
           ] }),
           /* @__PURE__ */ jsxs7("p", { className: "text-xs text-muted-foreground", children: [
-            "Fricci\xF3n: ",
+            "Friction: ",
             p.frustration
           ] })
         ]
@@ -1461,7 +1482,7 @@ function BulletList({
 }
 function DiagramBlock({ source }) {
   return /* @__PURE__ */ jsxs7("div", { className: "flex flex-col gap-1", children: [
-    /* @__PURE__ */ jsx11(SectionTitle, { label: "Diagrama" }),
+    /* @__PURE__ */ jsx11(SectionTitle, { label: "Diagram" }),
     /* @__PURE__ */ jsx11(
       "pre",
       {
@@ -1487,8 +1508,8 @@ function SynthesisCard({
   const [draftCriteria, setDraftCriteria] = useState4(
     synthesis.acceptance_criteria.join("\n")
   );
-  const editable = Boolean(onEdit) && !confirmed && !lockedByOtherWinner;
-  const approvable = Boolean(onApprove) && !confirmed && !lockedByOtherWinner;
+  const editable = Boolean(onEdit) && !lockedByOtherWinner;
+  const approvable = Boolean(onApprove) && !lockedByOtherWinner;
   const enterEdit = () => {
     if (!editable || busy) return;
     setDraftTitle(synthesis.title);
@@ -1619,21 +1640,21 @@ function SynthesisCard({
           /* @__PURE__ */ jsx11("h3", { className: "text-base font-bold text-foreground", children: synthesis.title }),
           /* @__PURE__ */ jsx11("p", { className: "text-sm text-muted-foreground", children: synthesis.summary }),
           /* @__PURE__ */ jsx11("blockquote", { className: "border-l-2 border-primary pl-3 text-sm italic text-foreground", children: synthesis.user_story }),
-          extraStories.length > 0 ? /* @__PURE__ */ jsx11(BulletList, { label: "Historias de usuario adicionales", items: extraStories }) : null,
+          extraStories.length > 0 ? /* @__PURE__ */ jsx11(BulletList, { label: "Additional user stories", items: extraStories }) : null,
           synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsx11(PersonasBlock, { personas: synthesis.personas }) : null,
           synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsx11(
             BulletList,
             {
-              label: "Criterios de aceptaci\xF3n",
+              label: "Acceptance criteria",
               items: synthesis.acceptance_criteria
             }
           ) : null,
-          synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx11(BulletList, { label: "Supuestos", items: synthesis.assumptions, muted: true }) : null,
+          synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsx11(BulletList, { label: "Assumptions", items: synthesis.assumptions, muted: true }) : null,
           synthesis.diagram ? /* @__PURE__ */ jsx11(DiagramBlock, { source: synthesis.diagram }) : null,
           synthesis.open_questions.length > 0 ? /* @__PURE__ */ jsx11(
             BulletList,
             {
-              label: "Preguntas abiertas",
+              label: "Open questions",
               items: synthesis.open_questions,
               muted: true
             }
@@ -1696,22 +1717,23 @@ function ChatTimeline({
   useEffect4(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, isThinking]);
-  const hasWinner = useMemo3(
-    () => messages.some(
-      (m) => m.role === "synthesis" && m.confirmed === true
-    ),
-    [messages]
-  );
+  const latestSynthesisIdx = useMemo3(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "synthesis" && messages[i].synthesis) return i;
+    }
+    return -1;
+  }, [messages]);
   return /* @__PURE__ */ jsxs8("div", { className: "flex flex-col gap-3 px-4 py-3", children: [
     messages.map((m, idx) => {
       if (m.role === "synthesis" && m.synthesis) {
+        if (idx !== latestSynthesisIdx) return null;
         const tsKey = String(m.ts);
         return /* @__PURE__ */ jsx12(
           SynthesisCard,
           {
             synthesis: m.synthesis,
             confirmed: m.confirmed === true,
-            lockedByOtherWinner: hasWinner && m.confirmed !== true,
+            lockedByOtherWinner: false,
             onApprove: onApproveSynthesis ? () => onApproveSynthesis(tsKey) : void 0,
             onEdit: onEditSynthesis ? (patch) => onEditSynthesis(tsKey, patch) : void 0,
             busy: synthesisBusy
@@ -2820,9 +2842,9 @@ function useChatRunStream(args) {
     },
     []
   );
-  const sendMessage = useCallback4(
-    async (content, via = "text", screenshotB64, screenshotContentType) => {
-      if (!sessionId) {
+  const sendMessageWithSessionId = useCallback4(
+    async (sid, content, via = "text", screenshotB64, screenshotContentType) => {
+      if (!sid) {
         setError("session not initialised");
         setState("error");
         return;
@@ -2835,7 +2857,7 @@ function useChatRunStream(args) {
       setState("bot_thinking");
       const ctrl = new AbortController();
       abortRef.current = ctrl;
-      const url = `${_base(bindings)}${_prefix(bindings)}/chat/sessions/${encodeURIComponent(sessionId)}/messages`;
+      const url = `${_base(bindings)}${_prefix(bindings)}/chat/sessions/${encodeURIComponent(sid)}/messages`;
       try {
         const resp = await fetch(url, {
           method: "POST",
@@ -2937,7 +2959,24 @@ function useChatRunStream(args) {
         abortRef.current = null;
       }
     },
-    [bindings, sessionId]
+    [bindings]
+  );
+  const sendMessage = useCallback4(
+    async (content, via = "text", screenshotB64, screenshotContentType) => {
+      if (!sessionId) {
+        setError("session not initialised");
+        setState("error");
+        return;
+      }
+      return sendMessageWithSessionId(
+        sessionId,
+        content,
+        via,
+        screenshotB64,
+        screenshotContentType
+      );
+    },
+    [sessionId, sendMessageWithSessionId]
   );
   return {
     state,
@@ -2946,6 +2985,7 @@ function useChatRunStream(args) {
     synthesis,
     error,
     sendMessage,
+    sendMessageWithSessionId,
     reset,
     pushAssistantGreeting,
     pushAssistantMessage,
@@ -3025,6 +3065,9 @@ function TicketDetail({ feedbackId, onBack }) {
   const adminAction = usePostFeedbackAdminActionMutation();
   const softDelete = useSoftDeleteTicketMutation();
   const adminSoftDelete = useAdminSoftDeleteTicketMutation();
+  const adminHardDelete = useAdminHardDeleteTicketMutation();
+  const [hardDeleteOpen, setHardDeleteOpen] = useState9(false);
+  const [hardDeleteInput, setHardDeleteInput] = useState9("");
   const uploadAttachment = useUploadChatAttachmentMutation();
   const stream = useChatRunStream({ bindings, sessionId: feedbackId });
   const isAdmin = useCanTriageFeedback();
@@ -3253,7 +3296,7 @@ function TicketDetail({ feedbackId, onBack }) {
                     className: "text-destructive hover:bg-destructive/10",
                     disabled: adminSoftDelete.isPending,
                     onClick: () => {
-                      if (confirm("Soft-delete this ticket?")) {
+                      if (confirm("Soft-delete this ticket? (reversible via /restore)")) {
                         adminSoftDelete.mutate(
                           { ticketId: feedbackId },
                           { onSuccess: onBack }
@@ -3263,7 +3306,25 @@ function TicketDetail({ feedbackId, onBack }) {
                     "data-feedback-id": "feedback.ticket_detail.delete",
                     children: [
                       /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-                      " Delete"
+                      " Soft delete"
+                    ]
+                  }
+                ),
+                /* @__PURE__ */ jsxs14(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    className: "text-destructive border border-destructive/40 hover:bg-destructive hover:text-destructive-foreground",
+                    onClick: () => {
+                      setHardDeleteInput("");
+                      setHardDeleteOpen(true);
+                    },
+                    "data-feedback-id": "feedback.ticket_detail.hard_delete",
+                    children: [
+                      /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
+                      " Hard delete"
                     ]
                   }
                 )
@@ -3327,23 +3388,51 @@ function TicketDetail({ feedbackId, onBack }) {
           screenshotBlob: null,
           captureMode: "page",
           elementSelector: null,
-          canRemove: isOwner
+          canRemove: isOwner,
+          includeScreenshots: true
         }
       ),
-      isOwner ? /* @__PURE__ */ jsx19("div", { className: "flex items-center justify-end", children: /* @__PURE__ */ jsxs14(
-        Button,
-        {
-          type: "button",
-          variant: "ghost",
-          size: "sm",
-          onClick: onDownloadOwn,
-          "data-feedback-id": "feedback.ticket_detail.download_mine",
-          children: [
-            /* @__PURE__ */ jsx19(Download, { className: "h-3 w-3 mr-1" }),
-            " Download ZIP"
-          ]
-        }
-      ) }) : null,
+      isOwner ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center justify-end gap-2", children: [
+        /* @__PURE__ */ jsxs14(
+          Button,
+          {
+            type: "button",
+            variant: "ghost",
+            size: "sm",
+            className: "text-destructive hover:bg-destructive/10",
+            disabled: softDelete.isPending,
+            onClick: () => {
+              if (confirm(
+                "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it."
+              )) {
+                softDelete.mutate(
+                  { ticketId: feedbackId },
+                  { onSuccess: onBack }
+                );
+              }
+            },
+            "data-feedback-id": "feedback.ticket_detail.delete_mine_inline",
+            children: [
+              /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
+              " Delete"
+            ]
+          }
+        ),
+        /* @__PURE__ */ jsxs14(
+          Button,
+          {
+            type: "button",
+            variant: "ghost",
+            size: "sm",
+            onClick: onDownloadOwn,
+            "data-feedback-id": "feedback.ticket_detail.download_mine",
+            children: [
+              /* @__PURE__ */ jsx19(Download, { className: "h-3 w-3 mr-1" }),
+              " Download ZIP"
+            ]
+          }
+        )
+      ] }) : null,
       isOwner && !isTerminal ? /* @__PURE__ */ jsx19(
         Composer,
         {
@@ -3354,37 +3443,93 @@ function TicketDetail({ feedbackId, onBack }) {
           attachDisabled: uploadAttachment.isPending
         }
       ) : null,
-      isOwner && isTerminal ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center justify-end gap-2 border-t border-input/40 pt-2", children: [
-        /* @__PURE__ */ jsxs14("span", { className: "text-[10px] italic text-muted-foreground", children: [
-          "Ticket is ",
-          detail.data.status,
-          " \u2014 closed for replies."
-        ] }),
-        /* @__PURE__ */ jsxs14(
-          Button,
+      isOwner && isTerminal ? /* @__PURE__ */ jsx19("div", { className: "flex items-center justify-end gap-2 border-t border-input/40 pt-2", children: /* @__PURE__ */ jsxs14("span", { className: "text-[10px] italic text-muted-foreground", children: [
+        "Ticket is ",
+        detail.data.status,
+        " \u2014 closed for replies."
+      ] }) }) : null
+    ] }),
+    hardDeleteOpen ? /* @__PURE__ */ jsx19(
+      "div",
+      {
+        className: "fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/70 p-4",
+        onClick: () => setHardDeleteOpen(false),
+        children: /* @__PURE__ */ jsxs14(
+          "div",
           {
-            type: "button",
-            variant: "ghost",
-            size: "sm",
-            className: "text-destructive hover:bg-destructive/10",
-            disabled: softDelete.isPending,
-            onClick: () => {
-              if (confirm("Delete this ticket?")) {
-                softDelete.mutate(
-                  { ticketId: feedbackId },
-                  { onSuccess: onBack }
-                );
-              }
-            },
-            "data-feedback-id": "feedback.ticket_detail.delete_mine",
+            className: "w-full max-w-md rounded-lg border border-destructive/50 bg-card p-5 shadow-2xl",
+            onClick: (e) => e.stopPropagation(),
             children: [
-              /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-              " Delete"
+              /* @__PURE__ */ jsx19("h3", { className: "text-sm font-bold text-destructive", children: "Permanently delete this ticket?" }),
+              /* @__PURE__ */ jsxs14("p", { className: "mt-2 text-xs text-muted-foreground", children: [
+                "This drops the ticket row + every S3 attachment + the chat history. ",
+                /* @__PURE__ */ jsx19("span", { className: "font-semibold", children: "Not reversible." }),
+                " ",
+                'Prefer "Soft delete" unless you are certain.'
+              ] }),
+              /* @__PURE__ */ jsxs14("p", { className: "mt-3 text-xs", children: [
+                "To confirm, type ",
+                /* @__PURE__ */ jsx19("code", { className: "rounded bg-muted px-1 py-0.5 font-mono text-xs", children: "DELETE" }),
+                " below:"
+              ] }),
+              /* @__PURE__ */ jsx19(
+                "input",
+                {
+                  type: "text",
+                  value: hardDeleteInput,
+                  onChange: (e) => setHardDeleteInput(e.target.value),
+                  autoFocus: true,
+                  className: "mt-2 w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-mono outline-none focus:border-destructive",
+                  placeholder: "DELETE",
+                  "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm_input"
+                }
+              ),
+              /* @__PURE__ */ jsxs14("div", { className: "mt-4 flex justify-end gap-2", children: [
+                /* @__PURE__ */ jsx19(
+                  Button,
+                  {
+                    type: "button",
+                    variant: "ghost",
+                    size: "sm",
+                    onClick: () => setHardDeleteOpen(false),
+                    disabled: adminHardDelete.isPending,
+                    children: "Cancel"
+                  }
+                ),
+                /* @__PURE__ */ jsxs14(
+                  Button,
+                  {
+                    type: "button",
+                    size: "sm",
+                    className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                    disabled: hardDeleteInput !== "DELETE" || adminHardDelete.isPending,
+                    onClick: () => {
+                      adminHardDelete.mutate(
+                        { ticketId: feedbackId },
+                        {
+                          onSuccess: () => {
+                            setHardDeleteOpen(false);
+                            onBack();
+                          },
+                          onError: (err) => adapter.toast.error(
+                            err instanceof Error ? err.message : "Hard delete failed."
+                          )
+                        }
+                      );
+                    },
+                    "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm",
+                    children: [
+                      /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
+                      " Permanently delete"
+                    ]
+                  }
+                )
+              ] })
             ]
           }
         )
-      ] }) : null
-    ] })
+      }
+    ) : null
   ] });
 }
 
@@ -3898,6 +4043,44 @@ function useFeedbackChat() {
   const selectTab = useCallback5((tab) => {
     setActiveTab(tab);
   }, []);
+  const GREETING_CAPTURE = "Tell me what's on your mind.";
+  const _createSessionLazily = useCallback5(async () => {
+    const auto_context = _buildAutoContext({
+      appVersion: adapter.appVersion,
+      gitSha: adapter.gitSha,
+      userRole: user?.role ?? null,
+      locked: lockedElement
+    });
+    const base = bindings.apiBaseUrl.replace(/\/$/, "");
+    const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
+    const url = `${base}${prefix}/chat/sessions`;
+    const headers = { "Content-Type": "application/json" };
+    try {
+      const csrf = await bindings.getCsrfToken();
+      if (csrf) headers["X-CSRF-Token"] = csrf;
+    } catch {
+    }
+    if (bindings.authHeader) {
+      try {
+        const auth = await bindings.authHeader();
+        if (auth) headers.Authorization = auth;
+      } catch {
+      }
+    }
+    const resp = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: JSON.stringify({ mode: "capture", auto_context })
+    });
+    if (!resp.ok) {
+      const detail = await resp.text().catch(() => "");
+      throw new Error(`create session failed (${resp.status}): ${detail || resp.statusText}`);
+    }
+    const body = await resp.json();
+    setSessionId(body.session_id);
+    return body.session_id;
+  }, [adapter.appVersion, adapter.gitSha, bindings, user?.role, lockedElement]);
   const openSheet = useCallback5(async () => {
     if (openingRef.current) return;
     openingRef.current = true;
@@ -3919,41 +4102,7 @@ function useFeedbackChat() {
           console.warn("[feedback-chat] screenshot capture failed", err);
         }
       }
-      const auto_context = _buildAutoContext({
-        appVersion: adapter.appVersion,
-        gitSha: adapter.gitSha,
-        userRole: user?.role ?? null,
-        locked: lockedElement
-      });
-      const base = bindings.apiBaseUrl.replace(/\/$/, "");
-      const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
-      const url = `${base}${prefix}/chat/sessions`;
-      const headers = { "Content-Type": "application/json" };
-      try {
-        const csrf = await bindings.getCsrfToken();
-        if (csrf) headers["X-CSRF-Token"] = csrf;
-      } catch {
-      }
-      if (bindings.authHeader) {
-        try {
-          const auth = await bindings.authHeader();
-          if (auth) headers.Authorization = auth;
-        } catch {
-        }
-      }
-      const resp = await fetch(url, {
-        method: "POST",
-        credentials: "include",
-        headers,
-        body: JSON.stringify({ mode: "capture", auto_context })
-      });
-      if (!resp.ok) {
-        const detail = await resp.text().catch(() => "");
-        throw new Error(`create session failed (${resp.status}): ${detail || resp.statusText}`);
-      }
-      const body = await resp.json();
-      setSessionId(body.session_id);
-      stream.pushAssistantGreeting(body.greeting);
+      stream.pushAssistantGreeting(GREETING_CAPTURE);
       setOverrideState(null);
     } catch (err) {
       setOpenError(String(err.message ?? err));
@@ -3961,7 +4110,7 @@ function useFeedbackChat() {
     } finally {
       openingRef.current = false;
     }
-  }, [adapter.appVersion, adapter.gitSha, bindings, stream, user?.role, lockedElement]);
+  }, [stream]);
   const closeSheet = useCallback5(() => {
     stream.reset();
     setSessionId(null);
@@ -4003,6 +4152,16 @@ function useFeedbackChat() {
       const via = composerFromVoiceRef.current ? "voice" : "text";
       composerFromVoiceRef.current = false;
       setComposerValue("");
+      let activeSid = sessionId;
+      if (!activeSid) {
+        try {
+          activeSid = await _createSessionLazily();
+        } catch (err) {
+          setOpenError(String(err.message ?? err));
+          stream.setStateExternal("error");
+          return;
+        }
+      }
       let screenshotB64 = null;
       let screenshotCt = null;
       if (screenshotBlob) {
@@ -4013,9 +4172,15 @@ function useFeedbackChat() {
           screenshotB64 = null;
         }
       }
-      await stream.sendMessage(content, via, screenshotB64, screenshotCt);
+      await stream.sendMessageWithSessionId(
+        activeSid,
+        content,
+        via,
+        screenshotB64,
+        screenshotCt
+      );
     },
-    [stream, screenshotBlob]
+    [stream, screenshotBlob, sessionId, _createSessionLazily]
   );
   const confirmSynthesis = useCallback5(async () => {
     if (!sessionId) {
@@ -4492,10 +4657,26 @@ function FeedbackChatSheet({
   const onApproveSynthesis = useCallback6(
     async (ts) => {
       if (!activeSessionId) return;
+      let screenshotB64 = null;
+      let screenshotCt = null;
+      if (screenshotBlob) {
+        try {
+          const buf = await screenshotBlob.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let bin = "";
+          for (const b of bytes) bin += String.fromCharCode(b);
+          screenshotB64 = btoa(bin);
+          screenshotCt = screenshotBlob.type || "image/png";
+        } catch {
+          screenshotB64 = null;
+        }
+      }
       try {
         await approveSynthesis.mutateAsync({
           sessionId: activeSessionId,
-          synthesisTs: ts
+          synthesisTs: ts,
+          screenshotB64,
+          screenshotContentType: screenshotCt
         });
         updateSynthesisMsg(ts, { confirmed: true });
       } catch (err) {
@@ -4504,7 +4685,13 @@ function FeedbackChatSheet({
         );
       }
     },
-    [activeSessionId, approveSynthesis, updateSynthesisMsg, adapter.toast]
+    [
+      activeSessionId,
+      approveSynthesis,
+      updateSynthesisMsg,
+      adapter.toast,
+      screenshotBlob
+    ]
   );
   const onEditSynthesis = useCallback6(
     async (ts, patch) => {
@@ -4671,4 +4858,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-W6TIQ26E.js.map
+//# sourceMappingURL=chunk-4ZIN3HD2.js.map

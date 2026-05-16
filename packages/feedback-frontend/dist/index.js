@@ -20,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-W6TIQ26E.js";
+} from "./chunk-4ZIN3HD2.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -371,7 +371,7 @@ function ElementSelector({ onLock, onCancel }) {
 // src/FeedbackButton.tsx
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-EYQCAFWR.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-A5PKVWGX.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",

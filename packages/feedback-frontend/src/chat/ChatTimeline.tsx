@@ -56,27 +56,33 @@ export function ChatTimeline({
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, isThinking]);
 
-  // Detect whether ANY synthesis msg has been confirmed — that locks
-  // Approve / Edit on every other version (one-winner invariant).
-  const hasWinner = useMemo(
-    () =>
-      messages.some(
-        (m) => m.role === "synthesis" && m.confirmed === true,
-      ),
-    [messages],
-  );
+  // Single-card rule (2026-05-16): the user wants ONE canonical spec
+  // card in the timeline at any time, not one per iteration. Identify
+  // the latest synthesis msg index — all earlier ones get hidden so
+  // the user sees only the current state of the spec. The DB still
+  // keeps every version (audit + revert) but the UI surfaces the
+  // active one only.
+  const latestSynthesisIdx = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "synthesis" && messages[i].synthesis) return i;
+    }
+    return -1;
+  }, [messages]);
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
       {messages.map((m, idx) => {
         if (m.role === "synthesis" && m.synthesis) {
+          // Skip non-latest synthesis msgs — the latest one is the
+          // canonical spec card; older iterations are noise in the UI.
+          if (idx !== latestSynthesisIdx) return null;
           const tsKey = String(m.ts);
           return (
             <SynthesisCard
               key={`synthesis-${tsKey}-${idx}`}
               synthesis={m.synthesis}
               confirmed={m.confirmed === true}
-              lockedByOtherWinner={hasWinner && m.confirmed !== true}
+              lockedByOtherWinner={false}
               onApprove={
                 onApproveSynthesis
                   ? () => onApproveSynthesis(tsKey)

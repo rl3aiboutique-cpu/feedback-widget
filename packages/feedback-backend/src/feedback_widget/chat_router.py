@@ -47,6 +47,7 @@ from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.chat_models import FeedbackChatSession
 from feedback_widget.chat_schemas import (
     AbandonChatSessionResponse,
+    ApproveSynthesisRequest,
     ChatMessageRequest,
     ChatSessionDetailResponse,
     ConfirmChatSessionRequest,
@@ -742,6 +743,7 @@ def build_chat_router(
     def approve_synthesis_version(
         session_id: uuid.UUID,
         synthesis_ts: str,
+        payload: ApproveSynthesisRequest = ApproveSynthesisRequest(),  # noqa: B008
         user: CurrentUserSnapshot = UserDep,
         db: Session = SessionDep,
     ) -> SynthesisCardResponse:
@@ -773,6 +775,11 @@ def build_chat_router(
             # Finalise ticket metadata from the approved synthesis. This
             # is what gives the row a ticket_code + title + type +
             # severity that the admin queue can sort and filter on.
+            # ``screenshot_b64`` (optional) gets persisted as a
+            # ``kind=SCREENSHOT`` attachment so the detail view has
+            # visual context — without this, reopening a ticket shows
+            # no screenshot even though the FE captured one at session
+            # start.
             service.confirm_session(
                 session=db,
                 chat_session_id=session_id,
@@ -780,6 +787,8 @@ def build_chat_router(
                 user_id=user.user_id,
                 settings=settings,
                 storage=storage,
+                screenshot_b64=payload.screenshot_b64,
+                screenshot_content_type=payload.screenshot_content_type,
             )
         except ChatSessionNotFoundError as exc:
             raise HTTPException(

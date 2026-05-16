@@ -130,70 +130,70 @@
   html .rl3-feedback-scope,
   html .rl3-feedback-scope.dark,
   html .dark .rl3-feedback-scope {
-    /* ``!important`` is intentional and load-bearing here. Without it,
-       any host that ships its own ``@theme inline`` block (every
-       shadcn host does) re-declares ``--color-background`` etc. at
-       :root in the same cascade layer, and source order picks the
-       host as winner because CBP's index.css is imported AFTER the
-       widget's styles.css. We are not styling the host — we are
-       defining the widget's own design system that no host can mutate. */
-    --background: 222.2 84% 4.9% !important;
-    --foreground: 210 40% 98% !important;
-    --card: 222.2 84% 4.9% !important;
-    --card-foreground: 210 40% 98% !important;
-    --popover: 222.2 84% 4.9% !important;
-    --popover-foreground: 210 40% 98% !important;
-    --primary: 210 40% 98% !important;
-    --primary-foreground: 222.2 47.4% 11.2% !important;
-    --secondary: 217.2 32.6% 17.5% !important;
-    --secondary-foreground: 210 40% 98% !important;
-    --muted: 217.2 32.6% 17.5% !important;
-    --muted-foreground: 215 20.2% 65.1% !important;
-    --accent: 217.2 32.6% 17.5% !important;
-    --accent-foreground: 210 40% 98% !important;
-    --destructive: 0 62.8% 30.6% !important;
-    --destructive-foreground: 210 40% 98% !important;
-    --border: 217.2 32.6% 17.5% !important;
-    --input: 217.2 32.6% 17.5% !important;
-    --ring: 212.7 26.8% 83.9% !important;
+    /* RL3 brand palette — pure black + beige accent (≈ #C4B07F). The
+       widget enforces this regardless of host shadcn theme so the
+       same brand identity ships everywhere. ``!important`` is
+       load-bearing: hosts re-declare these names at :root in the
+       same cascade layer, source order picks the host without
+       !important to break the tie. We are not styling the host —
+       we are protecting the widget's design system. */
+    --background: 0 0% 0% !important;
+    --foreground: 0 0% 98% !important;
+    --card: 0 0% 6% !important;
+    --card-foreground: 0 0% 98% !important;
+    --popover: 0 0% 6% !important;
+    --popover-foreground: 0 0% 98% !important;
+    --primary: 42 32% 64% !important;
+    --primary-foreground: 0 0% 8% !important;
+    --secondary: 0 0% 12% !important;
+    --secondary-foreground: 0 0% 95% !important;
+    --muted: 0 0% 10% !important;
+    --muted-foreground: 0 0% 60% !important;
+    --accent: 42 32% 64% !important;
+    --accent-foreground: 0 0% 8% !important;
+    --destructive: 0 70% 55% !important;
+    --destructive-foreground: 0 0% 98% !important;
+    --border: 0 0% 15% !important;
+    --input: 0 0% 15% !important;
+    --ring: 42 32% 64% !important;
     --radius: 0.5rem !important;
 
     /* Tailwind 4 colour namespace — fully computed, host-immune. */
-    --color-background: hsl(222.2 84% 4.9%) !important;
-    --color-foreground: hsl(210 40% 98%) !important;
-    --color-card: hsl(222.2 84% 4.9%) !important;
-    --color-card-foreground: hsl(210 40% 98%) !important;
-    --color-popover: hsl(222.2 84% 4.9%) !important;
-    --color-popover-foreground: hsl(210 40% 98%) !important;
-    --color-primary: hsl(210 40% 98%) !important;
-    --color-primary-foreground: hsl(222.2 47.4% 11.2%) !important;
-    --color-secondary: hsl(217.2 32.6% 17.5%) !important;
-    --color-secondary-foreground: hsl(210 40% 98%) !important;
-    --color-muted: hsl(217.2 32.6% 17.5%) !important;
-    --color-muted-foreground: hsl(215 20.2% 65.1%) !important;
-    --color-accent: hsl(217.2 32.6% 17.5%) !important;
-    --color-accent-foreground: hsl(210 40% 98%) !important;
-    --color-destructive: hsl(0 62.8% 30.6%) !important;
-    --color-destructive-foreground: hsl(210 40% 98%) !important;
-    --color-border: hsl(217.2 32.6% 17.5%) !important;
-    --color-input: hsl(217.2 32.6% 17.5%) !important;
-    --color-ring: hsl(212.7 26.8% 83.9%) !important;
+    --color-background: hsl(0 0% 0%) !important;
+    --color-foreground: hsl(0 0% 98%) !important;
+    --color-card: hsl(0 0% 6%) !important;
+    --color-card-foreground: hsl(0 0% 98%) !important;
+    --color-popover: hsl(0 0% 6%) !important;
+    --color-popover-foreground: hsl(0 0% 98%) !important;
+    --color-primary: hsl(42 32% 64%) !important;
+    --color-primary-foreground: hsl(0 0% 8%) !important;
+    --color-secondary: hsl(0 0% 12%) !important;
+    --color-secondary-foreground: hsl(0 0% 95%) !important;
+    --color-muted: hsl(0 0% 10%) !important;
+    --color-muted-foreground: hsl(0 0% 60%) !important;
+    --color-accent: hsl(42 32% 64%) !important;
+    --color-accent-foreground: hsl(0 0% 8%) !important;
+    --color-destructive: hsl(0 70% 55%) !important;
+    --color-destructive-foreground: hsl(0 0% 98%) !important;
+    --color-border: hsl(0 0% 15%) !important;
+    --color-input: hsl(0 0% 15%) !important;
+    --color-ring: hsl(42 32% 64%) !important;
 
     /* Reset host typography that would otherwise leak into the
        widget sheet (e.g. Inter from CBP overriding system stack). */
     font-family:
       ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       "Helvetica Neue", Arial, sans-serif !important;
-    color: hsl(210 40% 98%);
+    color: hsl(0 0% 98%);
   }
 
-  /* Sheet backdrop — hardcoded solid colour wins over any host class
-     that might cascade onto Radix's SheetContent. This is the safety
-     net for the case where the widget's ``bg-gradient-to-b
-     from-background ...`` loses the resolution race; the sheet still
-     renders fully opaque. */
+  /* Sheet backdrop — pure RL3 black wins over any host class that
+     might cascade onto Radix's SheetContent. Safety net for the
+     case where the widget's ``bg-gradient-to-b from-background ...``
+     loses the resolution race; the sheet still renders fully opaque
+     in the RL3 brand colour. */
   [data-state="open"].rl3-feedback-scope,
   .rl3-feedback-scope[role="dialog"] {
-    background-color: hsl(222.2 84% 4.9%) !important;
+    background-color: hsl(0 0% 0%) !important;
   }
 }

@@ -210,6 +210,18 @@ class EditSynthesisRequest(BaseModel):
     acceptance_criteria: list[str] | None = Field(default=None, max_length=20)
 
 
+class ApproveSynthesisRequest(BaseModel):
+    """Optional body for the approve endpoint. The FE forwards the
+    auto-captured screenshot (base64) when present so the
+    ``confirm_session`` step inside approve can persist it as a
+    ``kind=SCREENSHOT`` attachment — without this the ticket detail
+    view has no visual context. Both fields optional: an empty body
+    is accepted (approve still works, just no screenshot attached)."""
+
+    screenshot_b64: str | None = Field(default=None, max_length=20_000_000)
+    screenshot_content_type: str | None = Field(default=None, max_length=64)
+
+
 class SynthesisCardResponse(BaseModel):
     """Response of approve + edit endpoints — returns the resulting
     synthesis msg so the client can re-hydrate without an extra GET."""

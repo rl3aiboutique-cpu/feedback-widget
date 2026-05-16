@@ -560,6 +560,36 @@ export function usePostFeedbackAdminActionMutation(): UseMutationResult<
  * User soft-delete of their own ticket (S5b). Returns 204; the
  * mutation invalidates ``mine`` so the row disappears from the list.
  */
+export function useAdminHardDeleteTicketMutation(): UseMutationResult<
+  void,
+  Error,
+  { ticketId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(input.ticketId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("DELETE /{id}", resp);
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.ticketId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+    },
+  });
+}
+
 export function useAdminSoftDeleteTicketMutation(): UseMutationResult<
   void,
   Error,
@@ -778,18 +808,31 @@ interface SynthesisCardResponse {
 export function useApproveSynthesisMutation(): UseMutationResult<
   SynthesisCardResponse,
   Error,
-  { sessionId: string; synthesisTs: string }
+  {
+    sessionId: string;
+    synthesisTs: string;
+    /** Optional screenshot to persist as a ``kind=SCREENSHOT``
+     *  attachment so the ticket detail view has visual context. */
+    screenshotB64?: string | null;
+    screenshotContentType?: string | null;
+  }
 > {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input) => {
       const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}/approve`;
-      const headers = await _buildHeaders(bindings);
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json",
+      });
       const resp = await fetch(url, {
         method: "POST",
         credentials: "include",
         headers,
+        body: JSON.stringify({
+          screenshot_b64: input.screenshotB64 ?? null,
+          screenshot_content_type: input.screenshotContentType ?? null,
+        }),
       });
       if (!resp.ok) {
         await _throwApiError(
@@ -821,7 +864,9 @@ export function useEditSynthesisMutation(): UseMutationResult<
   return useMutation({
     mutationFn: async (input) => {
       const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}`;
-      const headers = await _buildHeaders(bindings);
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json",
+      });
       const resp = await fetch(url, {
         method: "PATCH",
         credentials: "include",

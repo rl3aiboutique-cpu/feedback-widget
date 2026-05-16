@@ -27,7 +27,9 @@ export interface Rl3MarkProps {
 
 export function Rl3Mark({
   className,
-  gradientId = "rl3-feedback-grad",
+  // gradientId kept on the props for backward compat — the gradient
+  // itself was removed when the mark switched to flat RL3 brand.
+  gradientId: _gradientId = "rl3-feedback-grad",
 }: Rl3MarkProps): React.ReactElement {
   return (
     <svg
@@ -38,20 +40,11 @@ export function Rl3Mark({
       role="img"
       aria-label="RL3"
     >
-      <defs>
-        <linearGradient
-          id={gradientId}
-          x1="0"
-          y1="0"
-          x2="32"
-          y2="32"
-          gradientUnits="userSpaceOnUse"
-        >
-          <stop offset="0%" stopColor="#14b8a6" />
-          <stop offset="100%" stopColor="#0ea5e9" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="8" fill={`url(#${gradientId})`} />
+      {/* RL3 brand mark — pure black square + white wordmark. Matches
+          the rl3.ai site identity (no gradient, no accent inside the
+          mark). The gradientId prop is kept for backward compat with
+          older host code that referenced it. */}
+      <rect width="32" height="32" rx="8" fill="#000000" stroke="#C4B07F" strokeWidth="1" />
       <text
         x="16"
         y="22"

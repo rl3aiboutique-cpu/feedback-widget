@@ -22,6 +22,7 @@ import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import {
   downloadFeedbackBundleViaBindings,
   downloadOwnFeedbackBundleViaBindings,
+  useAdminHardDeleteTicketMutation,
   useAdminSoftDeleteTicketMutation,
   useApproveSynthesisMutation,
   useEditSynthesisMutation,
@@ -128,6 +129,13 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
   const adminAction = usePostFeedbackAdminActionMutation();
   const softDelete = useSoftDeleteTicketMutation();
   const adminSoftDelete = useAdminSoftDeleteTicketMutation();
+  const adminHardDelete = useAdminHardDeleteTicketMutation();
+  // Typed-confirmation modal state for the admin hard-delete flow.
+  // Two state flags to avoid an extra component: open=true shows the
+  // overlay, ``hardDeleteInput`` holds the typed text; we accept only
+  // exact "DELETE" to prevent accidental clicks.
+  const [hardDeleteOpen, setHardDeleteOpen] = useState(false);
+  const [hardDeleteInput, setHardDeleteInput] = useState("");
   const uploadAttachment = useUploadChatAttachmentMutation();
   const stream = useChatRunStream({ bindings, sessionId: feedbackId });
 
@@ -415,7 +423,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
                     className="text-destructive hover:bg-destructive/10"
                     disabled={adminSoftDelete.isPending}
                     onClick={() => {
-                      if (confirm("Soft-delete this ticket?")) {
+                      if (confirm("Soft-delete this ticket? (reversible via /restore)")) {
                         adminSoftDelete.mutate(
                           { ticketId: feedbackId },
                           { onSuccess: onBack },
@@ -424,7 +432,20 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
                     }}
                     data-feedback-id="feedback.ticket_detail.delete"
                   >
-                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                    <Trash2 className="h-3 w-3 mr-1" /> Soft delete
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive border border-destructive/40 hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={() => {
+                      setHardDeleteInput("");
+                      setHardDeleteOpen(true);
+                    }}
+                    data-feedback-id="feedback.ticket_detail.hard_delete"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Hard delete
                   </Button>
                 </div>
                 <Textarea
@@ -489,6 +510,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
             captureMode="page"
             elementSelector={null}
             canRemove={isOwner}
+            includeScreenshots={true}
           />
 
           {/* ── Owner ZIP — always available so submitter can hand-off
@@ -497,7 +519,29 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
                  owner can call; admins have their own copy in the
                  admin actions panel. */}
           {isOwner ? (
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                disabled={softDelete.isPending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it.",
+                    )
+                  ) {
+                    softDelete.mutate(
+                      { ticketId: feedbackId },
+                      { onSuccess: onBack },
+                    );
+                  }
+                }}
+                data-feedback-id="feedback.ticket_detail.delete_mine_inline"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Delete
+              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -525,34 +569,96 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
             />
           ) : null}
 
-          {/* ── Owner footer (terminal — read-only label + delete) ── */}
+          {/* ── Owner footer (terminal — just the read-only label;
+                 the Delete button moved up to the always-visible
+                 owner row next to Download ZIP). */}
           {isOwner && isTerminal ? (
             <div className="flex items-center justify-end gap-2 border-t border-input/40 pt-2">
               <span className="text-[10px] italic text-muted-foreground">
                 Ticket is {detail.data.status} — closed for replies.
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10"
-                disabled={softDelete.isPending}
-                onClick={() => {
-                  if (confirm("Delete this ticket?")) {
-                    softDelete.mutate(
-                      { ticketId: feedbackId },
-                      { onSuccess: onBack },
-                    );
-                  }
-                }}
-                data-feedback-id="feedback.ticket_detail.delete_mine"
-              >
-                <Trash2 className="h-3 w-3 mr-1" /> Delete
-              </Button>
             </div>
           ) : null}
         </>
       )}
+
+      {/* ── Admin hard-delete typed-confirmation modal ──────────────
+             Sits at the bottom of the component tree (rendered as a
+             portal-style fixed overlay) so it covers the sheet. The
+             user must type the literal "DELETE" string before the
+             permanent action is enabled — prevents accidental clicks
+             that would unwind the audit trail and S3 attachments. */}
+      {hardDeleteOpen ? (
+        <div
+          className="fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setHardDeleteOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-destructive/50 bg-card p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-bold text-destructive">
+              Permanently delete this ticket?
+            </h3>
+            <p className="mt-2 text-xs text-muted-foreground">
+              This drops the ticket row + every S3 attachment + the chat
+              history. <span className="font-semibold">Not reversible.</span>{" "}
+              Prefer "Soft delete" unless you are certain.
+            </p>
+            <p className="mt-3 text-xs">
+              To confirm, type <code className="rounded bg-muted px-1 py-0.5 font-mono text-xs">DELETE</code> below:
+            </p>
+            <input
+              type="text"
+              value={hardDeleteInput}
+              onChange={(e) => setHardDeleteInput(e.target.value)}
+              autoFocus
+              className="mt-2 w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-mono outline-none focus:border-destructive"
+              placeholder="DELETE"
+              data-feedback-id="feedback.ticket_detail.hard_delete_confirm_input"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setHardDeleteOpen(false)}
+                disabled={adminHardDelete.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={
+                  hardDeleteInput !== "DELETE" || adminHardDelete.isPending
+                }
+                onClick={() => {
+                  adminHardDelete.mutate(
+                    { ticketId: feedbackId },
+                    {
+                      onSuccess: () => {
+                        setHardDeleteOpen(false);
+                        onBack();
+                      },
+                      onError: (err) =>
+                        adapter.toast.error(
+                          err instanceof Error
+                            ? err.message
+                            : "Hard delete failed.",
+                        ),
+                    },
+                  );
+                }}
+                data-feedback-id="feedback.ticket_detail.hard_delete_confirm"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Permanently delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

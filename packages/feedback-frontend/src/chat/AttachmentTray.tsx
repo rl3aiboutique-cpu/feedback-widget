@@ -60,6 +60,12 @@ export interface AttachmentTrayProps {
    *  ``isOwner`` so admins viewing someone else's ticket cannot trigger
    *  the owner-gated DELETE /chat/sessions/{sid}/attachments/{aid}. */
   canRemove?: boolean;
+  /** When true, server-side attachments with ``kind=screenshot`` also
+   *  render in the tray. Default false because the compose path
+   *  already shows a local-blob preview. The detail path passes
+   *  ``true`` so the user can see the screenshot captured at the
+   *  moment they filed the ticket. */
+  includeScreenshots?: boolean;
 }
 
 function _formatBytes(size: number): string {
@@ -83,6 +89,7 @@ export function AttachmentTray({
   elementSelector,
   onClearScreenshot,
   canRemove = true,
+  includeScreenshots = false,
 }: AttachmentTrayProps): ReactElement | null {
   const detail = useFeedbackDetailQuery(sessionId);
   const deleteAttachment = useDeleteChatAttachmentMutation();
@@ -121,12 +128,11 @@ export function AttachmentTray({
   const serverAttachments: FeedbackAttachmentRead[] =
     detail.data?.attachments ?? [];
   for (const a of serverAttachments) {
-    // Skip the screenshot kind — when the ticket confirms, the local
-    // blob gets uploaded as kind=screenshot; we surface only the
-    // local copy here so the user sees a stable preview during the
-    // conversation. After confirm the chat sheet typically closes,
-    // so this branch is rarely hit.
-    if (a.kind === "screenshot") continue;
+    // Skip the screenshot kind unless explicitly requested. Compose
+    // flow shows the local blob already (no need to duplicate). Detail
+    // flow opts in via ``includeScreenshots`` so the user sees the
+    // exact frame the ticket was filed from.
+    if (a.kind === "screenshot" && !includeScreenshots) continue;
     const isImage = a.content_type.startsWith("image/");
     items.push({
       key: `server-${a.id}`,
