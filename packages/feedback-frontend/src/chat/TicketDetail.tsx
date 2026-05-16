@@ -15,7 +15,7 @@
  * identically across both entry points.
  */
 
-import { Download, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, Send, Trash2, User } from "lucide-react";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
@@ -347,8 +347,8 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
               </h2>
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
-              <span>
-                👤{" "}
+              <span className="inline-flex items-center gap-1">
+                <User className="h-3 w-3" />
                 {isOwner ? "You" : (
                   <code className="font-mono">{_shortId(detail.data.user_id)}</code>
                 )}
@@ -478,7 +478,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
           {/* ── Action-required banner (owner only) ──────────────── */}
           {needsUserReply ? (
             <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-              <span className="text-base">⚠</span>
+              <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
                 <span className="font-semibold">The team is waiting for your reply.</span>{" "}
                 Send a message below to continue the conversation.

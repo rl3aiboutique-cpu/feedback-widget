@@ -1,7 +1,7 @@
 "use client";
 
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import { XIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
 import type * as React from "react";
 
 import { cn } from "../lib/utils";
@@ -105,17 +105,57 @@ function SheetContent({
         {...props}
       >
         {onResizeStart && hasCustomWidth ? (
-          <button
-            type="button"
-            aria-label="Resize panel"
-            data-feedback-id="feedback.sheet_resize_handle"
-            onMouseDown={onResizeStart}
-            onTouchStart={onResizeStart}
+          // Drag-resize affordance — full-height invisible strip for
+          // the hit target + a centered circular pill with chevrons so
+          // users can see the handle. Mirrors the image-comparison
+          // slider pattern: thin spine + visible round grip in the
+          // middle. Pure dark-on-RL3-palette styling so it does not
+          // clash with the brand.
+          <div
             className={cn(
-              "absolute top-0 z-20 h-full w-1.5 select-none bg-transparent transition-colors hover:bg-primary/30 active:bg-primary/50",
+              "absolute top-0 z-20 h-full w-3 select-none cursor-ew-resize",
               handleSideClass,
             )}
-          />
+            onMouseDown={onResizeStart}
+            onTouchStart={onResizeStart}
+            data-feedback-id="feedback.sheet_resize_handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panel"
+          >
+            {/* Thin vertical line — visible only while dragging or
+                on hover, so it stays out of the way at rest. */}
+            <span
+              aria-hidden="true"
+              className={cn(
+                "pointer-events-none absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors",
+                isDragging
+                  ? "bg-primary/70"
+                  : "bg-input/60 group-hover:bg-primary/40",
+              )}
+            />
+            {/* Centered circular grip. ``button`` so it's keyboard
+                focusable + ARIA-friendly. The drag handlers live on
+                the parent strip so users can grab either the spine or
+                the pill. */}
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-hidden="true"
+              className={cn(
+                "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+                "inline-flex h-9 w-9 items-center justify-center rounded-full",
+                "border border-input bg-card text-foreground shadow-md",
+                "transition-transform duration-150 ease-out",
+                isDragging
+                  ? "scale-110 shadow-lg border-primary"
+                  : "hover:scale-105 hover:border-primary/60",
+              )}
+            >
+              <ChevronLeft className="h-3.5 w-3.5 -mr-1" />
+              <ChevronRight className="h-3.5 w-3.5 -ml-1" />
+            </button>
+          </div>
         ) : null}
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">

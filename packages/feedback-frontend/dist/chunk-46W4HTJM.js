@@ -832,7 +832,7 @@ function useResizableSheet() {
 
 // src/ui/sheet.tsx
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import { XIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
 
 // src/lib/utils.ts
 import { clsx } from "clsx";
@@ -901,19 +901,59 @@ function SheetContent({
         style: mergedStyle,
         ...props,
         children: [
-          onResizeStart && hasCustomWidth ? /* @__PURE__ */ jsx3(
-            "button",
-            {
-              type: "button",
-              "aria-label": "Resize panel",
-              "data-feedback-id": "feedback.sheet_resize_handle",
-              onMouseDown: onResizeStart,
-              onTouchStart: onResizeStart,
-              className: cn(
-                "absolute top-0 z-20 h-full w-1.5 select-none bg-transparent transition-colors hover:bg-primary/30 active:bg-primary/50",
-                handleSideClass
-              )
-            }
+          onResizeStart && hasCustomWidth ? (
+            // Drag-resize affordance — full-height invisible strip for
+            // the hit target + a centered circular pill with chevrons so
+            // users can see the handle. Mirrors the image-comparison
+            // slider pattern: thin spine + visible round grip in the
+            // middle. Pure dark-on-RL3-palette styling so it does not
+            // clash with the brand.
+            /* @__PURE__ */ jsxs2(
+              "div",
+              {
+                className: cn(
+                  "absolute top-0 z-20 h-full w-3 select-none cursor-ew-resize",
+                  handleSideClass
+                ),
+                onMouseDown: onResizeStart,
+                onTouchStart: onResizeStart,
+                "data-feedback-id": "feedback.sheet_resize_handle",
+                role: "separator",
+                "aria-orientation": "vertical",
+                "aria-label": "Resize panel",
+                children: [
+                  /* @__PURE__ */ jsx3(
+                    "span",
+                    {
+                      "aria-hidden": "true",
+                      className: cn(
+                        "pointer-events-none absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors",
+                        isDragging ? "bg-primary/70" : "bg-input/60 group-hover:bg-primary/40"
+                      )
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs2(
+                    "button",
+                    {
+                      type: "button",
+                      tabIndex: -1,
+                      "aria-hidden": "true",
+                      className: cn(
+                        "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
+                        "inline-flex h-9 w-9 items-center justify-center rounded-full",
+                        "border border-input bg-card text-foreground shadow-md",
+                        "transition-transform duration-150 ease-out",
+                        isDragging ? "scale-110 shadow-lg border-primary" : "hover:scale-105 hover:border-primary/60"
+                      ),
+                      children: [
+                        /* @__PURE__ */ jsx3(ChevronLeft, { className: "h-3.5 w-3.5 -mr-1" }),
+                        /* @__PURE__ */ jsx3(ChevronRight, { className: "h-3.5 w-3.5 -ml-1" })
+                      ]
+                    }
+                  )
+                ]
+              }
+            )
           ) : null,
           children,
           /* @__PURE__ */ jsxs2(SheetPrimitive.Close, { className: "ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none", children: [
@@ -2253,6 +2293,7 @@ function Composer({
 }
 
 // src/chat/FeedbackTabs.tsx
+import { Inbox, MessageSquarePlus } from "lucide-react";
 import { jsx as jsx14, jsxs as jsxs10 } from "react/jsx-runtime";
 function FeedbackTabs({
   activeTab,
@@ -2266,16 +2307,19 @@ function FeedbackTabs({
       className: "grid grid-cols-2 gap-1 p-1 rounded-md bg-muted text-xs font-medium",
       role: "tablist",
       children: [
-        /* @__PURE__ */ jsx14(
+        /* @__PURE__ */ jsxs10(
           "button",
           {
             type: "button",
             role: "tab",
             "aria-selected": activeTab === "compose",
             onClick: () => onTabChange("compose"),
-            className: `px-3 py-1.5 rounded transition-colors ${activeTab === "compose" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
+            className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "compose" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.compose",
-            children: "\u270E New feedback"
+            children: [
+              /* @__PURE__ */ jsx14(MessageSquarePlus, { className: "h-3.5 w-3.5" }),
+              /* @__PURE__ */ jsx14("span", { children: "New feedback" })
+            ]
           }
         ),
         /* @__PURE__ */ jsxs10(
@@ -2288,7 +2332,8 @@ function FeedbackTabs({
             className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.mine",
             children: [
-              /* @__PURE__ */ jsx14("span", { children: "\u{1F4CB} My tickets" }),
+              /* @__PURE__ */ jsx14(Inbox, { className: "h-3.5 w-3.5" }),
+              /* @__PURE__ */ jsx14("span", { children: "My tickets" }),
               mineTotalCount > 0 ? /* @__PURE__ */ jsx14(
                 "span",
                 {
@@ -2356,7 +2401,7 @@ function FooterActions({
 }
 
 // src/chat/MineFeedTab.tsx
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft as ChevronLeft2, ChevronRight as ChevronRight2, Search } from "lucide-react";
 import { useState as useState7 } from "react";
 
 // src/hooks/useCanTriageFeedback.ts
@@ -2687,7 +2732,7 @@ function MineFeedTab({ onSelectFeedback }) {
             "aria-label": "Previous page",
             "data-feedback-id": "feedback.tickets.prev",
             className: "inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30",
-            children: /* @__PURE__ */ jsx18(ChevronLeft, { className: "h-3.5 w-3.5" })
+            children: /* @__PURE__ */ jsx18(ChevronLeft2, { className: "h-3.5 w-3.5" })
           }
         ),
         /* @__PURE__ */ jsxs13("span", { className: "text-[11px] tabular-nums text-foreground", children: [
@@ -2704,7 +2749,7 @@ function MineFeedTab({ onSelectFeedback }) {
             "aria-label": "Next page",
             "data-feedback-id": "feedback.tickets.next",
             className: "inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30",
-            children: /* @__PURE__ */ jsx18(ChevronRight, { className: "h-3.5 w-3.5" })
+            children: /* @__PURE__ */ jsx18(ChevronRight2, { className: "h-3.5 w-3.5" })
           }
         )
       ] })
@@ -2713,7 +2758,7 @@ function MineFeedTab({ onSelectFeedback }) {
 }
 
 // src/chat/TicketDetail.tsx
-import { Download, Send, Trash2 } from "lucide-react";
+import { AlertTriangle, Download, Send, Trash2, User } from "lucide-react";
 import { useEffect as useEffect7, useRef as useRef5, useState as useState9 } from "react";
 
 // src/chat/useChatRunStream.ts
@@ -3225,9 +3270,8 @@ function TicketDetail({ feedbackId, onBack }) {
           /* @__PURE__ */ jsx19("h2", { className: "truncate text-sm font-semibold text-foreground", children: detail.data.title ?? /* @__PURE__ */ jsx19("span", { className: "italic text-muted-foreground", children: "(no title yet)" }) })
         ] }),
         /* @__PURE__ */ jsxs14("div", { className: "flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground", children: [
-          /* @__PURE__ */ jsxs14("span", { children: [
-            "\u{1F464}",
-            " ",
+          /* @__PURE__ */ jsxs14("span", { className: "inline-flex items-center gap-1", children: [
+            /* @__PURE__ */ jsx19(User, { className: "h-3 w-3" }),
             isOwner ? "You" : /* @__PURE__ */ jsx19("code", { className: "font-mono", children: _shortId2(detail.data.user_id) })
           ] }),
           detail.data.created_at ? /* @__PURE__ */ jsxs14("span", { children: [
@@ -3360,7 +3404,7 @@ function TicketDetail({ feedbackId, onBack }) {
         }
       ) : null,
       needsUserReply ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700", children: [
-        /* @__PURE__ */ jsx19("span", { className: "text-base", children: "\u26A0" }),
+        /* @__PURE__ */ jsx19(AlertTriangle, { className: "h-4 w-4 shrink-0" }),
         /* @__PURE__ */ jsxs14("span", { children: [
           /* @__PURE__ */ jsx19("span", { className: "font-semibold", children: "The team is waiting for your reply." }),
           " ",
@@ -4858,4 +4902,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-KSEMRYQ4.js.map
+//# sourceMappingURL=chunk-46W4HTJM.js.map

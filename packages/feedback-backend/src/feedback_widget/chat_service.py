@@ -58,6 +58,7 @@ from feedback_widget.llm.protocol import (
 from feedback_widget.scrubber import scrub_questions
 from feedback_widget.models import (
     Feedback,
+    FeedbackAttachment,
     FeedbackAttachmentKind,
     FeedbackSeverity,
     FeedbackStatus,
@@ -799,53 +800,76 @@ class ChatService:
                     session, tenant_id=feedback_tenant
                 )
 
-        # Screenshot upload (paridad con el legacy multipart). The
-        # blob auto-captured client-side at openSheet arrives
-        # base64-encoded in ``screenshot_b64``; decode, sanity-cap,
-        # push to S3 via ``upload_feedback_attachment``, and stash
-        # the attachment id inside ``metadata_bundle`` so the email
-        # template + admin UI resolve it without a join.
+        # Screenshot upload — at most ONE per ticket. The blob
+        # auto-captured client-side at openSheet arrives base64-encoded
+        # in ``screenshot_b64``; decode, sanity-cap, push to S3 via
+        # ``upload_feedback_attachment``, and stash the attachment id
+        # inside ``metadata_bundle`` so the email template + admin UI
+        # resolve it without a join.
+        #
+        # Idempotent on re-approve: the approve endpoint calls
+        # confirm_session every time the user clicks Approve. Without
+        # this guard, each click uploaded a new SCREENSHOT row →
+        # AttachmentTray showed N duplicate thumbnails. We now check
+        # for an existing kind=SCREENSHOT attachment first and skip
+        # the upload entirely when one already exists.
         if (
             screenshot_b64
             and storage is not None
             and resolved_settings is not None
         ):
-            try:
-                import base64
+            from sqlmodel import select as _select_existing
 
-                raw_bytes = base64.b64decode(screenshot_b64, validate=True)
-            except (ValueError, TypeError):
-                logger.warning(
-                    "chat confirm: screenshot_b64 not valid base64 — skipping upload"
+            existing_screenshot = session.exec(
+                _select_existing(FeedbackAttachment)
+                .where(FeedbackAttachment.ticket_id == feedback.id)
+                .where(
+                    FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT
+                )
+                .limit(1)
+            ).first()
+            if existing_screenshot is not None:
+                logger.debug(
+                    "chat confirm: screenshot already attached to ticket=%s — skipping upload",
+                    feedback.id,
                 )
             else:
-                cap = resolved_settings.MAX_SCREENSHOT_BYTES
-                if len(raw_bytes) > cap:
+                try:
+                    import base64
+
+                    raw_bytes = base64.b64decode(screenshot_b64, validate=True)
+                except (ValueError, TypeError):
                     logger.warning(
-                        "chat confirm: screenshot exceeds cap (%d > %d) — skipping",
-                        len(raw_bytes),
-                        cap,
+                        "chat confirm: screenshot_b64 not valid base64 — skipping upload"
                     )
                 else:
-                    attachment = upload_feedback_attachment(
-                        session,
-                        storage,
-                        feedback_id=feedback.id,
-                        tenant_id=feedback_tenant,
-                        content=raw_bytes,
-                        content_type=screenshot_content_type or "image/png",
-                        filename=None,
-                        kind=FeedbackAttachmentKind.SCREENSHOT,
-                        width=None,
-                        height=None,
-                        settings=resolved_settings,
-                    )
-                    session.flush()
-                    bundle = dict(feedback.metadata_bundle or {})
-                    bundle["screenshot_attachment_id"] = str(attachment.id)
-                    feedback.metadata_bundle = bundle
-                    session.add(feedback)
-                    session.flush()
+                    cap = resolved_settings.MAX_SCREENSHOT_BYTES
+                    if len(raw_bytes) > cap:
+                        logger.warning(
+                            "chat confirm: screenshot exceeds cap (%d > %d) — skipping",
+                            len(raw_bytes),
+                            cap,
+                        )
+                    else:
+                        attachment = upload_feedback_attachment(
+                            session,
+                            storage,
+                            feedback_id=feedback.id,
+                            tenant_id=feedback_tenant,
+                            content=raw_bytes,
+                            content_type=screenshot_content_type or "image/png",
+                            filename=None,
+                            kind=FeedbackAttachmentKind.SCREENSHOT,
+                            width=None,
+                            height=None,
+                            settings=resolved_settings,
+                        )
+                        session.flush()
+                        bundle = dict(feedback.metadata_bundle or {})
+                        bundle["screenshot_attachment_id"] = str(attachment.id)
+                        feedback.metadata_bundle = bundle
+                        session.add(feedback)
+                        session.flush()
 
         # Flip the chat session phase to confirmed. The ticket itself
         # stays addressable via ``feedback.id`` (same as chat_row.id).

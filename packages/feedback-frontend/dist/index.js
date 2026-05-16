@@ -20,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-KSEMRYQ4.js";
+} from "./chunk-46W4HTJM.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -371,7 +371,7 @@ function ElementSelector({ onLock, onCancel }) {
 // src/FeedbackButton.tsx
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-NTH5A5ZA.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-CX4LOCWB.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -481,6 +481,7 @@ function FeedbackButton() {
 var FeedbackButton_default = FeedbackButton;
 
 // src/FeedbackDiscoveryHint.tsx
+import { Sparkles } from "lucide-react";
 import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
 var _DEFAULT_TITLE = "Beta feedback triage";
 var _DEFAULT_DESCRIPTION = "Click the floating RL3 Feedback button (bottom-right), open the My tickets tab, then toggle the scope to All to browse every ticket in the tenant \u2014 screenshots, attachments, spec card, and admin actions all live inside the sheet.";
@@ -508,14 +509,7 @@ function FeedbackDiscoveryHint({
       ].join(" "),
       "data-feedback-id": "feedback.discovery.admin",
       children: /* @__PURE__ */ jsxs3("div", { className: "flex items-start gap-3", children: [
-        /* @__PURE__ */ jsx3(
-          "span",
-          {
-            "aria-hidden": "true",
-            className: "mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-primary",
-            children: "\u2726"
-          }
-        ),
+        /* @__PURE__ */ jsx3(Sparkles, { className: "mt-0.5 h-5 w-5 shrink-0 text-primary", "aria-hidden": "true" }),
         /* @__PURE__ */ jsxs3("div", { children: [
           /* @__PURE__ */ jsx3("h2", { className: "font-semibold", children: title ?? _DEFAULT_TITLE }),
           /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: description ?? _DEFAULT_DESCRIPTION })

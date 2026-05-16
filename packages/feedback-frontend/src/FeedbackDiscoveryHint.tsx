@@ -14,6 +14,7 @@
  * - ``inline`` — one-liner sentence (for in-context references)
  */
 
+import { Sparkles } from "lucide-react";
 import type { ReactElement } from "react";
 
 export interface FeedbackDiscoveryHintProps {
@@ -56,12 +57,7 @@ export function FeedbackDiscoveryHint({
       data-feedback-id="feedback.discovery.admin"
     >
       <div className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-primary"
-        >
-          ✦
-        </span>
+        <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
         <div>
           <h2 className="font-semibold">{title ?? _DEFAULT_TITLE}</h2>
           <p className="text-sm text-muted-foreground">
