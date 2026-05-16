@@ -37,6 +37,11 @@ export {
   FeedbackButton,
 } from "./FeedbackButton";
 
+export {
+  FeedbackDiscoveryHint,
+  type FeedbackDiscoveryHintProps,
+} from "./FeedbackDiscoveryHint";
+
 // v1.0.0 — chat-first surface. Hosts that want to mount the chat
 // sheet directly (without the floating launcher) can import this.
 export { FeedbackChatSheet } from "./chat/FeedbackChatSheet";
@@ -75,6 +80,7 @@ export {
 
 export {
   createAdapter,
+  DEFAULT_API_PATH_PREFIX,
   type FeedbackAdapter,
   type FeedbackHostBindings,
   SubmitFeedbackError,

@@ -63,9 +63,30 @@ const ENV_GIT_SHA =
 // Host bindings — the host implements these
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Default API path prefix the widget mounts on. Hosts that mount the
+ * backend module via ``mount_feedback_widget(app)`` get this path out
+ * of the box — use the constant in bindings to avoid drift.
+ */
+export const DEFAULT_API_PATH_PREFIX = "/api/v1/feedback";
+
 export interface FeedbackHostBindings {
   /** Hook returning the currently signed-in user, or null when absent. */
   useCurrentUser: () => CurrentUserSnapshot | null;
+
+  /**
+   * Optional visibility gate. Returning ``false`` (or a Promise that
+   * resolves to false) suppresses the floating ``FeedbackButton`` even
+   * when ``useCurrentUser()`` resolves a user. Use this for host-side
+   * cascades (tenant default → admin override → self-opt-out) without
+   * leaking that logic into the widget.
+   *
+   * The widget calls this once per mount + once per query invalidation
+   * (the host triggers a re-render to flip visibility on toggle).
+   *
+   * When omitted, visibility falls back to ``useCurrentUser() !== null``.
+   */
+  isEnabled?: () => boolean | Promise<boolean>;
 
   /**
    * Returns the CSRF token to attach as `X-CSRF-Token`.
@@ -170,7 +191,10 @@ async function _throwApiError(path: string, resp: Response): Promise<never> {
 }
 
 function _resolvePrefix(b: FeedbackHostBindings): string {
-  return b.apiPathPrefix ?? "/api/v1/feedback";
+  // Note: a separate inline default exists below for callers that bypass
+  // this helper. The exported DEFAULT_API_PATH_PREFIX is the source of
+  // truth — keep these in sync.
+  return b.apiPathPrefix ?? DEFAULT_API_PATH_PREFIX;
 }
 
 function _resolveBase(b: FeedbackHostBindings): string {

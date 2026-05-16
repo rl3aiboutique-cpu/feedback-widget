@@ -123,6 +123,35 @@ type Translator = (key: string, vars?: Record<string, string>) => string;
 
 declare function FeedbackButton(): React.ReactElement | null;
 
+/**
+ * Optional discovery card hosts can mount in their admin home / docs
+ * page to teach users where the in-app feedback UX lives. Mirrors the
+ * Patrón A model: triage lives inside the FeedbackButton sheet, no
+ * dedicated route exists.
+ *
+ * Hosts opt in:
+ *
+ *   import { FeedbackDiscoveryHint } from "@rl3/feedback-widget";
+ *   <FeedbackDiscoveryHint variant="admin" />
+ *
+ * Variants:
+ * - ``admin``  — full block with title + instructions (for admin pages)
+ * - ``inline`` — one-liner sentence (for in-context references)
+ */
+
+interface FeedbackDiscoveryHintProps {
+    /** Layout variant. ``admin`` is the full discovery card; ``inline``
+     *  is a one-line span suitable for embedding in body copy. */
+    variant?: "admin" | "inline";
+    /** Optional className passed through for host-side spacing. */
+    className?: string;
+    /** Override the headline (admin variant only). */
+    title?: string;
+    /** Override the body copy (admin variant only). */
+    description?: string;
+}
+declare function FeedbackDiscoveryHint({ variant, className, title, description, }: FeedbackDiscoveryHintProps): ReactElement;
+
 type CaptureMode = "page" | "element";
 interface LockedElementInfo {
     selector: string;
@@ -575,9 +604,28 @@ declare function registerRedactor(fn: (s: string) => string): void;
  * No `@/*` imports here — the host plugs in via the bindings prop.
  */
 
+/**
+ * Default API path prefix the widget mounts on. Hosts that mount the
+ * backend module via ``mount_feedback_widget(app)`` get this path out
+ * of the box — use the constant in bindings to avoid drift.
+ */
+declare const DEFAULT_API_PATH_PREFIX = "/api/v1/feedback";
 interface FeedbackHostBindings {
     /** Hook returning the currently signed-in user, or null when absent. */
     useCurrentUser: () => CurrentUserSnapshot | null;
+    /**
+     * Optional visibility gate. Returning ``false`` (or a Promise that
+     * resolves to false) suppresses the floating ``FeedbackButton`` even
+     * when ``useCurrentUser()`` resolves a user. Use this for host-side
+     * cascades (tenant default → admin override → self-opt-out) without
+     * leaking that logic into the widget.
+     *
+     * The widget calls this once per mount + once per query invalidation
+     * (the host triggers a re-render to flip visibility on toggle).
+     *
+     * When omitted, visibility falls back to ``useCurrentUser() !== null``.
+     */
+    isEnabled?: () => boolean | Promise<boolean>;
     /**
      * Returns the CSRF token to attach as `X-CSRF-Token`.
      *
@@ -701,4 +749,4 @@ declare function useFeedbackBindings(): FeedbackHostBindings;
  */
 declare function newIdempotencyKey(): string;
 
-export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, installConsoleWrap, installErrorWrap, installNetworkWrap, newIdempotencyKey, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, DEFAULT_API_PATH_PREFIX, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, FeedbackDiscoveryHint, type FeedbackDiscoveryHintProps, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, installConsoleWrap, installErrorWrap, installNetworkWrap, newIdempotencyKey, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

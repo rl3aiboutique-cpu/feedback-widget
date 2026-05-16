@@ -187,6 +187,7 @@ var _DEFAULT_TOAST = {
 };
 var ENV_APP_VERSION = import.meta.env.VITE_APP_VERSION || (typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "") || "0.0.0-dev";
 var ENV_GIT_SHA = import.meta.env.VITE_GIT_COMMIT_SHA || (typeof __GIT_COMMIT_SHA__ !== "undefined" ? __GIT_COMMIT_SHA__ : "") || "unknown";
+var DEFAULT_API_PATH_PREFIX = "/api/v1/feedback";
 var SubmitFeedbackError = class extends Error {
   constructor(status, body, retryAfter) {
     super(`POST /feedback failed with ${status}`);
@@ -224,7 +225,7 @@ async function _throwApiError(path, resp) {
   throw new FeedbackApiError(resp.status, path, detail, resp.headers.get("Retry-After"));
 }
 function _resolvePrefix(b) {
-  return b.apiPathPrefix ?? "/api/v1/feedback";
+  return b.apiPathPrefix ?? DEFAULT_API_PATH_PREFIX;
 }
 function _resolveBase(b) {
   return b.apiBaseUrl.replace(/\/$/, "");
@@ -4648,6 +4649,7 @@ function FeedbackChatSheet({
 
 export {
   redactString,
+  DEFAULT_API_PATH_PREFIX,
   SubmitFeedbackError,
   createAdapter,
   FeedbackProvider,
@@ -4668,4 +4670,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-JK4Z3IN7.js.map
+//# sourceMappingURL=chunk-KJ4YA3IQ.js.map

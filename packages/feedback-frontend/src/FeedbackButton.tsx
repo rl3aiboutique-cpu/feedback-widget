@@ -22,9 +22,13 @@
  * filters them out before snapshotting the page.
  */
 
-import { Suspense, lazy, useCallback, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { ElementSelector } from "./ElementSelector";
-import { useFeedbackAdapter, useFeedbackConfig } from "./FeedbackProvider";
+import {
+  useFeedbackAdapter,
+  useFeedbackBindings,
+  useFeedbackConfig,
+} from "./FeedbackProvider";
 import { Rl3Mark } from "./Rl3Mark";
 import type { SelectedElementInfo } from "./capture/metadata";
 import { describeElement } from "./capture/screenshot";
@@ -52,11 +56,33 @@ export interface LockedElement {
 export function FeedbackButton(): React.ReactElement | null {
   const config = useFeedbackConfig();
   const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
   const t = adapter.useTranslation();
 
   const [open, setOpen] = useState(false);
   const [pickerActive, setPickerActive] = useState(false);
   const [locked, setLocked] = useState<LockedElement | null>(null);
+
+  // Host-side visibility cascade (tenant default → admin override →
+  // self opt-out lives in the host's bindings.isEnabled()). When the
+  // callback resolves false, the FAB stays hidden even for signed-in
+  // users — replaces the old "useCurrentUser returns null" workaround.
+  // Optimistic true so the FAB does not pop in late on the slow path.
+  const [hostEnabled, setHostEnabled] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    const cb = bindings.isEnabled;
+    if (!cb) {
+      setHostEnabled(true);
+      return;
+    }
+    Promise.resolve(cb()).then((v) => {
+      if (!cancelled) setHostEnabled(v !== false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bindings]);
 
   const handlePickerLock = useCallback((el: HTMLElement) => {
     setLocked({ el, info: describeElement(el) });
@@ -83,6 +109,7 @@ export function FeedbackButton(): React.ReactElement | null {
   const pendingCount = useMyPendingActionCount();
 
   if (!config.enabled) return null;
+  if (!hostEnabled) return null;
 
   const cornerClass = POSITION_CLASSES[config.position] ?? POSITION_CLASSES.bottom_right;
   const accentStyle = config.brandPrimaryHex

@@ -1,5 +1,6 @@
 import {
   CapturePicker,
+  DEFAULT_API_PATH_PREFIX,
   FeedbackChatSheet,
   FeedbackProvider,
   FeedbackTabs,
@@ -19,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-JK4Z3IN7.js";
+} from "./chunk-KJ4YA3IQ.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -213,7 +214,7 @@ function installErrorWrap(capacity = DEFAULT_CAPACITY3) {
 }
 
 // src/FeedbackButton.tsx
-import { Suspense, lazy, useCallback, useState as useState2 } from "react";
+import { Suspense, lazy, useCallback, useEffect as useEffect2, useState as useState2 } from "react";
 
 // src/ElementSelector.tsx
 import { useEffect, useRef, useState } from "react";
@@ -370,7 +371,7 @@ function ElementSelector({ onLock, onCancel }) {
 // src/FeedbackButton.tsx
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-BT5ZRIA4.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-AFFWWHRD.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -381,10 +382,26 @@ var POSITION_CLASSES = {
 function FeedbackButton() {
   const config = useFeedbackConfig();
   const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
   const t = adapter.useTranslation();
   const [open, setOpen] = useState2(false);
   const [pickerActive, setPickerActive] = useState2(false);
   const [locked, setLocked] = useState2(null);
+  const [hostEnabled, setHostEnabled] = useState2(true);
+  useEffect2(() => {
+    let cancelled = false;
+    const cb = bindings.isEnabled;
+    if (!cb) {
+      setHostEnabled(true);
+      return;
+    }
+    Promise.resolve(cb()).then((v) => {
+      if (!cancelled) setHostEnabled(v !== false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [bindings]);
   const handlePickerLock = useCallback((el) => {
     setLocked({ el, info: describeElement(el) });
     setPickerActive(false);
@@ -403,6 +420,7 @@ function FeedbackButton() {
   }, []);
   const pendingCount = useMyPendingActionCount();
   if (!config.enabled) return null;
+  if (!hostEnabled) return null;
   const cornerClass = POSITION_CLASSES[config.position] ?? POSITION_CLASSES.bottom_right;
   const accentStyle = config.brandPrimaryHex ? { "--feedback-brand": config.brandPrimaryHex } : void 0;
   const sheetActuallyOpen = open && !pickerActive;
@@ -454,11 +472,58 @@ function FeedbackButton() {
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
+
+// src/FeedbackDiscoveryHint.tsx
+import { jsx as jsx3, jsxs as jsxs3 } from "react/jsx-runtime";
+var _DEFAULT_TITLE = "Beta feedback triage";
+var _DEFAULT_DESCRIPTION = "Click the floating RL3 Feedback button (bottom-right), open the My tickets tab, then toggle the scope to All to browse every ticket in the tenant \u2014 screenshots, attachments, spec card, and admin actions all live inside the sheet.";
+function FeedbackDiscoveryHint({
+  variant = "admin",
+  className,
+  title,
+  description
+}) {
+  if (variant === "inline") {
+    return /* @__PURE__ */ jsxs3("span", { className, "data-feedback-id": "feedback.discovery.inline", children: [
+      "usa el bot\xF3n flotante",
+      " ",
+      /* @__PURE__ */ jsx3("span", { className: "font-semibold text-primary", children: "RL3 Feedback" }),
+      " ",
+      "(esquina inferior derecha)"
+    ] });
+  }
+  return /* @__PURE__ */ jsx3(
+    "div",
+    {
+      className: [
+        "flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4",
+        className ?? ""
+      ].join(" "),
+      "data-feedback-id": "feedback.discovery.admin",
+      children: /* @__PURE__ */ jsxs3("div", { className: "flex items-start gap-3", children: [
+        /* @__PURE__ */ jsx3(
+          "span",
+          {
+            "aria-hidden": "true",
+            className: "mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded text-primary",
+            children: "\u2726"
+          }
+        ),
+        /* @__PURE__ */ jsxs3("div", { children: [
+          /* @__PURE__ */ jsx3("h2", { className: "font-semibold", children: title ?? _DEFAULT_TITLE }),
+          /* @__PURE__ */ jsx3("p", { className: "text-sm text-muted-foreground", children: description ?? _DEFAULT_DESCRIPTION })
+        ] })
+      ] })
+    }
+  );
+}
 export {
   CapturePicker,
+  DEFAULT_API_PATH_PREFIX,
   FeedbackButton,
   FeedbackButton_default as FeedbackButtonDefault,
   FeedbackChatSheet,
+  FeedbackDiscoveryHint,
   FeedbackProvider,
   FeedbackTabs,
   FooterActions,
