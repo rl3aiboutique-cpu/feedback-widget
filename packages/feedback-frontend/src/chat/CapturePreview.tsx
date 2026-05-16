@@ -54,16 +54,14 @@ export function Lightbox({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  function onBackdropClick(e: MouseEvent<HTMLDivElement>) {
-    // Only close on actual backdrop click, not when click bubbles up
-    // from the image itself.
-    if (e.target === e.currentTarget) onClose();
-  }
-
   // Render via portal to document.body so the modal escapes the
   // SheetContent's transform / stacking context. Without the portal,
   // ``fixed inset-0`` anchored to the animated sheet instead of the
   // viewport, leaving the lightbox trapped inside the right rail.
+  //
+  // ``onPointerDown`` + ``stopPropagation`` block Radix Sheet's
+  // outside-pointer detection so closing the lightbox no longer
+  // cascades into closing the FeedbackSheet behind it.
   if (typeof document === "undefined") return null;
   return createPortal(
     <div
@@ -71,15 +69,16 @@ export function Lightbox({
       role="dialog"
       aria-modal="true"
       aria-label="Attached capture — expanded view"
-      onClick={onBackdropClick}
+      onClick={onClose}
+      onPointerDown={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
     >
       <button
         type="button"
         onClick={onClose}
         aria-label="Cerrar vista ampliada"
-        className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background"
+        className="absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
       >
-        <X className="h-4 w-4" />
+        <X className="h-6 w-6" strokeWidth={2.5} />
       </button>
       <img
         src={url}

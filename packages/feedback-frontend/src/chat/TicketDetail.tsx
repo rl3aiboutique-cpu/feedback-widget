@@ -654,6 +654,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
         <div
           className="rl3-feedback-scope dark fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={() => setHardDeleteOpen(false)}
+          onPointerDown={(e) => e.stopPropagation()}
         >
           <div
             className="w-full max-w-md rounded-lg border border-destructive/50 bg-card p-5 shadow-2xl"

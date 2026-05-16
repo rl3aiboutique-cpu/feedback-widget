@@ -1125,9 +1125,6 @@ function Lightbox({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
-  function onBackdropClick(e) {
-    if (e.target === e.currentTarget) onClose();
-  }
   if (typeof document === "undefined") return null;
   return createPortal(
     /* @__PURE__ */ jsxs4(
@@ -1137,7 +1134,8 @@ function Lightbox({
         role: "dialog",
         "aria-modal": "true",
         "aria-label": "Attached capture \u2014 expanded view",
-        onClick: onBackdropClick,
+        onClick: onClose,
+        onPointerDown: (e) => e.stopPropagation(),
         children: [
           /* @__PURE__ */ jsx5(
             "button",
@@ -1145,8 +1143,8 @@ function Lightbox({
               type: "button",
               onClick: onClose,
               "aria-label": "Cerrar vista ampliada",
-              className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
-              children: /* @__PURE__ */ jsx5(X, { className: "h-4 w-4" })
+              className: "absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
+              children: /* @__PURE__ */ jsx5(X, { className: "h-6 w-6", strokeWidth: 2.5 })
             }
           ),
           /* @__PURE__ */ jsx5(
@@ -1312,9 +1310,8 @@ function _ThumbDetailModal({
         role: "dialog",
         "aria-modal": "true",
         "aria-label": `Attachment details \u2014 ${item.label}`,
-        onClick: (e) => {
-          if (e.target === e.currentTarget) onClose();
-        },
+        onClick: onClose,
+        onPointerDown: (e) => e.stopPropagation(),
         children: [
           /* @__PURE__ */ jsx6(
             "button",
@@ -1322,18 +1319,25 @@ function _ThumbDetailModal({
               type: "button",
               onClick: onClose,
               "aria-label": "Close",
-              className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
-              children: /* @__PURE__ */ jsx6(X2, { className: "h-4 w-4" })
+              className: "absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
+              children: /* @__PURE__ */ jsx6(X2, { className: "h-6 w-6", strokeWidth: 2.5 })
             }
           ),
-          /* @__PURE__ */ jsxs5("div", { className: "flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl", children: [
-            /* @__PURE__ */ jsx6("h3", { className: "text-sm font-semibold", children: item.label }),
-            item.sublabel ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: item.sublabel }) : null,
-            item.byteSize !== null ? /* @__PURE__ */ jsxs5("p", { className: "text-xs text-muted-foreground", children: [
-              "Size: ",
-              _formatBytes(item.byteSize)
-            ] }) : null
-          ] })
+          /* @__PURE__ */ jsxs5(
+            "div",
+            {
+              className: "flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl",
+              onClick: (e) => e.stopPropagation(),
+              children: [
+                /* @__PURE__ */ jsx6("h3", { className: "text-sm font-semibold", children: item.label }),
+                item.sublabel ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: item.sublabel }) : null,
+                item.byteSize !== null ? /* @__PURE__ */ jsxs5("p", { className: "text-xs text-muted-foreground", children: [
+                  "Size: ",
+                  _formatBytes(item.byteSize)
+                ] }) : null
+              ]
+            }
+          )
         ]
       }
     ),
@@ -3770,6 +3774,7 @@ function TicketDetail({ feedbackId, onBack }) {
         {
           className: "rl3-feedback-scope dark fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4",
           onClick: () => setHardDeleteOpen(false),
+          onPointerDown: (e) => e.stopPropagation(),
           children: /* @__PURE__ */ jsxs15(
             "div",
             {
@@ -5085,4 +5090,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-F24SWIVF.js.map
+//# sourceMappingURL=chunk-6LWEUCO6.js.map

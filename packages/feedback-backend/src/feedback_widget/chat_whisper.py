@@ -129,6 +129,43 @@ def _glossary_to_prompt(glossary: dict[str, str] | None) -> str | None:
     return " ".join(terms[:30])
 
 
+# Whisper accepts only ISO-639-1 codes in the ``language`` param.
+# ``verbose_json`` response returns the full English name (e.g.
+# ``"english"``) which older FE versions reused as the next-turn
+# hint, causing 400 invalid_language_format. Mapping covers the
+# languages the CRM ships UI in; unknown names drop to None so
+# Whisper auto-detects again. Extend when adding new locales.
+_LANG_NAME_TO_ISO: dict[str, str] = {
+    "english": "en",
+    "spanish": "es",
+    "portuguese": "pt",
+    "french": "fr",
+    "german": "de",
+    "italian": "it",
+    "catalan": "ca",
+    "dutch": "nl",
+    "japanese": "ja",
+    "chinese": "zh",
+    "korean": "ko",
+    "arabic": "ar",
+    "russian": "ru",
+}
+
+
+def _normalise_language_hint(raw: str | None) -> str | None:
+    """Return a Whisper-compatible ISO-639-1 code or ``None``."""
+    if not raw:
+        return None
+    candidate = raw.strip().lower()
+    if not candidate:
+        return None
+    # Already ISO-639-1 (2-letter code).
+    if len(candidate) == 2 and candidate.isalpha():
+        return candidate
+    # Full English name lookup.
+    return _LANG_NAME_TO_ISO.get(candidate)
+
+
 async def transcribe_audio(
     audio_bytes: bytes,
     *,
@@ -203,6 +240,13 @@ async def transcribe_audio(
         language_hint,
     )
 
+    # Whisper accepts language as ISO-639-1 (e.g. "en", "es") only.
+    # Older clients used to round-trip the full-name response back
+    # here ("english", "spanish"), which Whisper rejects with 400
+    # invalid_language_format. Map known full names → ISO; pass
+    # already-ISO values through untouched; drop everything else.
+    iso_hint = _normalise_language_hint(language_hint)
+
     try:
         # response_format="verbose_json" so we get .language alongside
         # .text. temperature=0 makes the decoder deterministic, which
@@ -210,7 +254,7 @@ async def transcribe_audio(
         resp = await client.audio.transcriptions.create(
             model="whisper-1",
             file=buf,
-            language=language_hint or None,
+            language=iso_hint or None,
             prompt=prompt,
             response_format="verbose_json",
             temperature=0,
@@ -221,7 +265,11 @@ async def transcribe_audio(
         raise WhisperTranscriptionError(f"whisper call failed: {exc}") from exc
 
     transcript = str(getattr(resp, "text", "") or "").strip()
-    lang = str(getattr(resp, "language", "") or language_hint or "").strip()
+    # Normalise the response language back to ISO-639-1 too — the FE
+    # sticks the last detected language onto subsequent clips, and we
+    # only ever want to ship ISO codes outside this module.
+    raw_lang = str(getattr(resp, "language", "") or "").strip()
+    lang = _normalise_language_hint(raw_lang) or iso_hint or ""
 
     # Hallucination filter: when Whisper emits the canned silence-output
     # strings, return empty so the frontend stays in voice-idle and the

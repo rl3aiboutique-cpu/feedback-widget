@@ -247,19 +247,21 @@ function _ThumbDetailModal({
       role="dialog"
       aria-modal="true"
       aria-label={`Attachment details — ${item.label}`}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
+      onClick={onClose}
+      onPointerDown={(e) => e.stopPropagation()}
     >
       <button
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background"
+        className="absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
       >
-        <X className="h-4 w-4" />
+        <X className="h-6 w-6" strokeWidth={2.5} />
       </button>
-      <div className="flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl">
+      <div
+        className="flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
         <h3 className="text-sm font-semibold">{item.label}</h3>
         {item.sublabel ? (
           <p className="text-xs text-muted-foreground">{item.sublabel}</p>
