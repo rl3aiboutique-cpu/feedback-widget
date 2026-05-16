@@ -199,4 +199,61 @@
   .rl3-feedback-scope[role="dialog"] {
     background-color: hsl(0 0% 0%) !important;
   }
+
+  /* ── Last-line-of-defence utility overrides ───────────────────────
+     If a host ships its OWN ``.bg-secondary { background: ...; }``
+     rule (Tailwind 4 does this; shadcn does this; tw-merge users
+     do this), it can collide with the widget's pre-built rule and
+     the cascade may pick the host. Inside the scope we hard-pin the
+     classes the widget actually uses against the RL3 palette, so the
+     final colour is always ours regardless of who wins the rule
+     race. Only the classes the widget consumes are listed — adding
+     more is cheap, removing is risky. */
+  .rl3-feedback-scope .bg-background       { background-color: hsl(0 0% 0%) !important; }
+  .rl3-feedback-scope .bg-card             { background-color: hsl(0 0% 7%) !important; }
+  .rl3-feedback-scope .bg-card\/50         { background-color: hsl(0 0% 7% / 0.5) !important; }
+  .rl3-feedback-scope .bg-card\/60         { background-color: hsl(0 0% 7% / 0.6) !important; }
+  .rl3-feedback-scope .bg-popover          { background-color: hsl(0 0% 7%) !important; }
+  .rl3-feedback-scope .bg-secondary        { background-color: hsl(0 0% 14%) !important; }
+  .rl3-feedback-scope .bg-secondary\/40    { background-color: hsl(0 0% 14% / 0.4) !important; }
+  .rl3-feedback-scope .bg-secondary\/50    { background-color: hsl(0 0% 14% / 0.5) !important; }
+  .rl3-feedback-scope .bg-muted            { background-color: hsl(0 0% 12%) !important; }
+  .rl3-feedback-scope .bg-muted\/30        { background-color: hsl(0 0% 12% / 0.3) !important; }
+  .rl3-feedback-scope .bg-muted\/40        { background-color: hsl(0 0% 12% / 0.4) !important; }
+  .rl3-feedback-scope .bg-primary          { background-color: hsl(42 32% 64%) !important; }
+  .rl3-feedback-scope .bg-primary\/5       { background-color: hsl(42 32% 64% / 0.05) !important; }
+  .rl3-feedback-scope .bg-primary\/10      { background-color: hsl(42 32% 64% / 0.1) !important; }
+  .rl3-feedback-scope .bg-primary\/20      { background-color: hsl(42 32% 64% / 0.2) !important; }
+  .rl3-feedback-scope .bg-primary\/25      { background-color: hsl(42 32% 64% / 0.25) !important; }
+  .rl3-feedback-scope .bg-primary\/30      { background-color: hsl(42 32% 64% / 0.3) !important; }
+  .rl3-feedback-scope .bg-accent           { background-color: hsl(42 32% 64%) !important; }
+  .rl3-feedback-scope .bg-destructive      { background-color: hsl(0 70% 55%) !important; }
+  .rl3-feedback-scope .bg-destructive\/10  { background-color: hsl(0 70% 55% / 0.1) !important; }
+  .rl3-feedback-scope .bg-destructive\/15  { background-color: hsl(0 70% 55% / 0.15) !important; }
+
+  .rl3-feedback-scope .text-foreground          { color: hsl(0 0% 98%) !important; }
+  .rl3-feedback-scope .text-muted-foreground    { color: hsl(0 0% 65%) !important; }
+  .rl3-feedback-scope .text-primary             { color: hsl(42 32% 64%) !important; }
+  .rl3-feedback-scope .text-primary-foreground  { color: hsl(0 0% 8%) !important; }
+  .rl3-feedback-scope .text-secondary-foreground{ color: hsl(0 0% 95%) !important; }
+  .rl3-feedback-scope .text-accent-foreground   { color: hsl(0 0% 8%) !important; }
+  .rl3-feedback-scope .text-destructive         { color: hsl(0 70% 55%) !important; }
+  .rl3-feedback-scope .text-card-foreground     { color: hsl(0 0% 98%) !important; }
+
+  .rl3-feedback-scope .border-input,
+  .rl3-feedback-scope .border-input\/40,
+  .rl3-feedback-scope .border-input\/60 {
+    border-color: hsl(0 0% 22%) !important;
+  }
+  .rl3-feedback-scope .border-primary,
+  .rl3-feedback-scope .border-primary\/30,
+  .rl3-feedback-scope .border-primary\/40,
+  .rl3-feedback-scope .border-primary\/50 {
+    border-color: hsl(42 32% 64%) !important;
+  }
+  .rl3-feedback-scope .border-destructive,
+  .rl3-feedback-scope .border-destructive\/40,
+  .rl3-feedback-scope .border-destructive\/50 {
+    border-color: hsl(0 70% 55%) !important;
+  }
 }
