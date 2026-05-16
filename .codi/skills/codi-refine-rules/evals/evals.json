@@ -1,0 +1,108 @@
+{
+  "skillName": "codi-refine-rules",
+  "cases": [
+    {
+      "id": "review-show-top-observations",
+      "description": "REVIEW mode: feedback summary request triggers read-only summary",
+      "prompt": "show me what feedback has accumulated in .codi/feedback/",
+      "expectations": [
+        "Reads all JSON files in .codi/feedback/",
+        "Groups by artifact name (skill or rule)",
+        "Sorts by severity then timestamp",
+        "Shows the top 3 most actionable observations",
+        "Does NOT proceed to the one-at-a-time refine flow"
+      ]
+    },
+    {
+      "id": "review-pre-refine-check",
+      "description": "REVIEW mode: pre-refine check produces summary and suggests next step",
+      "prompt": "before I refine the rules, show me what's accumulated",
+      "expectations": [
+        "Produces the REVIEW summary",
+        "Suggests running /codi-refine-rules as the next step for interactive edits",
+        "Does NOT modify any rule files"
+      ]
+    },
+    {
+      "id": "review-empty-feedback",
+      "description": "REVIEW mode: empty feedback dir produces clear message",
+      "prompt": "audit the collected feedback",
+      "expectations": [
+        "Detects empty .codi/feedback/",
+        "Reports 'No observations yet' with guidance that observations are collected automatically",
+        "Does NOT fabricate observations"
+      ]
+    },
+    {
+      "id": "refine-review-collected-feedback",
+      "description": "REFINE mode: rule feedback review triggers one-at-a-time approval",
+      "prompt": "review the collected rule feedback and propose improvements",
+      "expectations": [
+        "Reads JSON files from .codi/feedback/rules/",
+        "Groups observations by ruleName and sorts by priority (user-correction first)",
+        "Presents a summary table before diving into individual reviews",
+        "Proposes changes one at a time, waiting for Approve/Reject/Skip/Edit"
+      ]
+    },
+    {
+      "id": "refine-slash-invocation",
+      "description": "REFINE mode: /codi-refine-rules slash triggers the interactive flow",
+      "prompt": "/codi-refine-rules",
+      "expectations": [
+        "Loads feedback and presents the priority table",
+        "Proceeds to one-at-a-time review with Approve/Reject/Skip/Edit",
+        "Does NOT fabricate observations if feedback dir is empty"
+      ]
+    },
+    {
+      "id": "refine-no-feedback-case",
+      "description": "REFINE mode: empty feedback directory surfaces clear guidance",
+      "prompt": "refine my rules",
+      "expectations": [
+        "Detects the feedback directory is empty or absent",
+        "Explains that codi-rule-feedback collects observations during coding sessions",
+        "Does NOT fabricate observations"
+      ]
+    },
+    {
+      "id": "negative-create-new-rule",
+      "description": "Creating a new rule does NOT trigger refine-rules",
+      "prompt": "create a new rule for our Python naming conventions",
+      "expectations": [
+        "Does NOT activate refine-rules skill",
+        "Routes to codi-rule-creator instead",
+        "Does NOT read .codi/feedback/rules/"
+      ]
+    },
+    {
+      "id": "negative-general-rule-audit",
+      "description": "General rule audit without collected feedback routes elsewhere",
+      "prompt": "audit all our rules for quality",
+      "expectations": [
+        "Does NOT activate refine-rules skill (it reviews collected feedback, not raw rules)",
+        "Routes to codi-compare-preset for upstream comparison or a direct review",
+        "Does NOT invent feedback entries"
+      ]
+    },
+    {
+      "id": "negative-emit-observation",
+      "description": "Emitting a new observation does NOT trigger this skill",
+      "prompt": "I noticed codi-testing still references Jest but we use Vitest now",
+      "expectations": [
+        "Does NOT activate refine-rules skill",
+        "codi-rule-feedback handles the observation emission (CODI-OBSERVATION marker)",
+        "Does NOT read .codi/feedback/ in response"
+      ]
+    },
+    {
+      "id": "negative-apply-changes-from-reporter",
+      "description": "Actually applying rule changes uses REFINE mode, not a separate reporter",
+      "prompt": "apply the collected rule feedback to the rules",
+      "expectations": [
+        "Activates refine-rules skill in REFINE mode",
+        "Proceeds to one-at-a-time approval flow (not only summary)",
+        "Does NOT stop after producing a summary"
+      ]
+    }
+  ]
+}

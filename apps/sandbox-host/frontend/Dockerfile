@@ -3,6 +3,11 @@ WORKDIR /work
 
 ARG VITE_API_URL=http://localhost:9200
 ENV VITE_API_URL=${VITE_API_URL}
+# v1.0.0 chat-first redesign — defaults on in the sandbox so a fresh
+# `make up` lands on the chat sheet. Override at build time to flip
+# back to the legacy Compose panel.
+ARG VITE_FEEDBACK_CHAT_FIRST=true
+ENV VITE_FEEDBACK_CHAT_FIRST=${VITE_FEEDBACK_CHAT_FIRST}
 
 # Bring the whole monorepo so workspace links resolve. Build context is
 # the repo root (see docker-compose.yml: `context: ../..`).

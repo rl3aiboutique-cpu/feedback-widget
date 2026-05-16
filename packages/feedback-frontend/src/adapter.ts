@@ -21,9 +21,7 @@ import { useMemo } from "react";
 
 import { useFeedbackBindings, useFeedbackConfig } from "./FeedbackProvider";
 import type {
-  FeedbackCommentCreatePayload,
-  FeedbackCommentListResponse,
-  FeedbackCommentRead,
+  FeedbackAdminActionPayload,
   FeedbackListResponse,
   FeedbackRead,
   FeedbackStatus,
@@ -65,9 +63,30 @@ const ENV_GIT_SHA =
 // Host bindings — the host implements these
 // ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Default API path prefix the widget mounts on. Hosts that mount the
+ * backend module via ``mount_feedback_widget(app)`` get this path out
+ * of the box — use the constant in bindings to avoid drift.
+ */
+export const DEFAULT_API_PATH_PREFIX = "/api/v1/feedback";
+
 export interface FeedbackHostBindings {
   /** Hook returning the currently signed-in user, or null when absent. */
   useCurrentUser: () => CurrentUserSnapshot | null;
+
+  /**
+   * Optional visibility gate. Returning ``false`` (or a Promise that
+   * resolves to false) suppresses the floating ``FeedbackButton`` even
+   * when ``useCurrentUser()`` resolves a user. Use this for host-side
+   * cascades (tenant default → admin override → self-opt-out) without
+   * leaking that logic into the widget.
+   *
+   * The widget calls this once per mount + once per query invalidation
+   * (the host triggers a re-render to flip visibility on toggle).
+   *
+   * When omitted, visibility falls back to ``useCurrentUser() !== null``.
+   */
+  isEnabled?: () => boolean | Promise<boolean>;
 
   /**
    * Returns the CSRF token to attach as `X-CSRF-Token`.
@@ -172,7 +191,10 @@ async function _throwApiError(path: string, resp: Response): Promise<never> {
 }
 
 function _resolvePrefix(b: FeedbackHostBindings): string {
-  return b.apiPathPrefix ?? "/api/v1/feedback";
+  // Note: a separate inline default exists below for callers that bypass
+  // this helper. The exported DEFAULT_API_PATH_PREFIX is the source of
+  // truth — keep these in sync.
+  return b.apiPathPrefix ?? DEFAULT_API_PATH_PREFIX;
 }
 
 function _resolveBase(b: FeedbackHostBindings): string {
@@ -266,6 +288,36 @@ export async function downloadFeedbackBundleViaBindings(
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`GET /feedback/${feedbackId}/download failed (${resp.status}) ${text}`);
+  }
+  const cd = resp.headers.get("Content-Disposition") ?? "";
+  const match = cd.match(/filename="([^"]+)"/);
+  const filename = match?.[1] ?? `feedback-${feedbackId}.zip`;
+  return { blob: await resp.blob(), filename };
+}
+
+/** Owner-side ZIP download. Hits ``/mine/{id}/download`` so submitters
+ *  can retrieve their own bundle without needing admin role. Required
+ *  because a plain ``<a href>`` cannot inject the host's
+ *  ``Authorization`` / ``X-CSRF-Token`` headers — only cookies travel
+ *  with link navigations. */
+export async function downloadOwnFeedbackBundleViaBindings(
+  bindings: FeedbackHostBindings,
+  feedbackId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/mine/${encodeURIComponent(
+    feedbackId,
+  )}/download`;
+  const headers = await _buildHeaders(bindings);
+  const resp = await fetch(url, {
+    method: "GET",
+    credentials: "include",
+    headers,
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => "");
+    throw new Error(
+      `GET /feedback/mine/${feedbackId}/download failed (${resp.status}) ${text}`,
+    );
   }
   const cd = resp.headers.get("Content-Disposition") ?? "";
   const match = cd.match(/filename="([^"]+)"/);
@@ -473,45 +525,368 @@ async function _postJson<T>(
   return (await resp.json()) as T;
 }
 
-export function useFeedbackCommentsQuery(
-  feedbackId: string | null,
-): UseQueryResult<FeedbackCommentListResponse, Error> {
-  const bindings = useFeedbackBindings();
-  return useQuery({
-    queryKey: ["feedback", "comments", feedbackId],
-    queryFn: () =>
-      feedbackId
-        ? _getJson<FeedbackCommentListResponse>(
-            bindings,
-            `/${encodeURIComponent(feedbackId)}/comments`,
-          )
-        : (Promise.resolve({
-            data: [],
-            count: 0,
-          }) as Promise<FeedbackCommentListResponse>),
-    enabled: !!feedbackId,
-    refetchInterval: 30_000,
-    staleTime: 15_000,
-  });
-}
-
-export function usePostFeedbackCommentMutation(): UseMutationResult<
-  FeedbackCommentRead,
+/**
+ * Admin-action mutation (2026-05-16 unification) — replaces the
+ * legacy comments POST. Issues a single atomic call that may
+ * transition status, inject a message into the chat timeline, or
+ * both. The response is the refreshed ticket (FeedbackRead with the
+ * updated ``status`` + ``user_action_required`` + ``last_admin_msg_at``).
+ */
+export function usePostFeedbackAdminActionMutation(): UseMutationResult<
+  FeedbackRead,
   Error,
-  { feedbackId: string; body: string }
+  { feedbackId: string; payload: FeedbackAdminActionPayload }
 > {
   const bindings = useFeedbackBindings();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input) =>
-      _postJson<FeedbackCommentRead>(
+      _postJson<FeedbackRead>(
         bindings,
-        `/${encodeURIComponent(input.feedbackId)}/comments`,
-        { body: input.body } satisfies FeedbackCommentCreatePayload,
+        `/${encodeURIComponent(input.feedbackId)}/admin-action`,
+        input.payload,
       ),
     onSuccess: (_data, input) => {
       queryClient.invalidateQueries({
-        queryKey: ["feedback", "comments", input.feedbackId],
+        queryKey: ["feedback", "detail", input.feedbackId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+    },
+  });
+}
+
+/**
+ * User soft-delete of their own ticket (S5b). Returns 204; the
+ * mutation invalidates ``mine`` so the row disappears from the list.
+ */
+export function useAdminHardDeleteTicketMutation(): UseMutationResult<
+  void,
+  Error,
+  { ticketId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(input.ticketId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("DELETE /{id}", resp);
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.ticketId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+    },
+  });
+}
+
+export function useAdminSoftDeleteTicketMutation(): UseMutationResult<
+  void,
+  Error,
+  { ticketId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/${encodeURIComponent(input.ticketId)}/soft-delete`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("POST /{id}/soft-delete", resp);
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.ticketId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "list"] });
+    },
+  });
+}
+
+export function useSoftDeleteTicketMutation(): UseMutationResult<
+  void,
+  Error,
+  { ticketId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.ticketId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError("DELETE /chat/sessions", resp);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+    },
+  });
+}
+
+/**
+ * Upload one attachment to an open chat session (S9 — pre-confirm
+ * uploads). Multipart POST; the backend re-validates against the
+ * legacy ``read_attachments`` rules (size cap, MIME allowlist,
+ * magic-byte sniff). The mutation invalidates the ticket detail so
+ * the new attachment chip shows up in the composer attachments row.
+ */
+export interface ChatAttachmentRead {
+  id: string;
+  ticket_id: string;
+  kind: "user_attachment" | "screenshot";
+  filename: string | null;
+  content_type: string;
+  byte_size: number;
+  created_at: string | null;
+}
+
+export function useUploadChatAttachmentMutation(): UseMutationResult<
+  ChatAttachmentRead,
+  Error,
+  { sessionId: string; file: File }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/attachments`;
+      const fd = new FormData();
+      fd.append("file", input.file);
+      const headers = await _buildHeaders(bindings);
+      // Drop Content-Type — fetch sets the multipart boundary itself.
+      delete (headers as Record<string, string>)["Content-Type"];
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: fd,
+      });
+      if (!resp.ok) {
+        await _throwApiError("POST /chat/sessions/{sid}/attachments", resp);
+      }
+      return (await resp.json()) as ChatAttachmentRead;
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "chat", "session", input.sessionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.sessionId],
+      });
+    },
+  });
+}
+
+/**
+ * Send a single user turn into an existing ticket's chat from the
+ * TicketDetail view. Consumes the SSE stream to completion (we
+ * don't surface streaming deltas here — the detail timeline
+ * refetches once the bot finishes, which keeps the wiring trivial)
+ * and then invalidates the ticket detail so the new messages show
+ * up in the timeline.
+ */
+export function useContinueTicketTurnMutation(): UseMutationResult<
+  void,
+  Error,
+  { sessionId: string; content: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/messages`;
+      const headers = await _buildHeaders(bindings);
+      headers["Accept"] = "text/event-stream";
+      headers["Idempotency-Key"] = `ticket-detail-${input.sessionId}-${Date.now()}`;
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({ content: input.content }),
+      });
+      if (!resp.ok) {
+        await _throwApiError("POST /chat/sessions/{sid}/messages", resp);
+      }
+      // Drain the SSE stream so the server side completes the turn
+      // before we invalidate. Each event lands as text — we just
+      // discard chunks; the persisted ``messages`` JSONB on the
+      // ticket row is what the next detail refetch reads.
+      const reader = resp.body?.getReader();
+      if (reader) {
+        const decoder = new TextDecoder();
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const { done } = await reader.read();
+          if (done) break;
+          // Discard bytes; we are not rendering deltas in TicketDetail
+          // (the FeedbackChatSheet composer path is the streaming UX).
+        }
+        decoder.decode(); // flush
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.sessionId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+    },
+  });
+}
+
+export function useDeleteChatAttachmentMutation(): UseMutationResult<
+  void,
+  Error,
+  { sessionId: string; attachmentId: string }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/attachments/${encodeURIComponent(input.attachmentId)}`;
+      const headers = await _buildHeaders(bindings);
+      const resp = await fetch(url, {
+        method: "DELETE",
+        credentials: "include",
+        headers,
+      });
+      if (!resp.ok && resp.status !== 204) {
+        await _throwApiError(
+          "DELETE /chat/sessions/{sid}/attachments/{id}",
+          resp,
+        );
+      }
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "chat", "session", input.sessionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.sessionId],
+      });
+    },
+  });
+}
+
+/** Edit one synthesis card on a chat session — only title / summary /
+ *  user_story / acceptance_criteria are accepted server-side. */
+export interface SynthesisEditPatch {
+  title?: string;
+  summary?: string;
+  user_story?: string;
+  acceptance_criteria?: string[];
+}
+
+interface SynthesisCardResponse {
+  ts: string;
+  confirmed: boolean;
+  synthesis: Record<string, unknown>;
+}
+
+export function useApproveSynthesisMutation(): UseMutationResult<
+  SynthesisCardResponse,
+  Error,
+  {
+    sessionId: string;
+    synthesisTs: string;
+    /** Optional screenshot to persist as a ``kind=SCREENSHOT``
+     *  attachment so the ticket detail view has visual context. */
+    screenshotB64?: string | null;
+    screenshotContentType?: string | null;
+  }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}/approve`;
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json",
+      });
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: JSON.stringify({
+          screenshot_b64: input.screenshotB64 ?? null,
+          screenshot_content_type: input.screenshotContentType ?? null,
+        }),
+      });
+      if (!resp.ok) {
+        await _throwApiError(
+          "POST /chat/sessions/{sid}/synthesis/{ts}/approve",
+          resp,
+        );
+      }
+      return (await resp.json()) as SynthesisCardResponse;
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "chat", "session", input.sessionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.sessionId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["feedback", "mine"] });
+    },
+  });
+}
+
+export function useEditSynthesisMutation(): UseMutationResult<
+  SynthesisCardResponse,
+  Error,
+  { sessionId: string; synthesisTs: string; patch: SynthesisEditPatch }
+> {
+  const bindings = useFeedbackBindings();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input) => {
+      const url = `${_resolveBase(bindings)}${_resolvePrefix(bindings)}/chat/sessions/${encodeURIComponent(input.sessionId)}/synthesis/${encodeURIComponent(input.synthesisTs)}`;
+      const headers = await _buildHeaders(bindings, {
+        "Content-Type": "application/json",
+      });
+      const resp = await fetch(url, {
+        method: "PATCH",
+        credentials: "include",
+        headers,
+        body: JSON.stringify(input.patch),
+      });
+      if (!resp.ok) {
+        await _throwApiError(
+          "PATCH /chat/sessions/{sid}/synthesis/{ts}",
+          resp,
+        );
+      }
+      return (await resp.json()) as SynthesisCardResponse;
+    },
+    onSuccess: (_data, input) => {
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "chat", "session", input.sessionId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["feedback", "detail", input.sessionId],
       });
     },
   });

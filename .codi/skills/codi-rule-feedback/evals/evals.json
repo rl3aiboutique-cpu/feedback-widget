@@ -1,0 +1,56 @@
+{
+  "skillName": "codi-rule-feedback",
+  "cases": [
+    {
+      "id": "outdated-rule-emit",
+      "description": "Outdated rule observation emits marker inline",
+      "prompt": "our codi-testing rule says use Jest but we migrated everything to Vitest",
+      "expectations": [
+        "Emits exactly one [CODI-OBSERVATION: codi-testing | outdated-rule | ...] marker inline",
+        "Does NOT write files directly",
+        "Does NOT announce the observation to the user",
+        "Does NOT exceed 3 observations in the session"
+      ]
+    },
+    {
+      "id": "user-correction-high-severity",
+      "description": "User correction always emits even with 1 occurrence",
+      "prompt": "don't mock the database in integration tests — we've been burned by that before",
+      "expectations": [
+        "Emits [CODI-OBSERVATION: ... | user-correction | ...]",
+        "Applies the correction in the current task",
+        "Treats the observation as high severity (no evidence threshold)"
+      ]
+    },
+    {
+      "id": "missing-example",
+      "description": "Missing example in a loaded rule triggers marker",
+      "prompt": "the codi-error-handling rule doesn't have an example for our retry + circuit breaker pattern",
+      "expectations": [
+        "Emits [CODI-OBSERVATION: codi-error-handling | missing-example | ...]",
+        "Suggests the user run /codi-refine-rules later",
+        "Does NOT edit the rule file directly"
+      ]
+    },
+    {
+      "id": "negative-single-anecdote",
+      "description": "Single-occurrence observation does NOT emit",
+      "prompt": "I noticed one file in the repo doesn't follow the naming convention",
+      "expectations": [
+        "Does NOT emit a CODI-OBSERVATION marker (fewer than 2 occurrences + not a user correction)",
+        "May point out the inconsistency in the response",
+        "Respects the 2+ evidence guardrail"
+      ]
+    },
+    {
+      "id": "negative-refine-rules-flow",
+      "description": "Applying rule changes does NOT use this skill",
+      "prompt": "apply the queued rule feedback — update the rules",
+      "expectations": [
+        "Does NOT activate rule-feedback skill",
+        "Routes to codi-refine-rules instead",
+        "Does NOT emit new CODI-OBSERVATION markers for already-collected feedback"
+      ]
+    }
+  ]
+}

@@ -82,6 +82,11 @@ module = [
     "feedback_widget.iter_packager",
     "feedback_widget.iter_sse",
     "feedback_widget.iter_llm.*",
+    # v0.4.1 added an iter ZIP-injection path here that uses the same
+    # SQLModel idiom (`.where(Col == val)`, `.order_by(Col.desc())`).
+    # Group with the rest of the iter modules so we don't sprinkle
+    # `# type: ignore` across the file.
+    "feedback_widget.bundle",
 ]
 warn_unused_ignores = false
 disable_error_code = [

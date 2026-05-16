@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
     from sqlalchemy.engine import Engine
 
-__version__ = "0.3.2"
+__version__ = "1.0.0"
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +70,7 @@ __all__ = [
     "get_storage_backend",
     "make_sync_engine",
     "mount_feedback_widget_for_async_host",
-    "register_feedback_iter_router",
+    "register_feedback_chat_router",
     "register_feedback_router",
     "run_migrations",
 ]
@@ -151,7 +151,7 @@ def register_feedback_router(
     )
 
 
-def register_feedback_iter_router(
+def register_feedback_chat_router(
     app: FastAPI,
     *,
     auth: FeedbackAuthAdapter,
@@ -160,43 +160,31 @@ def register_feedback_iter_router(
     prefix: str = "/feedback",
     storage: StorageBackend | None = None,
 ) -> None:
-    """Mount the Iterate-with-AI router on a FastAPI app.
+    """Mount the chat-first feedback router on a FastAPI app.
 
-    Sits parallel to :func:`register_feedback_router` — the host
-    typically calls both with the same ``prefix``. Endpoints land
-    under ``{prefix}/iterate/...``.
+    Sits parallel to :func:`register_feedback_router`. The host typically
+    calls both with the same ``prefix``; this one adds the v1.0.0 chat
+    endpoints under ``{prefix}/chat/*``.
 
-    Off by default. Returns silently when ``FEEDBACK_ITER_ENABLED``
-    is false, so a host can ship the integration call long before
-    the feature is enabled in production.
-
-    Parameters mirror :func:`register_feedback_router` so wiring
-    both into the same ``register_*`` block in the host is a
-    one-line copy-paste.
+    ``storage`` is required by the SSE messages endpoint (it lazily
+    downloads any screenshot attachment referenced by ``auto_context``).
+    When ``None``, one is constructed from ``settings`` — mirrors
+    :func:`register_feedback_router`.
     """
-    from feedback_widget.deps import build_dependencies as _bd
-    from feedback_widget.iter_router import build_iter_router
-    from feedback_widget.iter_service import IterService
+    from feedback_widget.chat_router import build_chat_router
+    from feedback_widget.chat_service import ChatService
 
     cfg = settings or get_settings()
     if not cfg.ENABLED:
-        logger.info("feedback_widget: ENABLED=false — iter router NOT registered")
-        return
-    if not cfg.ITER_ENABLED:
-        logger.info("feedback_widget: ITER_ENABLED=false — iter router NOT registered")
+        logger.info("feedback_widget: ENABLED=false — chat router NOT registered")
         return
 
     s3 = storage or get_storage_backend(cfg)
-    deps = _bd(auth=auth, engine=engine, settings=cfg)
-    service = IterService(storage=s3, settings=cfg)
-    router = build_iter_router(deps=deps, settings=cfg, service=service)
+    deps = build_dependencies(auth=auth, engine=engine, settings=cfg)
+    service = ChatService()
+    router = build_chat_router(deps=deps, service=service, settings=cfg, storage=s3)
     app.include_router(router, prefix=prefix)
-    logger.info(
-        "feedback_widget: iter router mounted at %s/iterate (provider=%s, model=%s)",
-        prefix,
-        cfg.ITER_PROVIDER,
-        cfg.ITER_GEMINI_MODEL or cfg.ITER_CLAUDE_MODEL or cfg.ITER_OPENAI_MODEL or "(unset)",
-    )
+    logger.info("feedback_widget: chat router mounted at %s/chat", prefix)
 
 
 def run_migrations(database_url: str | None = None) -> None:
@@ -213,3 +201,4 @@ def run_migrations(database_url: str | None = None) -> None:
     from feedback_widget.cli import run_migrations as _impl
 
     _impl(database_url=database_url)
+

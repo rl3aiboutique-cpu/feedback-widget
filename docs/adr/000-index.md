@@ -10,5 +10,6 @@ Format: `NNN-<kebab-case-title>.md` with sections **Status / Context / Decision 
 | [004](./004-package-owns-its-migrations.md) | Planned (Phase 1) | Package owns its Alembic chain via `version_table_schema` |
 | [005](./005-git-tag-distribution-no-publish.md) | Planned (Phase 4) | Distribution via git tags only for v0.x — no NPM/PyPI |
 | [006](./006-sync-initially-async-follow-up.md) | Accepted | v0.1.0 ships sync; async port is a follow-up. Hosts pass a sync `Engine` to `register_feedback_router`. |
+| [007](./007-chat-first-redesign.md) | Accepted | v1.0.0 chat-first redesign: floating launcher opens a conversational Sheet; legacy submitter React surface is physically deleted. |
 
 When adding an ADR: pick `next number = max + 1`, write the file, append a row here in the SAME commit.

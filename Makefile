@@ -54,7 +54,7 @@ precommit-install:
 
 SANDBOX_COMPOSE := docker compose -f apps/sandbox-host/docker-compose.yml
 
-.PHONY: sandbox-up sandbox-down sandbox-logs sandbox-reseed
+.PHONY: sandbox-up sandbox-down sandbox-logs sandbox-reseed up down logs reseed
 sandbox-up:
 	$(SANDBOX_COMPOSE) up -d --build
 
@@ -67,6 +67,12 @@ sandbox-logs:
 sandbox-reseed:
 	$(SANDBOX_COMPOSE) down -v
 	$(SANDBOX_COMPOSE) up -d --build
+
+# Ergonomic aliases — the local stack IS the sandbox-host setup.
+up:     sandbox-up
+down:   sandbox-down
+logs:   sandbox-logs
+reseed: sandbox-reseed
 
 # ────────────────────────────────────────────────────────────────────
 # Lint / typecheck / test

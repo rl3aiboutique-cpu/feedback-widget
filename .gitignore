@@ -74,3 +74,18 @@ playwright/.cache/
 # Logs
 *.log
 logs/
+
+# Per-machine Claude harness overrides (never committed)
+# See .claude/rules/output-tone-policy.md
+.claude/output-mode.local
+
+# Codi runtime state — per-machine, never committed
+# brain.db, session locks, feedback queue, auto-backups
+.codi/state/
+.codi/.session/
+.codi/feedback/
+.codi/backups/
+
+# Per-developer Claude permissions
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

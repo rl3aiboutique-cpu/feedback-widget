@@ -210,6 +210,73 @@ function _cssSelectorOf(el: HTMLElement): string {
   return parts.join(" > ");
 }
 
+/**
+ * Crop a screenshot blob to a bounding-box rectangle (logical CSS
+ * pixels). Returns a PNG Blob of just that region.
+ *
+ * Used when the user locks an element via CapturePicker — the
+ * full-page blob captured at openSheet is cropped to the element's
+ * bounding-box so the thumbnail + the bytes the LLM/admin receive are
+ * scoped to the actual target instead of the whole page.
+ *
+ * Falls back to the source blob unchanged when the box is outside the
+ * image, when the canvas API is missing, or when any decode step
+ * throws — fail-soft, the page screenshot is still useful.
+ */
+export async function cropImageBlob(
+  source: Blob,
+  bbox: { x: number; y: number; w: number; h: number },
+): Promise<Blob> {
+  if (typeof document === "undefined") return source;
+  if (!bbox || bbox.w <= 0 || bbox.h <= 0) return source;
+
+  const url = URL.createObjectURL(source);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error("decode failed"));
+      el.src = url;
+    });
+
+    // capturePageScreenshot scales by devicePixelRatio so the natural
+    // image is typically larger than the layout viewport; recover the
+    // scale from img.naturalWidth / window.innerWidth.
+    const scale =
+      typeof window !== "undefined" && window.innerWidth > 0
+        ? img.naturalWidth / window.innerWidth
+        : 1;
+    const sx = Math.max(0, Math.round(bbox.x * scale));
+    const sy = Math.max(0, Math.round(bbox.y * scale));
+    const sw = Math.max(1, Math.round(bbox.w * scale));
+    const sh = Math.max(1, Math.round(bbox.h * scale));
+
+    if (sx >= img.naturalWidth || sy >= img.naturalHeight) {
+      return source;
+    }
+
+    const clampedW = Math.min(sw, img.naturalWidth - sx);
+    const clampedH = Math.min(sh, img.naturalHeight - sy);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = clampedW;
+    canvas.height = clampedH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return source;
+    ctx.drawImage(img, sx, sy, clampedW, clampedH, 0, 0, clampedW, clampedH);
+
+    const cropped = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/png");
+    });
+    return cropped ?? source;
+  } catch {
+    return source;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+
 function _xpathOf(el: HTMLElement): string | null {
   if (typeof document === "undefined") return null;
   const segments: string[] = [];

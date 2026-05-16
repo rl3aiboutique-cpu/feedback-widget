@@ -1,0 +1,59 @@
+{
+  "skillName": "codi-compare-preset",
+  "cases": [
+    {
+      "id": "compare-local-vs-upstream",
+      "description": "Explicit diff request triggers the skill",
+      "prompt": "what have I customized compared to the latest Codi preset?",
+      "expectations": [
+        "Activates compare-preset skill",
+        "Reads .codi/codi.yaml to identify the preset",
+        "Lists custom rules under .codi/rules/",
+        "Clones the upstream Codi repo to a temp directory",
+        "Produces a report with Your Improvements, Upstream Updates Available, Conflicts, and Summary"
+      ]
+    },
+    {
+      "id": "prepare-contribution",
+      "description": "Contribution prep triggers the skill",
+      "prompt": "I want to contribute some of my rules back to Codi — show me what's different first",
+      "expectations": [
+        "Activates compare-preset skill",
+        "Lists contribution candidates (local-only rules/skills)",
+        "Recommends running codi-artifact-contributor next for the PR flow",
+        "Does NOT invoke a non-existent codi-contribute skill"
+      ]
+    },
+    {
+      "id": "upstream-update-review",
+      "description": "Pending-update review triggers the skill",
+      "prompt": "show me what Codi has updated upstream since I installed it",
+      "expectations": [
+        "Activates compare-preset skill",
+        "Clones upstream, reads template strings",
+        "Identifies upstream additions/modifications",
+        "Suggests `codi update` to pull managed_by:codi updates"
+      ]
+    },
+    {
+      "id": "negative-install-preset",
+      "description": "Installing a preset does NOT trigger compare-preset",
+      "prompt": "install the team-preset.zip into this project",
+      "expectations": [
+        "Does NOT activate compare-preset skill",
+        "Does NOT clone upstream or diff",
+        "Routes to `codi preset install ./team-preset.zip`"
+      ]
+    },
+    {
+      "id": "negative-create-preset",
+      "description": "Creating a new preset does NOT trigger compare-preset",
+      "prompt": "create a preset from my current .codi directory",
+      "expectations": [
+        "Does NOT activate compare-preset skill",
+        "Routes to codi-preset-creator instead",
+        "Does NOT attempt to diff against upstream"
+      ]
+    }
+  ]
+}

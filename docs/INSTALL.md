@@ -133,6 +133,21 @@ If your host already had an inline feedback implementation with the **same schem
    ```
 3. From this point forward, **all new feedback schema changes ship via the package's chain**.
 
+## Upgrade protocol (widget version bumps)
+
+When the widget releases new migrations (any version that bumps the `feedback_widget_alembic_version` head), the host must run them BEFORE the new FE assets ship — otherwise the SPA hits 500s when calling endpoints that reference new columns.
+
+Recommended deploy order for any widget upgrade:
+
+1. **Pin** the new widget version in `pyproject.toml` AND `package.json` (same SHA / tag).
+2. **Run BE migrations** (`feedback-widget migrate`) — preferably in a one-shot job, not on every container boot, so concurrency does not race.
+3. **Deploy BE** with the new pinned version.
+4. **Deploy FE** with the new pinned version.
+
+The widget's Alembic chain is forward-only — never roll back across a head bump while the FE still ships old assets. The host should keep a deploy job that runs migrations as a separate Kubernetes Job / docker-compose `depends_on: condition: service_completed_successfully` to enforce ordering.
+
+For CI: gate the FE container build on a successful `feedback-widget migrate` in a staging environment first. The widget exits non-zero on any migration failure.
+
 ## Uninstall
 
 ```bash

@@ -9,9 +9,13 @@ Hosts running multi-tenant Postgres-RLS deployments set
 leave it false and the widget skips the ``WHERE tenant_id = …`` defence
 layer.
 
-The ``ITER_*`` block configures the optional Iterate-with-AI module
-(``register_feedback_iter_router``). Disabled by default; the module is
-fully gated behind ``FEEDBACK_ITER_ENABLED=true``.
+The ``ITER_*`` block configures the LLM provider used by the chat-first
+capture flow. The legacy iter-module router was removed in Sprint C;
+the env-var names are kept (``FEEDBACK_ITER_PROVIDER``,
+``FEEDBACK_ITER_*_MODEL``, ``FEEDBACK_ITER_*_API_KEY``,
+``FEEDBACK_ITER_GLOSSARY``, ``FEEDBACK_ITER_FORBIDDEN_WORDS``) to avoid
+breaking host ``.env`` files in production. A future major version may
+rename them to ``FEEDBACK_LLM_*``.
 """
 
 from __future__ import annotations
@@ -100,10 +104,13 @@ class FeedbackSettings(BaseSettings):
     MULTI_TENANT_MODE: bool = True
 
     # ────────────────────────────────────────────────────────────────
-    # Iterate-with-AI module (optional; off by default)
+    # LLM provider configuration (Sprint C: shared by chat-first capture)
+    #
+    # The env-var prefix is retained as ``ITER_*`` to preserve hosts'
+    # existing ``.env`` files. A future major version may migrate to
+    # ``FEEDBACK_LLM_*``.
     # ────────────────────────────────────────────────────────────────
 
-    ITER_ENABLED: bool = False
     ITER_PROVIDER: Literal["gemini", "claude", "openai", "fake"] = "gemini"
 
     # Model identifiers — empty strings force the host to set them
@@ -126,32 +133,51 @@ class FeedbackSettings(BaseSettings):
     # Anthropic "extended thinking", OpenAI reasoning effort).
     ITER_THINKING_MODE: Literal["off", "low", "medium", "high"] = "medium"
 
-    # Per-call generation knobs. Bumped from 120 to 240 because real
-    # Gemma calls with a non-trivial prompt (system + worked example +
-    # prior versions) can take 130-200s on the free tier; the
-    # retry-on-invalid path doubles that since it issues a second
-    # generate. Hosts can lower this for production-grade providers.
-    ITER_REQUEST_TIMEOUT_SECONDS: int = 240
-    ITER_STREAM_HEARTBEAT_SECONDS: int = 15
-    ITER_MAX_OUTPUT_TOKENS: int = 16_000
+    # Comma-separated forbidden words the scrubber matches against the
+    # assistant reply text in capture mode. Default = a wide list
+    # covering anything a non-technical user wouldn't recognise; hosts
+    # can shrink it via env if they need to allow some terms (rare).
+    ITER_FORBIDDEN_WORDS: str = (
+        # Networking / API
+        "endpoint,api,async,asynchronous,synchronous,backend,frontend,"
+        "middleware,webhook,callback,listener,observer,subscriber,"
+        "dispatcher,websocket,polling,streaming,sse,grpc,http,rest,"
+        "patch,post,put,get,delete request,head request,options request,"
+        # Caching / perf
+        "cache,debounce,throttle,ttl,latency,throughput,bandwidth,"
+        "payload,payload size,gzip,encoding,parsing,serialization,"
+        "deserialization,"
+        # Auth / security
+        "jwt,oauth,csrf,xss,sql injection,salt,signature,certificate,"
+        "encryption,decryption,hash,token bucket,rate limit,"
+        # Storage / data
+        "json,yaml,toml,ini,schema,database,migration,index,join,"
+        "foreign key,fk,sql,query,transaction,deadlock,orm,dao,"
+        "repository,store,reducer,mutation,action,"
+        # Concurrency / runtime
+        "race condition,mutex,queue,thread,promise,future,coroutine,"
+        "event loop,kernel,syscall,"
+        # Frontend / UI internals
+        "dom,css,html,query selector,data attribute,lifecycle,mounting,"
+        "unmounting,hydration,ssr,csr,prop,hook,ref,state,context,"
+        "provider,consumer,controller,service,"
+        # Build / deploy
+        "dependency,package,library,module,config file,env var,"
+        "environment variable,build,bundle,deploy,ci,cd,pipeline,"
+        "runner,container,image"
+    )
 
-    # Rate limits (spec §7).
-    ITER_MAX_CALLS_PER_SESSION: int = 20
-    ITER_MAX_CALLS_PER_USER_WEEK: int = 100
-
-    # Diagram rendering. Off by default — Mermaid is not in the widget
-    # bundle and would blow the 300KB size budget.
-    ITER_RENDER_MERMAID: bool = False
-
-    # Email an admin/notify list when a session is finalized. Reuses
-    # the existing FEEDBACK_NOTIFY_EMAILS list.
-    ITER_NOTIFY_ON_FINALIZE: bool = True
-
-    # Model id of the downstream consumer that the finalized package's
-    # ``_AI_INSTRUCTIONS.md`` primes. Hosts pin this to whatever Claude
-    # Code model they actually run; never hardcoded as a Python
-    # constant so it can be updated independently of the package.
-    ITER_DOWNSTREAM_CONSUMER_MODEL: str = ""
+    # Product glossary — comma-separated ``term:definition`` pairs used
+    # by the chat-first capture prompt (Sprint B / capture_v3). The host
+    # injects its own domain vocabulary so the LLM stays inside the
+    # customer's language ("KYC", "AML", "OFAC", "MIFID", "ESEF", etc.).
+    # Example::
+    #
+    #     FEEDBACK_ITER_GLOSSARY="KYC:know-your-customer,AML:anti-money-laundering"
+    #
+    # Empty string ⇒ the prompt renders "(no glossary supplied)" so
+    # admin tooling can still hash the system prompt deterministically.
+    ITER_GLOSSARY: str = ""
 
     # ────────────────────────────────────────────────────────────────
     # Derived / computed
@@ -168,6 +194,37 @@ class FeedbackSettings(BaseSettings):
     def s3_public_endpoint(self) -> str:
         """Endpoint used when generating presigned URLs (browser-reachable)."""
         return self.S3_PUBLIC_ENDPOINT_URL or self.S3_ENDPOINT_URL
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def forbidden_words_list(self) -> list[str]:
+        """Parse ``ITER_FORBIDDEN_WORDS`` (CSV) into a lowercased list.
+
+        The scrubber lowercases incoming text before matching, so
+        normalising once at parse time avoids per-call work.
+        """
+        return [w.strip().lower() for w in self.ITER_FORBIDDEN_WORDS.split(",") if w.strip()]
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def glossary_dict(self) -> dict[str, str]:
+        """Parse ``ITER_GLOSSARY`` (``term:definition,...``) into a dict.
+
+        Shared by the iter-module and the chat-first capture prompt
+        (Sprint B / capture_v3). Empty / malformed entries are dropped
+        silently so a typo in env does not crash the request path —
+        the LLM simply sees a smaller glossary.
+        """
+        out: dict[str, str] = {}
+        for pair in self.ITER_GLOSSARY.split(","):
+            if ":" not in pair:
+                continue
+            key, _, value = pair.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if key and value:
+                out[key] = value
+        return out
 
     @computed_field  # type: ignore[prop-decorator]
     @property

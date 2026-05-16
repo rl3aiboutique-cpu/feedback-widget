@@ -127,6 +127,24 @@ def mount_feedback_widget_for_async_host(
 
     engine = make_sync_engine(cfg.DATABASE_URL)
     register_feedback_router(app, auth=auth, engine=engine, settings=cfg, prefix=prefix)
+    # Mount the chat-first router alongside the legacy CRUD router.
+    # The chat router needs the same storage backend as the legacy
+    # router so the SSE messages endpoint can resolve screenshot
+    # attachments without re-building boto3 plumbing.
+    from feedback_widget import (  # local to avoid cycle
+        get_storage_backend,
+        register_feedback_chat_router,
+    )
+
+    storage = get_storage_backend(cfg)
+    register_feedback_chat_router(
+        app,
+        auth=auth,
+        engine=engine,
+        settings=cfg,
+        prefix=prefix,
+        storage=storage,
+    )
     app.state.feedback_widget_engine = engine
 
     # Compose the engine.dispose() into the host's lifespan instead of

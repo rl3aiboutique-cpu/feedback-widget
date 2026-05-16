@@ -1,0 +1,32 @@
+{
+  "skill": "handoff",
+  "version": 1,
+  "description": "Trigger reliability cases for the handoff skill.",
+  "cases": [
+    {
+      "prompt": "hand off to another agent — we are out of context",
+      "expect_skill": true,
+      "rationale": "explicit handoff request driven by context exhaustion"
+    },
+    {
+      "prompt": "summarise this session for tomorrow's continuation",
+      "expect_skill": true,
+      "rationale": "fresh-context preparation maps to handoff"
+    },
+    {
+      "prompt": "wrap this up so the next session can pick up without re-reading everything",
+      "expect_skill": true,
+      "rationale": "core handoff use case — compacted document for fresh agent"
+    },
+    {
+      "prompt": "save this conversation to the wiki",
+      "expect_skill": false,
+      "rationale": "persistent vault filing is save, not handoff"
+    },
+    {
+      "prompt": "el PR description ya resume todo, sigamos",
+      "expect_skill": false,
+      "rationale": "natural artefact already serves the purpose — skip handoff per skill's own skip-when"
+    }
+  ]
+}

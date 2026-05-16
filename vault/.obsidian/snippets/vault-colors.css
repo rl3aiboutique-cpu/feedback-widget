@@ -1,0 +1,26 @@
+/* Feedback Widget Vault — color coding por tipo de página
+   Cargar desde Settings → Appearance → CSS snippets */
+
+/* Captures — color de fondo por tipo (Iron Law 9) */
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/decision/"]   .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/decision/"]   .markdown-preview-view { border-left: 4px solid #6366f1; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/observation/"] .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/observation/"] .markdown-preview-view { border-left: 4px solid #06b6d4; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/defect/"]     .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/defect/"]     .markdown-preview-view { border-left: 4px solid #ef4444; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/correction/"] .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/correction/"] .markdown-preview-view { border-left: 4px solid #f59e0b; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/insight/"]    .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/insight/"]    .markdown-preview-view { border-left: 4px solid #10b981; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/rule/"]       .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/rule/"]       .markdown-preview-view { border-left: 4px solid #8b5cf6; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/prohibition/"] .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/prohibition/"] .markdown-preview-view { border-left: 4px solid #dc2626; }
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/question/"]   .markdown-source-view,
+.workspace-leaf-content[data-type="markdown"][data-path*="captures/question/"]   .markdown-preview-view { border-left: 4px solid #ec4899; }
+
+/* hot.md — banner sticky */
+.workspace-leaf-content[data-type="markdown"][data-path$="hot.md"] .view-header { background: linear-gradient(90deg, #fef3c7, transparent); }
+
+/* index pages — gris suave */
+.workspace-leaf-content[data-type="markdown"][data-path$="_index.md"] .view-header { background: rgba(0,0,0,0.03); }

@@ -73,6 +73,22 @@ services:
       FEEDBACK_CSRF_REQUIRED: "false"
       FEEDBACK_MULTI_TENANT_MODE: "false"
       FEEDBACK_RATE_LIMIT_PER_HOUR: "200"
+      # Chat LLM provider — OpenAI gpt-5-mini (good balance reasoning /
+      # cost / multimodal at $0.25 in / $2.00 out per M tokens).
+      # Set OPENAI_API_KEY in apps/sandbox-host/.env before `make up`.
+      # Without key both chat and Whisper return 503 with a clear toast.
+      FEEDBACK_ITER_PROVIDER: openai
+      FEEDBACK_ITER_OPENAI_MODEL: gpt-5-mini
+      FEEDBACK_ITER_OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Reasoning effort for gpt-5 family + o-series.
+      # off | low | medium | high. Default medium balances quality vs.
+      # latency/cost. Raise to high for synthesis-heavy turns.
+      FEEDBACK_ITER_THINKING_MODE: medium
+      # Gemini kept wired as a fallback option — flip the PROVIDER
+      # above to "gemini" to switch without rebuilding.
+      FEEDBACK_ITER_GEMINI_MODEL: gemini-flash-latest
+      FEEDBACK_ITER_GEMINI_MODELS_FALLBACK: gemini-2.5-flash,gemini-2.5-flash-lite
+      FEEDBACK_ITER_GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       SANDBOX_CORS_ORIGIN: http://localhost:9201
     ports:
       - "9200:8000"
@@ -83,6 +99,7 @@ services:
       dockerfile: apps/sandbox-host/frontend/Dockerfile
       args:
         VITE_API_URL: http://localhost:9200
+        VITE_FEEDBACK_CHAT_FIRST: "true"
     container_name: feedback-sandbox-frontend
     depends_on:
       backend:

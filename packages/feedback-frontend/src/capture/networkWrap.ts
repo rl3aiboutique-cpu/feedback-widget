@@ -24,13 +24,28 @@ export interface NetworkEntry {
 }
 
 const DEFAULT_CAPACITY = 20;
+// Slow-success buffer (v0.4.1). Independent ring so successful-but-
+// slow requests don't push genuine failures out of the failure tail.
+const DEFAULT_SUCCESS_CAPACITY = 30;
+// Threshold (ms) above which a 2xx response is recorded as a "slow
+// success". Calibrated to ignore the noise of fast XHRs while still
+// catching the API hiccups admins care about.
+const SLOW_SUCCESS_THRESHOLD_MS = 1000;
+
 const _buffer: NetworkEntry[] = [];
+const _success_buffer: NetworkEntry[] = [];
 let _capacity = DEFAULT_CAPACITY;
+const _success_capacity = DEFAULT_SUCCESS_CAPACITY;
 let _installed = false;
 
 function _push(entry: NetworkEntry): void {
   _buffer.push(entry);
   while (_buffer.length > _capacity) _buffer.shift();
+}
+
+function _pushSuccess(entry: NetworkEntry): void {
+  _success_buffer.push(entry);
+  while (_success_buffer.length > _success_capacity) _success_buffer.shift();
 }
 
 function _excerpt(text: string): string {
@@ -73,8 +88,9 @@ export function installNetworkWrap(capacity: number = DEFAULT_CAPACITY): void {
       throw err;
     }
 
+    const duration = performance.now() - start;
+
     if (response.status >= 400) {
-      const duration = performance.now() - start;
       let excerpt = "";
       try {
         // Clone so the original consumer can still read the body.
@@ -90,6 +106,18 @@ export function installNetworkWrap(capacity: number = DEFAULT_CAPACITY): void {
         response_excerpt: _excerpt(excerpt),
         timestamp: new Date().toISOString(),
       });
+    } else if (duration >= SLOW_SUCCESS_THRESHOLD_MS) {
+      // Slow-success bucket: 2xx/3xx that took longer than the
+      // threshold. We don't read the body — admins want the timing
+      // signal, not the payload.
+      _pushSuccess({
+        method,
+        url,
+        status: response.status,
+        duration_ms: Math.round(duration),
+        response_excerpt: "",
+        timestamp: new Date().toISOString(),
+      });
     }
 
     return response;
@@ -100,7 +128,12 @@ export function getNetworkTail(): NetworkEntry[] {
   return [..._buffer];
 }
 
+export function getNetworkSuccessTail(): NetworkEntry[] {
+  return [..._success_buffer];
+}
+
 export function _clearForTests(): void {
   _buffer.length = 0;
+  _success_buffer.length = 0;
   _installed = false;
 }

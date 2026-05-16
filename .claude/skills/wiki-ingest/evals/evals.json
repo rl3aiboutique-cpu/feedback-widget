@@ -1,0 +1,32 @@
+{
+  "skill": "wiki-ingest",
+  "version": 1,
+  "description": "Trigger reliability cases for the wiki-ingest skill.",
+  "cases": [
+    {
+      "prompt": "ingresa este PDF al wiki",
+      "expect_skill": true,
+      "rationale": "explicit external-source ingestion"
+    },
+    {
+      "prompt": "batch ingest todos los markdowns de .raw/ que aún no procesé",
+      "expect_skill": true,
+      "rationale": "batch mode is part of this skill's scope"
+    },
+    {
+      "prompt": "lee este URL y archívalo en el wiki como nota estructurada",
+      "expect_skill": true,
+      "rationale": "URL ingestion with entity/concept extraction"
+    },
+    {
+      "prompt": "save this conversation",
+      "expect_skill": false,
+      "rationale": "current-conversation filing is save, not wiki-ingest"
+    },
+    {
+      "prompt": "limpia esta URL de ads antes de leerla",
+      "expect_skill": false,
+      "rationale": "URL clean-up is defuddle; wiki-ingest can chain after but defuddle owns this step"
+    }
+  ]
+}

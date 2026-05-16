@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_FEEDBACK_ENABLED?: string;
   readonly VITE_FEEDBACK_POSITION?: string;
   readonly VITE_FEEDBACK_BRAND_PRIMARY_HEX?: string;
+  readonly VITE_FEEDBACK_CHAT_FIRST?: string;
   readonly VITE_APP_VERSION?: string;
   readonly VITE_GIT_COMMIT_SHA?: string;
 }

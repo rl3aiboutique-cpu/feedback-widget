@@ -28,19 +28,20 @@ from feedback_widget.exceptions import (
     FeedbackRateLimitExceededError,
 )
 from feedback_widget.models import (
-    Feedback,
+    AdminActionKind,
+    DeletedByRole,
+    Feedback,  # alias for FeedbackTicket — keeps existing query sites intact.
+    FeedbackAdminAction,
     FeedbackAttachment,
     FeedbackAttachmentKind,
-    FeedbackComment,
-    FeedbackCommentAuthorRole,
     FeedbackStatus,
+    FeedbackTicket,
     FeedbackType,
 )
 from feedback_widget.redaction import redact_bundle, redact_string
 from feedback_widget.schemas import (
+    FeedbackAdminActionPayload,
     FeedbackAttachmentRead,
-    FeedbackCommentCreatePayload,
-    FeedbackCommentRead,
     FeedbackCreatePayload,
     FeedbackRead,
     FeedbackStatusUpdate,
@@ -88,34 +89,12 @@ class FeedbackService:
 
     def check_rate_limit(self, user_id: uuid.UUID) -> None:
         """Raise FeedbackRateLimitExceededError if the user has hit the cap."""
-        cap = self.settings.RATE_LIMIT_PER_HOUR
-        window = timedelta(hours=1)
-        now = datetime.now(UTC)
-        cutoff = now - window
-
-        count_stmt = (
-            select(func.count(Feedback.id))
-            .where(Feedback.user_id == user_id)
-            .where(Feedback.created_at >= cutoff)
+        check_user_rate_limit(
+            self.session,
+            user_id=user_id,
+            tenant_id=self.tenant_id,
+            settings=self.settings,
         )
-        oldest_stmt = (
-            select(func.min(Feedback.created_at))
-            .where(Feedback.user_id == user_id)
-            .where(Feedback.created_at >= cutoff)
-        )
-        if self.tenant_id is not None:
-            count_stmt = count_stmt.where(Feedback.tenant_id == self.tenant_id)
-            oldest_stmt = oldest_stmt.where(Feedback.tenant_id == self.tenant_id)
-        run_query = self.session.exec
-        count = run_query(count_stmt).one()
-        if count < cap:
-            return
-
-        oldest = run_query(oldest_stmt).one()
-        if oldest is None:
-            raise FeedbackRateLimitExceededError(retry_after_seconds=int(window.total_seconds()))
-        retry_after = int((oldest + window - now).total_seconds())
-        raise FeedbackRateLimitExceededError(retry_after_seconds=max(retry_after, 1))
 
     # ------------------------------------------------------------------
     # Create
@@ -155,7 +134,7 @@ class FeedbackService:
             tenant_id=tenant_id,
             user_id=user_id,
             type=payload.type,
-            status=FeedbackStatus.NEW,
+            ticket_status=FeedbackStatus.OPEN,
             title=redacted_title,
             description=redacted_description,
             expected_outcome=redacted_expected,
@@ -168,6 +147,10 @@ class FeedbackService:
             app_version=payload.app_version,
             git_commit_sha=payload.git_commit_sha,
             user_agent=payload.user_agent,
+            # Empty placeholder so the JSONB NOT NULL constraint is met
+            # — chat-first tickets get filled progressively by run_turn.
+            messages=[],
+            auto_context={},
         )
 
         # Generate the per-tenant ticket code with bounded retry on the
@@ -188,72 +171,39 @@ class FeedbackService:
                     raise
 
         if screenshot is not None:
-            object_key = self._screenshot_object_key(feedback.id)
-            self.storage.upload(
-                key=object_key,
-                data=screenshot.content,
+            upload_feedback_attachment(
+                self.session,
+                self.storage,
+                feedback_id=feedback.id,
+                tenant_id=tenant_id,
+                content=screenshot.content,
                 content_type=screenshot.content_type,
-                bucket=self.settings.BUCKET,
-            )
-            self.session.add(
-                FeedbackAttachment(
-                    feedback_id=feedback.id,
-                    tenant_id=tenant_id,
-                    kind=FeedbackAttachmentKind.SCREENSHOT,
-                    bucket=self.settings.BUCKET,
-                    object_key=object_key,
-                    content_type=screenshot.content_type,
-                    byte_size=len(screenshot.content),
-                    width=screenshot.width,
-                    height=screenshot.height,
-                )
+                filename=None,
+                kind=FeedbackAttachmentKind.SCREENSHOT,
+                width=screenshot.width,
+                height=screenshot.height,
+                settings=self.settings,
             )
 
         for upload in attachments:
-            object_key = self._attachment_object_key(feedback.id, upload.filename)
-            self.storage.upload(
-                key=object_key,
-                data=upload.content,
+            upload_feedback_attachment(
+                self.session,
+                self.storage,
+                feedback_id=feedback.id,
+                tenant_id=tenant_id,
+                content=upload.content,
                 content_type=upload.content_type,
-                bucket=self.settings.BUCKET,
-            )
-            self.session.add(
-                FeedbackAttachment(
-                    feedback_id=feedback.id,
-                    tenant_id=tenant_id,
-                    kind=upload.kind,
-                    bucket=self.settings.BUCKET,
-                    object_key=object_key,
-                    content_type=upload.content_type,
-                    byte_size=len(upload.content),
-                    filename=upload.filename,
-                    width=upload.width,
-                    height=upload.height,
-                )
+                filename=upload.filename,
+                kind=upload.kind,
+                width=upload.width,
+                height=upload.height,
+                settings=self.settings,
             )
 
         if screenshot is not None or attachments:
             self.session.flush()
 
         return feedback
-
-    @staticmethod
-    def _screenshot_object_key(feedback_id: uuid.UUID) -> str:
-        """``feedback/yyyy/mm/dd/{feedback_id}/{uuid}.png``."""
-        now = datetime.now(UTC)
-        return (
-            f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
-            f"{feedback_id}/{uuid.uuid4()}.png"
-        )
-
-    @staticmethod
-    def _attachment_object_key(feedback_id: uuid.UUID, safe_filename: str) -> str:
-        """``feedback/yyyy/mm/dd/{feedback_id}/attachments/{uuid}-{safe_filename}``."""
-        now = datetime.now(UTC)
-        return (
-            f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
-            f"{feedback_id}/attachments/{uuid.uuid4()}-{safe_filename}"
-        )
 
     # ------------------------------------------------------------------
     # Ticketing helpers
@@ -262,27 +212,11 @@ class FeedbackService:
     def _generate_ticket_code(self, *, tenant_id: uuid.UUID) -> str:
         """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
 
-        Race-safe: if two concurrent INSERTs see the same max, the
-        UNIQUE index ``ix_feedback_tenant_ticket_code`` raises and the
-        caller can retry.
+        Thin wrapper over :func:`generate_ticket_code` kept for ABI
+        stability; the legacy multipart endpoint always passes a real
+        ``tenant_id`` so single-tenant behavior is irrelevant here.
         """
-        year = datetime.now(UTC).year
-        prefix = f"FB-{year}-"
-        stmt = (
-            select(func.max(Feedback.ticket_code))
-            .where(Feedback.tenant_id == tenant_id)
-            .where(Feedback.ticket_code.like(f"{prefix}%"))  # type: ignore[attr-defined]
-        )
-        run_query = self.session.exec
-        max_code = run_query(stmt).one_or_none()
-        if max_code:
-            try:
-                next_seq = int(max_code.split("-")[-1]) + 1
-            except (ValueError, IndexError):
-                next_seq = 1
-        else:
-            next_seq = 1
-        return f"{prefix}{next_seq:04d}"
+        return generate_ticket_code(self.session, tenant_id=tenant_id)
 
     # ------------------------------------------------------------------
     # Reads
@@ -297,7 +231,7 @@ class FeedbackService:
         return row
 
     def list_attachments(self, feedback_id: uuid.UUID) -> list[FeedbackAttachment]:
-        stmt = select(FeedbackAttachment).where(FeedbackAttachment.feedback_id == feedback_id)
+        stmt = select(FeedbackAttachment).where(FeedbackAttachment.ticket_id == feedback_id)
         if self.tenant_id is not None:
             stmt = stmt.where(FeedbackAttachment.tenant_id == self.tenant_id)
         run_query = self.session.exec
@@ -309,10 +243,15 @@ class FeedbackService:
         user_id: uuid.UUID,
         limit: int = 25,
     ) -> list[Feedback]:
-        """Recent feedback rows submitted by the given user, newest first."""
+        """Recent tickets submitted by the given user, newest first.
+
+        Soft-deleted tickets are silently hidden so the user's list
+        never surfaces rows they discarded.
+        """
         stmt = (
             select(Feedback)
             .where(Feedback.user_id == user_id)
+            .where(Feedback.deleted_at.is_(None))  # type: ignore[union-attr]
             .order_by(Feedback.updated_at.desc())  # type: ignore[union-attr]
             .limit(limit)
         )
@@ -329,13 +268,21 @@ class FeedbackService:
         q: str | None = None,
         page: int = 1,
         page_size: int = 25,
+        include_deleted: bool = False,
     ) -> tuple[list[Feedback], int]:
-        """Tenant-scoped listing for the admin triage view."""
+        """Tenant-scoped listing for the admin triage view.
+
+        Soft-deleted tickets are hidden by default; pass
+        ``include_deleted=True`` to surface them (papelera view).
+        """
         page = max(page, 1)
         page_size = max(min(page_size, 200), 1)
 
         base_stmt = select(Feedback)
         count_stmt = select(func.count(Feedback.id))
+        if not include_deleted:
+            base_stmt = base_stmt.where(Feedback.deleted_at.is_(None))  # type: ignore[union-attr]
+            count_stmt = count_stmt.where(Feedback.deleted_at.is_(None))  # type: ignore[union-attr]
         if self.tenant_id is not None:
             base_stmt = base_stmt.where(Feedback.tenant_id == self.tenant_id)
             count_stmt = count_stmt.where(Feedback.tenant_id == self.tenant_id)
@@ -343,8 +290,8 @@ class FeedbackService:
             base_stmt = base_stmt.where(Feedback.type == type_filter)
             count_stmt = count_stmt.where(Feedback.type == type_filter)
         if status_filter is not None:
-            base_stmt = base_stmt.where(Feedback.status == status_filter)
-            count_stmt = count_stmt.where(Feedback.status == status_filter)
+            base_stmt = base_stmt.where(Feedback.ticket_status == status_filter)
+            count_stmt = count_stmt.where(Feedback.ticket_status == status_filter)
         if q:
             like = f"%{q.lower()}%"
             base_stmt = base_stmt.where(func.lower(Feedback.title).like(like))
@@ -408,17 +355,164 @@ class FeedbackService:
         update: FeedbackStatusUpdate,
     ) -> Feedback:
         feedback = self.get(feedback_id)
-        was_new = feedback.status == FeedbackStatus.NEW
+        was_open = feedback.ticket_status == FeedbackStatus.OPEN
 
-        feedback.status = update.status
+        feedback.ticket_status = update.status
         feedback.updated_at = datetime.now(UTC)
         if update.triage_note is not None:
             feedback.triage_note = update.triage_note
-        if was_new and update.status != FeedbackStatus.NEW:
+        if was_open and update.status != FeedbackStatus.OPEN:
             feedback.triaged_by = triager_id
             feedback.triaged_at = datetime.now(UTC)
+        if update.status in (
+            FeedbackStatus.RESOLVED,
+            FeedbackStatus.WONT_FIX,
+            FeedbackStatus.CLOSED,
+        ):
+            feedback.closed_at = datetime.now(UTC)
 
         self.session.add(feedback)
+        self.session.flush()
+        return feedback
+
+    # ------------------------------------------------------------------
+    # Admin actions (S3 — state changes + message injections)
+    # ------------------------------------------------------------------
+
+    def apply_admin_action(
+        self,
+        *,
+        feedback_id: uuid.UUID,
+        admin_user_id: uuid.UUID,
+        payload: FeedbackAdminActionPayload,
+    ) -> Feedback:
+        """Apply an admin action atomically: optionally transition the
+        ticket status AND/OR inject a message into the conversation.
+
+        Updates ``feedback_ticket.messages`` (append role=admin entry),
+        ``feedback_ticket.user_action_required`` (true when
+        ``to_status=waiting_for_user``), ``last_admin_msg_at``, and
+        records a forensic row in ``feedback_admin_action``.
+        """
+        from sqlalchemy.orm.attributes import flag_modified
+
+        feedback = self.get(feedback_id)
+        if feedback.deleted_at is not None:
+            raise FeedbackNotFoundError(str(feedback_id))
+
+        now = datetime.now(UTC)
+        from_status = feedback.ticket_status.value
+        to_status: str | None = None
+
+        if payload.to_status is not None:
+            feedback.ticket_status = payload.to_status
+            to_status = payload.to_status.value
+            if payload.to_status == FeedbackStatus.WAITING_FOR_USER:
+                feedback.user_action_required = True
+            if payload.to_status in (
+                FeedbackStatus.RESOLVED,
+                FeedbackStatus.WONT_FIX,
+                FeedbackStatus.CLOSED,
+            ):
+                feedback.closed_at = now
+
+        message_text: str | None = None
+        if payload.message_text:
+            message_text = redact_string(payload.message_text.strip())
+            if feedback.messages is None:
+                feedback.messages = []
+            feedback.messages.append(
+                {
+                    "role": "admin",
+                    "text": message_text,
+                    "ts": now.isoformat(),
+                    "author_user_id": str(admin_user_id),
+                }
+            )
+            flag_modified(feedback, "messages")
+            feedback.last_admin_msg_at = now
+            feedback.user_action_required = True
+
+        feedback.updated_at = now
+        self.session.add(feedback)
+
+        action_kind = AdminActionKind.STATE_CHANGE
+        if payload.to_status and payload.message_text:
+            action_kind = AdminActionKind.STATE_CHANGE_WITH_MESSAGE
+        elif payload.message_text:
+            action_kind = AdminActionKind.MESSAGE_INJECTION
+
+        action_row = FeedbackAdminAction(
+            ticket_id=feedback.id,
+            tenant_id=feedback.tenant_id,
+            admin_user_id=admin_user_id,
+            kind=action_kind,
+            from_status=from_status,
+            to_status=to_status,
+            message_text=message_text,
+        )
+        self.session.add(action_row)
+        self.session.flush()
+        return feedback
+
+    # ------------------------------------------------------------------
+    # Soft delete + restore
+    # ------------------------------------------------------------------
+
+    def soft_delete(
+        self,
+        *,
+        feedback_id: uuid.UUID,
+        current_user_id: uuid.UUID,
+        role: DeletedByRole,
+    ) -> Feedback:
+        """Mark the ticket as soft-deleted. Caller MUST check ownership
+        for user-role deletions before invoking this — the service
+        trusts the role hint."""
+        feedback = self.get(feedback_id)
+        if feedback.deleted_at is not None:
+            return feedback  # idempotent
+        now = datetime.now(UTC)
+        feedback.deleted_at = now
+        feedback.deleted_by_user_id = current_user_id
+        feedback.deleted_by_role = role
+        feedback.updated_at = now
+        self.session.add(feedback)
+
+        if role == DeletedByRole.ADMIN:
+            self.session.add(
+                FeedbackAdminAction(
+                    ticket_id=feedback.id,
+                    tenant_id=feedback.tenant_id,
+                    admin_user_id=current_user_id,
+                    kind=AdminActionKind.SOFT_DELETE,
+                )
+            )
+        self.session.flush()
+        return feedback
+
+    def restore(self, *, feedback_id: uuid.UUID, admin_user_id: uuid.UUID) -> Feedback:
+        """Undo a soft delete (admin-only)."""
+        feedback = self.session.get(Feedback, feedback_id)
+        if feedback is None:
+            raise FeedbackNotFoundError(str(feedback_id))
+        if self.tenant_id is not None and feedback.tenant_id != self.tenant_id:
+            raise FeedbackNotFoundError(str(feedback_id))
+        if feedback.deleted_at is None:
+            return feedback
+        feedback.deleted_at = None
+        feedback.deleted_by_user_id = None
+        feedback.deleted_by_role = None
+        feedback.updated_at = datetime.now(UTC)
+        self.session.add(feedback)
+        self.session.add(
+            FeedbackAdminAction(
+                ticket_id=feedback.id,
+                tenant_id=feedback.tenant_id,
+                admin_user_id=admin_user_id,
+                kind=AdminActionKind.RESTORE,
+            )
+        )
         self.session.flush()
         return feedback
 
@@ -471,77 +565,152 @@ class FeedbackService:
         self.session.delete(feedback)
         self.session.flush()
 
-    # ------------------------------------------------------------------
-    # Comments (v0.2.2)
-    # ------------------------------------------------------------------
+    # NOTE: ``feedback_comment`` was removed in the 2026-05-16
+    # unification. Admin messages now live inside the ticket's
+    # ``messages`` JSONB as ``role="admin"`` entries — see
+    # :meth:`apply_admin_action`. User replies after admin injection
+    # flow through ``ChatService.run_turn`` like any other chat turn.
 
-    def list_comments(
-        self,
-        *,
-        feedback_id: uuid.UUID,
-        is_admin: bool,
-        current_user_id: uuid.UUID,
-    ) -> list[FeedbackComment]:
-        """Return the conversation thread, oldest first.
 
-        The submitter sees comments only for their own ticket; admin
-        sees comments for any ticket in the same tenant. Otherwise
-        FeedbackNotFoundError so callers translate to 404.
-        """
-        feedback = self.get(feedback_id)
-        if not is_admin and feedback.user_id != current_user_id:
-            raise FeedbackNotFoundError(str(feedback_id))
-        stmt = (
-            select(FeedbackComment)
-            .where(FeedbackComment.feedback_id == feedback_id)
-            .order_by(FeedbackComment.created_at.asc())  # type: ignore[union-attr]
+# ──────────────────────────────────────────────────────────────────────
+# Module-level helpers
+#
+# These functions are the single source of truth for cross-flow
+# concerns (ticket code generation, rate limiting, attachment upload).
+# Both the legacy multipart endpoint (FeedbackService.create) and the
+# chat-first confirm path (chat_service.confirm_session) call into
+# them, so behavior stays identical regardless of how the feedback
+# row was produced.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _screenshot_object_key(feedback_id: uuid.UUID) -> str:
+    """``feedback/yyyy/mm/dd/{feedback_id}/{uuid}.png``."""
+    now = datetime.now(UTC)
+    return (
+        f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
+        f"{feedback_id}/{uuid.uuid4()}.png"
+    )
+
+
+def _attachment_object_key(feedback_id: uuid.UUID, safe_filename: str) -> str:
+    """``feedback/yyyy/mm/dd/{feedback_id}/attachments/{uuid}-{safe_filename}``."""
+    now = datetime.now(UTC)
+    return (
+        f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
+        f"{feedback_id}/attachments/{uuid.uuid4()}-{safe_filename}"
+    )
+
+
+def generate_ticket_code(
+    session: Session,
+    *,
+    tenant_id: uuid.UUID | None,
+) -> str:
+    """Compute the next ``FB-YYYY-NNNN`` for the given tenant.
+
+    ``tenant_id=None`` maps to ``IS NULL`` so single-tenant hosts share
+    one sequence. Race-safe: the UNIQUE index
+    ``ix_feedback_tenant_ticket_code`` raises on collision and the
+    caller can retry.
+    """
+    year = datetime.now(UTC).year
+    prefix = f"FB-{year}-"
+    stmt = select(func.max(Feedback.ticket_code)).where(
+        Feedback.ticket_code.like(f"{prefix}%")  # type: ignore[attr-defined]
+    )
+    if tenant_id is None:
+        stmt = stmt.where(Feedback.tenant_id.is_(None))  # type: ignore[attr-defined]
+    else:
+        stmt = stmt.where(Feedback.tenant_id == tenant_id)
+    max_code = session.exec(stmt).one_or_none()
+    if max_code:
+        try:
+            next_seq = int(max_code.split("-")[-1]) + 1
+        except (ValueError, IndexError):
+            next_seq = 1
+    else:
+        next_seq = 1
+    return f"{prefix}{next_seq:04d}"
+
+
+def check_user_rate_limit(
+    session: Session,
+    *,
+    user_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    settings: FeedbackSettings,
+) -> None:
+    """Raise :class:`FeedbackRateLimitExceededError` if the user has
+    hit ``settings.RATE_LIMIT_PER_HOUR`` in the trailing hour."""
+    cap = settings.RATE_LIMIT_PER_HOUR
+    window = timedelta(hours=1)
+    now = datetime.now(UTC)
+    cutoff = now - window
+    count_stmt = (
+        select(func.count(Feedback.id))
+        .where(Feedback.user_id == user_id)
+        .where(Feedback.created_at >= cutoff)
+    )
+    oldest_stmt = (
+        select(func.min(Feedback.created_at))
+        .where(Feedback.user_id == user_id)
+        .where(Feedback.created_at >= cutoff)
+    )
+    if tenant_id is not None:
+        count_stmt = count_stmt.where(Feedback.tenant_id == tenant_id)
+        oldest_stmt = oldest_stmt.where(Feedback.tenant_id == tenant_id)
+    count = session.exec(count_stmt).one()
+    if count < cap:
+        return
+    oldest = session.exec(oldest_stmt).one()
+    if oldest is None:
+        raise FeedbackRateLimitExceededError(
+            retry_after_seconds=int(window.total_seconds())
         )
-        if self.tenant_id is not None:
-            stmt = stmt.where(FeedbackComment.tenant_id == self.tenant_id)
-        run_query = self.session.exec
-        return list(run_query(stmt).all())
+    retry_after = int((oldest + window - now).total_seconds())
+    raise FeedbackRateLimitExceededError(retry_after_seconds=max(retry_after, 1))
 
-    def create_comment(
-        self,
-        *,
-        feedback_id: uuid.UUID,
-        is_admin: bool,
-        current_user_id: uuid.UUID,
-        payload: FeedbackCommentCreatePayload,
-    ) -> FeedbackComment:
-        """Append a comment to the conversation thread."""
-        feedback = self.get(feedback_id)
-        if not is_admin and feedback.user_id != current_user_id:
-            raise FeedbackNotFoundError(str(feedback_id))
-        author_role = (
-            FeedbackCommentAuthorRole.ADMIN if is_admin else FeedbackCommentAuthorRole.SUBMITTER
-        )
-        original = payload.body.strip()
-        redacted = redact_string(original)
-        if redacted != original:
-            # The redactor matched something inside user-typed text. Log
-            # so an operator can see when feedback content is being
-            # rewritten — the user never sees the diff, so silent
-            # rewrites would otherwise be invisible. Don't log the body.
-            logger.info(
-                "feedback_comment redactor modified user input: feedback_id=%s author=%s "
-                "before=%d after=%d",
-                feedback_id,
-                current_user_id,
-                len(original),
-                len(redacted),
-            )
-        comment = FeedbackComment(
-            feedback_id=feedback_id,
-            tenant_id=feedback.tenant_id,
-            author_user_id=current_user_id,
-            author_role=author_role,
-            body=redacted,
-        )
-        self.session.add(comment)
-        self.session.flush()
-        return comment
 
-    @staticmethod
-    def comment_to_read(comment: FeedbackComment) -> FeedbackCommentRead:
-        return FeedbackCommentRead.model_validate(comment)
+def upload_feedback_attachment(
+    session: Session,
+    storage: StorageBackend,
+    *,
+    feedback_id: uuid.UUID,
+    tenant_id: uuid.UUID | None,
+    content: bytes,
+    content_type: str,
+    filename: str | None,
+    kind: FeedbackAttachmentKind,
+    width: int | None,
+    height: int | None,
+    settings: FeedbackSettings,
+) -> FeedbackAttachment:
+    """Upload bytes to the configured bucket and create the matching
+    :class:`FeedbackAttachment` row. The row is added to the session;
+    caller flushes."""
+    if kind == FeedbackAttachmentKind.SCREENSHOT:
+        object_key = _screenshot_object_key(feedback_id)
+    else:
+        safe = filename or "attachment"
+        object_key = _attachment_object_key(feedback_id, safe)
+    storage.upload(
+        key=object_key,
+        data=content,
+        content_type=content_type,
+        bucket=settings.BUCKET,
+    )
+    row = FeedbackAttachment(
+        ticket_id=feedback_id,
+        tenant_id=tenant_id,
+        kind=kind,
+        bucket=settings.BUCKET,
+        object_key=object_key,
+        content_type=content_type,
+        byte_size=len(content),
+        filename=filename,
+        width=width,
+        height=height,
+    )
+    session.add(row)
+    return row

@@ -16,6 +16,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from feedback_widget import (
     FeedbackSettings,
+    get_storage_backend,
+    register_feedback_chat_router,
     register_feedback_router,
     run_migrations,
 )
@@ -41,6 +43,7 @@ def _create_app() -> FastAPI:
         logger.exception("sandbox: run_migrations failed (continuing)")
 
     engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    storage = get_storage_backend(settings)
     app = FastAPI(title="feedback-sandbox-host", version="0.0.0")
 
     cors_origin = os.environ.get("SANDBOX_CORS_ORIGIN", "http://localhost:9001")
@@ -62,6 +65,16 @@ def _create_app() -> FastAPI:
         engine=engine,
         settings=settings,
         prefix="/api/v1/feedback",
+        storage=storage,
+    )
+
+    register_feedback_chat_router(
+        app,
+        auth=SandboxAuth(),
+        engine=engine,
+        settings=settings,
+        prefix="/api/v1/feedback",
+        storage=storage,
     )
 
     return app

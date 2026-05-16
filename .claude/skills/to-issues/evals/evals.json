@@ -1,0 +1,32 @@
+{
+  "skill": "to-issues",
+  "version": 1,
+  "description": "Trigger reliability cases for the to-issues skill.",
+  "cases": [
+    {
+      "prompt": "rompe este PRD en issues que cada uno pueda agarrar independientemente",
+      "expect_skill": true,
+      "rationale": "explicit decomposition into independently-grabbable issues — tracer-bullet pattern"
+    },
+    {
+      "prompt": "create implementation tickets from the spec we just finished",
+      "expect_skill": true,
+      "rationale": "spec-to-tickets pipeline"
+    },
+    {
+      "prompt": "split this work into vertical slices",
+      "expect_skill": true,
+      "rationale": "vertical-slice vocabulary is core to this skill"
+    },
+    {
+      "prompt": "escribe el PRD primero",
+      "expect_skill": false,
+      "rationale": "PRD authoring is to-prd; to-issues runs AFTER a PRD exists"
+    },
+    {
+      "prompt": "triage these incoming bug reports",
+      "expect_skill": false,
+      "rationale": "managing inbound issues is triage, not creating new ones from spec"
+    }
+  ]
+}

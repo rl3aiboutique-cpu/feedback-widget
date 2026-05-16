@@ -1,15 +1,12 @@
 /**
- * Chat-style conversation thread for one feedback ticket.
+ * Conversation timeline for one ticket.
  *
- * Shipped in v0.2.2 — replaces the magic-link accept/reject flow that
- * was dropped in v0.2.0 with an in-app reply loop.
- *
- *   - Submitter sees + can post on tickets they filed.
- *   - Admin (master) sees + can post on any ticket in the tenant.
- *   - Append-only — no edit / delete in v0.2.2.
- *
- * Polls the GET /feedback/{id}/comments endpoint every 30 s so admin
- * replies surface "near-live" without a manual refresh.
+ * After the 2026-05-16 unification this component renders the
+ * ``messages`` JSONB on the ticket row directly — there is no
+ * separate ``feedback_comment`` table any more. Admins write new
+ * entries via ``POST /feedback/{id}/admin-action`` (single atomic
+ * call that may also transition status); users reply by sending a
+ * normal chat turn (handled elsewhere by the chat sheet).
  */
 
 import { Send } from "lucide-react";
@@ -18,10 +15,10 @@ import { useState } from "react";
 import { useFeedbackAdapter } from "../FeedbackProvider";
 import {
   FeedbackApiError,
-  useFeedbackCommentsQuery,
-  usePostFeedbackCommentMutation,
+  useFeedbackDetailQuery,
+  usePostFeedbackAdminActionMutation,
 } from "../adapter";
-import type { FeedbackCommentRead } from "../client";
+import type { FeedbackTimelineMessage } from "../client";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
@@ -39,24 +36,23 @@ export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactEl
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const currentUser = adapter.useCurrentUser();
-  const query = useFeedbackCommentsQuery(feedbackId);
-  const post = usePostFeedbackCommentMutation();
+  const ticketQuery = useFeedbackDetailQuery(feedbackId);
+  const adminAction = usePostFeedbackAdminActionMutation();
   const [draft, setDraft] = useState("");
+
+  const messages: FeedbackTimelineMessage[] = ticketQuery.data?.messages ?? [];
+  const isAdmin = ticketQuery.data?.user_id !== currentUser?.id;
 
   const onSend = (): void => {
     const body = draft.trim();
     if (!body) return;
-    post.mutate(
-      { feedbackId, body },
+    adminAction.mutate(
+      { feedbackId, payload: { message_text: body } },
       {
         onSuccess: () => {
           setDraft("");
         },
         onError: (err) => {
-          // Branch on FeedbackApiError so we surface specific UX
-          // (rate-limit countdown, re-auth prompt, generic 5xx) rather
-          // than dumping `String(err)` which leaks server URLs and
-          // status codes to the user.
           if (err instanceof FeedbackApiError) {
             if (err.status === 429) {
               const seconds = err.retryAfter ?? "?";
@@ -80,73 +76,81 @@ export function CommentThread({ feedbackId }: CommentThreadProps): React.ReactEl
         {t("feedback.comments.thread_title")}
       </h4>
 
-      {query.isLoading ? (
+      {ticketQuery.isLoading ? (
         <p className="text-xs text-muted-foreground">{t("feedback.comments.loading")}</p>
-      ) : query.isError ? (
+      ) : ticketQuery.isError ? (
         <p className="text-xs text-destructive">{t("feedback.comments.error")}</p>
-      ) : (query.data?.data?.length ?? 0) === 0 ? (
+      ) : messages.length === 0 ? (
         <p className="text-xs italic text-muted-foreground">{t("feedback.comments.empty")}</p>
       ) : (
         <ul className="space-y-2">
-          {query.data?.data.map((c: FeedbackCommentRead) => {
-            const isMine = currentUser !== null && c.author_user_id === currentUser.id;
-            const label = isMine
-              ? t("feedback.comments.you_label")
-              : c.author_role === "admin"
+          {messages.map((m, idx) => {
+            const isMine = m.role === "user";
+            const label =
+              m.role === "admin"
                 ? t("feedback.comments.admin_label")
-                : t("feedback.comments.submitter_label");
+                : m.role === "assistant"
+                  ? "RL3"
+                  : isMine
+                    ? t("feedback.comments.you_label")
+                    : t("feedback.comments.submitter_label");
+            const bubbleClass =
+              m.role === "admin"
+                ? "border-primary/40 bg-primary/5"
+                : m.role === "assistant"
+                  ? "border-input bg-muted/40"
+                  : "border-input bg-background";
+            const badgeVariant =
+              m.role === "admin"
+                ? "default"
+                : m.role === "assistant"
+                  ? "secondary"
+                  : "outline";
             return (
               <li
-                key={c.id}
-                className={`rounded-md border p-2 text-xs ${
-                  isMine
-                    ? "border-input bg-background"
-                    : c.author_role === "admin"
-                      ? "border-primary/40 bg-primary/5"
-                      : "border-input bg-muted/40"
-                }`}
+                key={`${m.role}-${m.ts}-${idx}`}
+                className={`rounded-md border p-2 text-xs ${bubbleClass}`}
               >
                 <div className="flex items-center gap-2 mb-1">
-                  <Badge
-                    variant={
-                      isMine ? "outline" : c.author_role === "admin" ? "default" : "secondary"
-                    }
-                    className="text-[10px]"
-                  >
+                  <Badge variant={badgeVariant} className="text-[10px]">
                     {label}
                   </Badge>
-                  <span className="text-[10px] text-muted-foreground">{_fmt(c.created_at)}</span>
+                  <span className="text-[10px] text-muted-foreground">{_fmt(m.ts)}</span>
                 </div>
-                <p className="whitespace-pre-wrap">{c.body}</p>
+                <p className="whitespace-pre-wrap">{m.text}</p>
               </li>
             );
           })}
         </ul>
       )}
 
-      <div className="space-y-1.5">
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={t("feedback.comments.placeholder")}
-          rows={2}
-          maxLength={5000}
-          disabled={post.isPending}
-          data-feedback-id="feedback.comments.draft"
-        />
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            onClick={onSend}
-            disabled={post.isPending || draft.trim().length === 0}
-            data-feedback-id="feedback.comments.send"
-          >
-            <Send className="mr-1 h-3.5 w-3.5" />
-            {post.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")}
-          </Button>
+      {isAdmin ? (
+        <div className="space-y-1.5">
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t("feedback.comments.placeholder")}
+            rows={2}
+            maxLength={5000}
+            disabled={adminAction.isPending}
+            data-feedback-id="feedback.comments.draft"
+          />
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="sm"
+              onClick={onSend}
+              disabled={adminAction.isPending || draft.trim().length === 0}
+              data-feedback-id="feedback.comments.send"
+            >
+              <Send className="mr-1 h-3.5 w-3.5" />
+              {adminAction.isPending
+                ? t("feedback.comments.sending")
+                : t("feedback.comments.send")}
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

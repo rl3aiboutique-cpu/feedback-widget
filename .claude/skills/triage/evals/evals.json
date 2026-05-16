@@ -1,0 +1,32 @@
+{
+  "skill": "triage",
+  "version": 1,
+  "description": "Trigger reliability cases for the triage skill.",
+  "cases": [
+    {
+      "prompt": "triage el bug que acabamos de descubrir y créame un issue",
+      "expect_skill": true,
+      "rationale": "explicit triage + issue creation"
+    },
+    {
+      "prompt": "review the incoming bug reports in the queue",
+      "expect_skill": true,
+      "rationale": "managing inbound issue workflow"
+    },
+    {
+      "prompt": "prepara este issue para que un agente AFK lo retome mañana",
+      "expect_skill": true,
+      "rationale": "explicit AFK-agent preparation — triage owns this"
+    },
+    {
+      "prompt": "rompe este PRD en issues granulares",
+      "expect_skill": false,
+      "rationale": "spec-to-issues decomposition belongs to to-issues, not triage"
+    },
+    {
+      "prompt": "diagnostica este crash",
+      "expect_skill": false,
+      "rationale": "bug diagnosis is diagnose, not triage"
+    }
+  ]
+}

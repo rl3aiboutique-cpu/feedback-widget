@@ -1,6 +1,6 @@
 {
   "name": "@rl3/feedback-widget",
-  "version": "0.3.2",
+  "version": "1.4.20",
   "description": "RL3 in-app feedback widget — React provider, floating button, multi-file attachments, admin triage.",
   "license": "UNLICENSED",
   "type": "module",
@@ -18,7 +18,11 @@
       "import": "./dist/tailwind-preset.js"
     }
   },
-  "files": ["dist", "src", "README.md"],
+  "files": [
+    "dist",
+    "src",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsup && tailwindcss -i src/styles.css -o dist/styles.css --minify",
     "typecheck": "tsc --noEmit",
@@ -32,30 +36,34 @@
     "@radix-ui/react-select": "^2.1.4",
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-toast": "^1.2.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.469.0",
     "markdown-it": "^14.1.0",
+    "mermaid": "^11.14.0",
     "tailwind-merge": "^2.6.0"
   },
   "peerDependencies": {
+    "@tanstack/react-query": ">=5",
     "react": ">=18.2 <20",
-    "react-dom": ">=18.2 <20",
-    "@tanstack/react-query": ">=5"
+    "react-dom": ">=18.2 <20"
   },
   "peerDependenciesMeta": {
-    "@tanstack/react-query": { "optional": false }
+    "@tanstack/react-query": {
+      "optional": false
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
+    "@tailwindcss/cli": "^4.0.0",
     "@tanstack/react-query": "^5.62.0",
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@tailwindcss/cli": "^4.0.0",
     "tailwindcss": "^4.0.0",
     "tsup": "^8.3.5",
     "typescript": "^5.6.3",

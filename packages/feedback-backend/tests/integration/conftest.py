@@ -75,6 +75,10 @@ def settings(database_url: str) -> FeedbackSettings:
     os.environ["FEEDBACK_MULTI_TENANT_MODE"] = "false"
     os.environ["FEEDBACK_RATE_LIMIT_PER_HOUR"] = "1000"
     os.environ["FEEDBACK_BRAND_NAME"] = "Test"
+    # Default the chat router's LLM provider to the deterministic fake.
+    # Per-test scripted providers override via monkeypatch on
+    # ``feedback_widget.chat_router.build_provider``.
+    os.environ["FEEDBACK_ITER_PROVIDER"] = "fake"
     return FeedbackSettings()
 
 
@@ -103,7 +107,10 @@ def _migrate_once(engine: Engine, database_url: str) -> Generator[None, Any, Non
 def _truncate_each_test(engine: Engine) -> Generator[None, Any, None]:
     yield
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE feedback_attachment, feedback CASCADE"))
+        # feedback_chat_session first so its FK to feedback resolves via CASCADE.
+        conn.execute(
+            text("TRUNCATE feedback_chat_session, feedback_attachment, feedback CASCADE")
+        )
 
 
 _TEST_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
@@ -183,6 +190,17 @@ def fake_storage() -> FakeStorage:
 def app(settings: FeedbackSettings, engine: Engine, fake_storage: FakeStorage) -> FastAPI:
     fastapi_app = FastAPI()
     register_feedback_router(
+        fastapi_app,
+        auth=TestAuth(),
+        engine=engine,
+        settings=settings,
+        prefix="/feedback",
+        storage=fake_storage,  # type: ignore[arg-type]
+    )
+    # NEW: chat-first router (v1.0.0, S1+)
+    from feedback_widget import register_feedback_chat_router
+
+    register_feedback_chat_router(
         fastapi_app,
         auth=TestAuth(),
         engine=engine,

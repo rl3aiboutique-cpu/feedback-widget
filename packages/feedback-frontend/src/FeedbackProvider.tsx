@@ -13,6 +13,16 @@ import { type FeedbackAdapter, type FeedbackHostBindings, createAdapter } from "
 
 export type FeedbackPosition = "bottom_right" | "bottom_left" | "top_right" | "top_left";
 
+/** Style for how the iter pane is presented after the user clicks Iterate.
+ *
+ * - `"focus"` (default): the iter pane takes over the canvas, hides
+ *   compose + the rest of the card feed, expands the Sheet to ~800px
+ *   on lg+ to give the spec markdown room. Best for deep work.
+ * - `"inline"`: legacy v0.4.0 behaviour — iter renders inside the
+ *   expanded ticket card alongside the rest of the feed.
+ */
+export type IterStyle = "focus" | "inline";
+
 export interface FeedbackConfig {
   /** Master kill-switch — when false the widget renders nothing. */
   enabled?: boolean;
@@ -22,6 +32,8 @@ export interface FeedbackConfig {
   brandPrimaryHex?: string;
   /** UI locale. Currently English-only; kept here for future locales. */
   locale?: "en";
+  /** How to render the iter pane after the user clicks Iterate. */
+  iterStyle?: IterStyle;
 }
 
 const _ENV_ENABLED =
@@ -36,6 +48,7 @@ export const DEFAULT_CONFIG: Required<FeedbackConfig> = Object.freeze({
   position: _ENV_POSITION,
   brandPrimaryHex: _ENV_BRAND,
   locale: _ENV_LOCALE,
+  iterStyle: "focus" as IterStyle,
 });
 
 interface FeedbackContextValue {

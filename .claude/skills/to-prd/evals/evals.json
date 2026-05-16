@@ -1,0 +1,32 @@
+{
+  "skill": "to-prd",
+  "version": 1,
+  "description": "Trigger reliability cases for the to-prd skill.",
+  "cases": [
+    {
+      "prompt": "convierte esta conversación en un PRD y publícalo en el issue tracker",
+      "expect_skill": true,
+      "rationale": "explicit PRD request from current context"
+    },
+    {
+      "prompt": "spec out the multi-tenant onboarding feature we just discussed",
+      "expect_skill": true,
+      "rationale": "formalise a discussed design — to-prd synthesises from existing context"
+    },
+    {
+      "prompt": "capture the requirements for the audit-trail revamp",
+      "expect_skill": true,
+      "rationale": "requirements capture maps to PRD authoring"
+    },
+    {
+      "prompt": "rompe el PRD existente en tickets implementables",
+      "expect_skill": false,
+      "rationale": "PRD → issues decomposition belongs to to-issues"
+    },
+    {
+      "prompt": "grill me on this product design before I commit",
+      "expect_skill": false,
+      "rationale": "stress-testing precedes PRD; grill-* owns this"
+    }
+  ]
+}

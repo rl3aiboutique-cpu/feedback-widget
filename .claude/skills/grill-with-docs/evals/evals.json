@@ -1,0 +1,32 @@
+{
+  "skill": "grill-with-docs",
+  "version": 1,
+  "description": "Trigger reliability cases for the grill-with-docs skill.",
+  "cases": [
+    {
+      "prompt": "grill me on this multi-tenancy plan — quiero que lo confrontes contra el CONTEXT.md actual y los ADRs",
+      "expect_skill": true,
+      "rationale": "stress-test request explicitly anchored to existing CONTEXT.md + ADRs"
+    },
+    {
+      "prompt": "challenge my design against the documented domain model before I write the spec",
+      "expect_skill": true,
+      "rationale": "domain-model grounding is the differentiator vs grill-me"
+    },
+    {
+      "prompt": "sharpen our terminology and update CONTEXT.md as we go",
+      "expect_skill": true,
+      "rationale": "terminology sharpening + inline doc update is core to this skill"
+    },
+    {
+      "prompt": "grill me — esto es un greenfield, no tengo CONTEXT.md aún",
+      "expect_skill": false,
+      "rationale": "no documented domain model → grill-me applies, not grill-with-docs"
+    },
+    {
+      "prompt": "convierte este diseño en un PRD",
+      "expect_skill": false,
+      "rationale": "PRD authoring is to-prd; grill-* is the prior stress-test step"
+    }
+  ]
+}

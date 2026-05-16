@@ -1,0 +1,32 @@
+{
+  "skill": "improve-codebase-architecture",
+  "version": 1,
+  "description": "Trigger reliability cases for the improve-codebase-architecture skill.",
+  "cases": [
+    {
+      "prompt": "encuentra oportunidades para profundizar módulos en el backend de pagos",
+      "expect_skill": true,
+      "rationale": "explicit deepening request on a bounded area"
+    },
+    {
+      "prompt": "el módulo de orders está demasiado acoplado a billing — propón un refactor",
+      "expect_skill": true,
+      "rationale": "coupling reduction across modules — architectural deepening"
+    },
+    {
+      "prompt": "haz el frontend más testeable y navegable para los agentes",
+      "expect_skill": true,
+      "rationale": "AI-navigability and testability are explicit aims of this skill"
+    },
+    {
+      "prompt": "simplifica este componente React que está creciendo demasiado",
+      "expect_skill": false,
+      "rationale": "single-file simplification — simplify owns this, not architectural refactor"
+    },
+    {
+      "prompt": "review my pull request",
+      "expect_skill": false,
+      "rationale": "PR review goes to the built-in review command"
+    }
+  ]
+}

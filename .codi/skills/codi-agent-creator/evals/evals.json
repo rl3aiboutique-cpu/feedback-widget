@@ -1,0 +1,57 @@
+{
+  "skillName": "codi-agent-creator",
+  "cases": [
+    {
+      "id": "create-new-agent",
+      "description": "Explicit request to create a new agent triggers the skill",
+      "prompt": "create a new agent that reviews pull requests for security issues",
+      "expectations": [
+        "Interviews user for role, triggers, output, tools, model before scaffolding",
+        "Proposes or runs `codi add agent <name>` to scaffold",
+        "Writes frontmatter with kebab-case name, description, version, tools, model, managed_by",
+        "Description contains pushy trigger keywords (Use when / Also activate)",
+        "Defines confidence filtering and severity matrix"
+      ]
+    },
+    {
+      "id": "scaffold-subagent",
+      "description": "User phrasing with 'subagent' still triggers the skill",
+      "prompt": "scaffold a subagent for analyzing database migrations",
+      "expectations": [
+        "Activates agent-creator (not skill-creator)",
+        "Asks for the 5 intent questions before writing any file",
+        "Proposes a frontmatter with minimal tool surface"
+      ]
+    },
+    {
+      "id": "code-reviewer-role",
+      "description": "Named role request triggers the skill",
+      "prompt": "I want to add a code reviewer agent for our TypeScript repo",
+      "expectations": [
+        "Triggers agent-creator",
+        "References the 9-step lifecycle",
+        "Keeps agent body under 100 lines"
+      ]
+    },
+    {
+      "id": "negative-edit-existing",
+      "description": "Editing an existing agent without create intent does NOT trigger",
+      "prompt": "change the model of the code-reviewer agent from sonnet to opus",
+      "expectations": [
+        "Does NOT run `codi add agent`",
+        "Edits the existing agent file directly or explains how",
+        "Does NOT invoke agent-creator 9-step flow"
+      ]
+    },
+    {
+      "id": "negative-unrelated",
+      "description": "Unrelated query does not trigger the skill",
+      "prompt": "what time is it?",
+      "expectations": [
+        "Does NOT invoke agent-creator",
+        "Does NOT create any agent file",
+        "Does NOT run `codi add agent`"
+      ]
+    }
+  ]
+}

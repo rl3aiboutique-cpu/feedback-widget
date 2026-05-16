@@ -1,0 +1,58 @@
+{
+  "skillName": "codi-dev-docs-manager",
+  "cases": [
+    {
+      "id": "validate-docs-freshness",
+      "description": "Validation request triggers the skill",
+      "prompt": "check if the Codi docs are up to date",
+      "expectations": [
+        "Activates dev-docs-manager skill",
+        "Runs `npx codi docs --validate`",
+        "Reports which generated sections are stale (if any)",
+        "Does NOT modify docs without user approval"
+      ]
+    },
+    {
+      "id": "regenerate-docs",
+      "description": "Regeneration request triggers the skill",
+      "prompt": "regenerate the Codi documentation",
+      "expectations": [
+        "Activates dev-docs-manager skill",
+        "Runs `npx codi docs --generate`",
+        "Lists which of the 20 generated sections were updated",
+        "Flags any prose sections that may need manual review"
+      ]
+    },
+    {
+      "id": "pre-release-sweep",
+      "description": "Pre-release doc sweep triggers the skill",
+      "prompt": "we're cutting a release — do the docs sweep",
+      "expectations": [
+        "Runs `npx codi docs --validate`",
+        "Reviews recent git log for schema/flag/adapter/template changes",
+        "Proposes targeted prose edits (does NOT rewrite whole files)",
+        "Scans for broken relative links before declaring done"
+      ]
+    },
+    {
+      "id": "negative-consumer-docs",
+      "description": "Consumer project docs do NOT trigger this skill",
+      "prompt": "write a README for my new feature",
+      "expectations": [
+        "Does NOT activate dev-docs-manager skill",
+        "Routes to codi-project-documentation instead",
+        "Does NOT touch Codi's own docs/"
+      ]
+    },
+    {
+      "id": "negative-branded-report",
+      "description": "Branded report request does NOT trigger this skill",
+      "prompt": "generate a branded case-study PDF for our client deliverable",
+      "expectations": [
+        "Does NOT activate dev-docs-manager skill",
+        "Routes to codi-content-factory instead (branded business docs are absorbed there)",
+        "Does NOT run `codi docs --generate`"
+      ]
+    }
+  ]
+}

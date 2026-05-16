@@ -13,7 +13,16 @@ export type FeedbackType =
   | "extend_feature"
   | "other";
 
-export type FeedbackStatus = "new" | "triaged" | "in_progress" | "done" | "wont_fix";
+export type FeedbackStatus =
+  | "open"
+  | "in_review"
+  | "in_progress"
+  | "waiting_for_user"
+  | "resolved"
+  | "wont_fix"
+  | "closed";
+
+export type FeedbackSeverity = "blocker" | "major" | "minor" | "idea";
 
 export type FeedbackAttachmentKind = "screenshot" | "user_attachment";
 
@@ -31,16 +40,32 @@ export interface FeedbackAttachmentRead {
   presigned_url?: string | null;
 }
 
+/**
+ * One conversation entry inside ``feedback_ticket.messages``. The
+ * backend appends entries in order; the frontend renders them as
+ * chat bubbles. ``role`` discriminates the speaker: user, assistant
+ * (LLM), or admin (injected via /admin-action).
+ */
+export interface FeedbackTimelineMessage {
+  role: "user" | "assistant" | "admin";
+  text: string;
+  ts: string;
+  /** Present on admin entries to attribute the message. */
+  author_user_id?: string | null;
+  /** Present on assistant entries that came from a synthesize turn. */
+  mode?: "discover" | "synthesize";
+}
+
 export interface FeedbackRead {
   id: string;
   tenant_id: string | null;
   user_id: string;
-  type: FeedbackType;
+  type: FeedbackType | null;
   status: FeedbackStatus;
-  title: string;
-  description: string;
+  title: string | null;
+  description: string | null;
   expected_outcome?: string | null;
-  url_captured: string;
+  url_captured: string | null;
   route_name?: string | null;
   element_selector?: string | null;
   element_xpath?: string | null;
@@ -51,11 +76,27 @@ export interface FeedbackRead {
   user_agent?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  confirmed_at?: string | null;
+  abandoned_at?: string | null;
+  closed_at?: string | null;
   triaged_by?: string | null;
   triaged_at?: string | null;
   triage_note?: string | null;
-  ticket_code: string;
+  ticket_code: string | null;
+  severity?: FeedbackSeverity | null;
+  synthesis_json?: Record<string, unknown> | null;
+  user_action_required: boolean;
+  last_user_msg_at?: string | null;
+  last_admin_msg_at?: string | null;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  context_usage_pct: number;
+  model_id_pinned?: string | null;
+  model_provider?: string | null;
+  deleted_at?: string | null;
+  deleted_by_role?: string | null;
   attachments: FeedbackAttachmentRead[];
+  messages?: FeedbackTimelineMessage[] | null;
 }
 
 export interface FeedbackListResponse {
@@ -70,24 +111,14 @@ export interface FeedbackStatusUpdate {
   triage_note?: string | null;
 }
 
-export type FeedbackCommentAuthorRole = "submitter" | "admin";
-
-export interface FeedbackCommentRead {
-  id: string;
-  feedback_id: string;
-  author_user_id: string;
-  author_role: FeedbackCommentAuthorRole;
-  body: string;
-  created_at?: string | null;
-}
-
-export interface FeedbackCommentListResponse {
-  data: FeedbackCommentRead[];
-  count: number;
-}
-
-export interface FeedbackCommentCreatePayload {
-  body: string;
+/**
+ * Body of POST /feedback/{id}/admin-action — atomic state change +
+ * optional message injection (replaces the legacy comments POST).
+ */
+export interface FeedbackAdminActionPayload {
+  to_status?: FeedbackStatus | null;
+  message_text?: string | null;
+  model_override?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -129,6 +160,16 @@ export interface IterSessionRead {
    * env changes live, so when the host swaps from Gemma to Flash
    * Lite the workspace header reflects it without a restart. */
   current_primary_model_id?: string | null;
+  /** Iterations remaining before the hard cap blocks new runs.
+   * Counts persisted versions; surfaces "Round N of M" in the UI
+   * and swaps "Run iteration" for "Mark ready" once exhausted. */
+  remaining_turns?: number;
+  max_turns?: number;
+  /** Mirrors the latest version's convergence signal so the UI
+   * doesn't need to fetch the version detail to know whether to
+   * show the "Mark ready" CTA. */
+  is_complete?: boolean;
+  completion_reason?: string | null;
 }
 
 export type IterDiffOp =
@@ -153,6 +194,8 @@ export interface IterVersionRead {
   output_markdown: string;
   diff_json: IterDiffOp[];
   changes_summary: string;
+  is_complete?: boolean;
+  completion_reason?: string | null;
   created_at: string;
 }
 
@@ -168,6 +211,10 @@ export interface IterAssumptionRead {
   user_response: string | null;
   resolved_at: string | null;
   resolved_by_user_id: string | null;
+  /** When present, the assumption is multiple-choice — UI renders
+   * radio buttons over the listed options instead of an open
+   * Confirm/Correct. */
+  options?: string[] | null;
   created_at: string;
 }
 
@@ -243,4 +290,22 @@ export type IterStreamEvent =
     }
   | { type: "done"; version_id: string; version_number: number }
   | { type: "error"; error_code: string; message: string }
-  | { type: "heartbeat" };
+  | { type: "heartbeat" }
+  | {
+      // v0.4.6 — emitted when the backend's provider walks its
+      // fallback chain mid-run (e.g. Gemini 503 → Gemma). The UI
+      // surfaces a transient banner so the user knows the model
+      // serving their iteration changed.
+      type: "provider_fallback";
+      from_model: string;
+      to_model: string;
+      reason: string;
+    }
+  | {
+      // v0.5 (Block C) — single source of truth for the live model
+      // serving the run. Emitted ONCE at stream start (with the
+      // primary) AND ONCE after each fallback walk (with the new
+      // active). Badge is a pure render of the latest event.
+      type: "provider_active";
+      model: string;
+    };

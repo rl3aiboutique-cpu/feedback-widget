@@ -1,0 +1,60 @@
+{
+  "skillName": "codi-rule-creator",
+  "cases": [
+    {
+      "id": "create-new-rule",
+      "description": "New rule creation triggers the skill",
+      "prompt": "create a new rule that all API endpoints must validate with Zod",
+      "expectations": [
+        "Activates rule-creator skill",
+        "Interviews user for behavior, language, scope, rationale before writing",
+        "Runs `codi add rule <name>` to scaffold",
+        "Writes frontmatter with valid YAML (no merged lines)",
+        "Produces body with imperative mood + rationale annotations + BAD/GOOD example"
+      ]
+    },
+    {
+      "id": "team-coding-standard",
+      "description": "Team coding standard request triggers the skill",
+      "prompt": "add a team coding standard for React component file naming",
+      "expectations": [
+        "Activates rule-creator skill",
+        "Scopes the rule to React / TypeScript files",
+        "Uses language: typescript in frontmatter",
+        "Includes measurable criteria (e.g., PascalCase + one component per file)"
+      ]
+    },
+    {
+      "id": "scaffold-from-template",
+      "description": "Scaffold from built-in rule template triggers the skill",
+      "prompt": "use the testing rule template as a starting point for our test standards",
+      "expectations": [
+        "Activates rule-creator skill",
+        "Runs `codi add rule testing` (or similar template-based command)",
+        "Customizes the scaffolded rule for the user's project",
+        "Runs `codi validate` and `codi generate` at the end"
+      ]
+    },
+    {
+      "id": "negative-create-skill",
+      "description": "Skill creation request does NOT trigger rule-creator",
+      "prompt": "create a new skill that wraps our internal API",
+      "expectations": [
+        "Does NOT activate rule-creator skill",
+        "Routes to codi-skill-creator instead",
+        "Does NOT write a rule file"
+      ]
+    },
+    {
+      "id": "negative-linter-duplicate",
+      "description": "Request that would duplicate linter behavior is flagged",
+      "prompt": "make a rule that enforces 2-space indentation",
+      "expectations": [
+        "Activates rule-creator skill",
+        "Notes this is already enforced by the formatter / linter",
+        "Recommends configuring Prettier/ESLint/Ruff instead of creating a duplicative rule",
+        "Only proceeds if the user insists on a rule on top of linter config"
+      ]
+    }
+  ]
+}

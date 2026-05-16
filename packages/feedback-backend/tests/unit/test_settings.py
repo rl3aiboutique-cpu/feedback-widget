@@ -6,7 +6,19 @@ import pytest
 from feedback_widget.settings import FeedbackSettings, get_settings
 
 
-def test_defaults_are_safe() -> None:
+def test_defaults_are_safe(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Strip env vars that the integration conftest leaks at session scope
+    # (it sets FEEDBACK_RATE_LIMIT_PER_HOUR=1000 etc. without teardown).
+    # Without this scrub the unit test fails when run AFTER any
+    # integration test in the same pytest session.
+    for var in (
+        "FEEDBACK_RATE_LIMIT_PER_HOUR",
+        "FEEDBACK_MULTI_TENANT_MODE",
+        "FEEDBACK_CSRF_REQUIRED",
+        "FEEDBACK_ENABLED",
+        "FEEDBACK_MAX_SCREENSHOT_BYTES",
+    ):
+        monkeypatch.delenv(var, raising=False)
     settings = FeedbackSettings()
     assert settings.ENABLED is True
     assert settings.MULTI_TENANT_MODE is True  # default favours CRM-style hosts

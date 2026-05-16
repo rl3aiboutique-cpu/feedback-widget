@@ -1,0 +1,261 @@
+{
+  "version": "1",
+  "artifacts": {
+    "codi-agent-usage": {
+      "name": "codi-agent-usage",
+      "type": "rule",
+      "contentHash": "206c54b2aa101d4e670394a84ff9fe698d6c834b74b069a1e0ed32602ef29aff",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-improvement-dev": {
+      "name": "codi-improvement-dev",
+      "type": "rule",
+      "contentHash": "6f0425578c3f6d4005b05ca0ec6cfa679bc804bb92e296a0486b68dab6a574d7",
+      "installedArtifactVersion": 6,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-capture-everything": {
+      "name": "codi-capture-everything",
+      "type": "rule",
+      "contentHash": "7589e5ace455ee8420efdead42573adabc06045b4f161b80cda903f843066b03",
+      "installedArtifactVersion": 5,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-typescript": {
+      "name": "codi-typescript",
+      "type": "rule",
+      "contentHash": "cd7f4faf480223f5058851e7804b5c8e645df89a0a7502ff20c99ae841b31982",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-python": {
+      "name": "codi-python",
+      "type": "rule",
+      "contentHash": "0f41bf60b554d5a687fd3eb1725ea31640b1aed3b9398c4545b36d473d522b48",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-react": {
+      "name": "codi-react",
+      "type": "rule",
+      "contentHash": "09409e256e822dad2733b52d3f7404017cb6b38d3452a5ac936a1382bacd5c5e",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-nextjs": {
+      "name": "codi-nextjs",
+      "type": "rule",
+      "contentHash": "20215b361f37e911bc331f3c878e7b82d7344850c683f58571eb6243a070af4a",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-security": {
+      "name": "codi-security",
+      "type": "rule",
+      "contentHash": "929d59dd68f6db1e9f7b0255d5f5728f3689f1f03273eb2c5a8ef64f80160e5b",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-code-style": {
+      "name": "codi-code-style",
+      "type": "rule",
+      "contentHash": "b37838012047192a694b495c982681a913c607a025453a5c35d27548cad2007c",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-testing": {
+      "name": "codi-testing",
+      "type": "rule",
+      "contentHash": "c437e7fccb1163b9a38ced666b94646038b60dff0c8d7c996773953f6538c953",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-error-handling": {
+      "name": "codi-error-handling",
+      "type": "rule",
+      "contentHash": "5d76b7309866f6587ef659538b6b7b8e82bdbd98d427a9f6a2e7f9733331ef7a",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-architecture": {
+      "name": "codi-architecture",
+      "type": "rule",
+      "contentHash": "fc13042ffe0df7fb3d5c6449b720cf98b51526c153dcc6554c471f13f738ded2",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-performance": {
+      "name": "codi-performance",
+      "type": "rule",
+      "contentHash": "89b3300dac2ea63bfc7f7c1ff165463ffa193766bae6cca1a346ce432b965b3f",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-api-design": {
+      "name": "codi-api-design",
+      "type": "rule",
+      "contentHash": "a5b56d5d9e8f85b3cba8bdae9c5b57df0e6089013bdf5d6823d744f706104323",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-production-mindset": {
+      "name": "codi-production-mindset",
+      "type": "rule",
+      "contentHash": "4d70d854758ba6adeb7fa7699766b5cf7311dfcce0ad2acf541a92d65a6222af",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-simplicity-first": {
+      "name": "codi-simplicity-first",
+      "type": "rule",
+      "contentHash": "9990a0ea542f6275e49da2a8b253c6a429d481f8355d492c1df6850358ebee6e",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-git-workflow": {
+      "name": "codi-git-workflow",
+      "type": "rule",
+      "contentHash": "35ab7c37ba1c2115ede0498999d842e6d3cd530c02d5006a23850c0f5086cb03",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-documentation": {
+      "name": "codi-documentation",
+      "type": "rule",
+      "contentHash": "6aa027e45d3854722abded53a54205571517accff1b2111af29a86850b767bdf",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-workflow": {
+      "name": "codi-workflow",
+      "type": "rule",
+      "contentHash": "af34e579136dac23455172b9bb62b11fd16263c4523455485958979db00e88a2",
+      "installedArtifactVersion": 3,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-spanish-orthography": {
+      "name": "codi-spanish-orthography",
+      "type": "rule",
+      "contentHash": "4ba3de3bb1fc28ab474cc6ae6bbdf5dce06e919da1ddb7ac072561c081238e49",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-output-discipline": {
+      "name": "codi-output-discipline",
+      "type": "rule",
+      "contentHash": "f7b9b2f88e479b918caecae4d55614241e186ccd30421a9b685c800cf88fddd7",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-contribution-discipline": {
+      "name": "codi-contribution-discipline",
+      "type": "rule",
+      "contentHash": "eccaae9d837e9f76ca0dbd42bdee78b9bae1a965708ea4f4e606334c01beee7b",
+      "installedArtifactVersion": 1,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-dev-operations": {
+      "name": "codi-dev-operations",
+      "type": "skill",
+      "contentHash": "01b0484e31d221b0897f5a4a03bf287f4750009a0465ddee98fdcfa4e59f5b84",
+      "installedArtifactVersion": 19,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-preset-creator": {
+      "name": "codi-preset-creator",
+      "type": "skill",
+      "contentHash": "a00d995d4b802d7fc85112a086a671285fa3d68121c95b4cab36fc8897852c48",
+      "installedArtifactVersion": 8,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-artifact-contributor": {
+      "name": "codi-artifact-contributor",
+      "type": "skill",
+      "contentHash": "fff23ce4f304ee3075f3a3c6a468eb45f71103d3ef2f5f0150d74d992c2057bf",
+      "installedArtifactVersion": 14,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-skill-creator": {
+      "name": "codi-skill-creator",
+      "type": "skill",
+      "contentHash": "02f0c25be046907e7d15c11b07dc323d54f0e261757138c7c4a9323558ae0627",
+      "installedArtifactVersion": 35,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-rule-creator": {
+      "name": "codi-rule-creator",
+      "type": "skill",
+      "contentHash": "c9709043cb457ce4ed5a5f20a947800bc5b84454d64a4f39ea5c8b49ef72616b",
+      "installedArtifactVersion": 11,
+      "installedAt": "2026-05-13T12:31:43.508Z",
+      "managedBy": "codi"
+    },
+    "codi-agent-creator": {
+      "name": "codi-agent-creator",
+      "type": "skill",
+      "contentHash": "724d74997b63baf3e9a500dbc46347070d2a2003f570968bd7b2af930232d5fe",
+      "installedArtifactVersion": 11,
+      "installedAt": "2026-05-13T12:31:43.509Z",
+      "managedBy": "codi"
+    },
+    "codi-compare-preset": {
+      "name": "codi-compare-preset",
+      "type": "skill",
+      "contentHash": "7124466e13612cbeafcd39f443f8050d060914fc7700e50e980962d5ba7d0094",
+      "installedArtifactVersion": 6,
+      "installedAt": "2026-05-13T12:31:43.509Z",
+      "managedBy": "codi"
+    },
+    "codi-dev-docs-manager": {
+      "name": "codi-dev-docs-manager",
+      "type": "skill",
+      "contentHash": "0e79e2724aab7a6d3637019dabc910123ea9ab13bab54086ac19c1956711c3f3",
+      "installedArtifactVersion": 9,
+      "installedAt": "2026-05-13T12:31:43.509Z",
+      "managedBy": "codi"
+    },
+    "codi-rule-feedback": {
+      "name": "codi-rule-feedback",
+      "type": "skill",
+      "contentHash": "131fe86eedf5fb6887850dd8cfb43d2ecd145154a36cbafea8f587ab067eabd8",
+      "installedArtifactVersion": 11,
+      "installedAt": "2026-05-13T12:31:43.509Z",
+      "managedBy": "codi"
+    },
+    "codi-refine-rules": {
+      "name": "codi-refine-rules",
+      "type": "skill",
+      "contentHash": "a7bae170003734de3ae3ef31cc434ee025b6b0729393d066b31cc8fa8074438f",
+      "installedArtifactVersion": 8,
+      "installedAt": "2026-05-13T12:31:43.509Z",
+      "managedBy": "codi"
+    }
+  }
+}
