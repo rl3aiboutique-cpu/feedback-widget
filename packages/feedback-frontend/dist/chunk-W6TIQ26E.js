@@ -2903,9 +2903,10 @@ function useChatRunStream(args) {
               } else if (frame.event === "synthesizing") {
                 setState("synthesizing");
               } else if (frame.event === "synthesis") {
-                const data = frame.data?.data;
+                const payload = frame.data;
+                const data = payload?.data;
                 if (data) {
-                  const synthTs = (/* @__PURE__ */ new Date()).toISOString();
+                  const synthTs = typeof payload.ts === "string" && payload.ts.length > 0 ? payload.ts : (/* @__PURE__ */ new Date()).toISOString();
                   setMessages((prev) => [
                     ...prev,
                     {
@@ -4670,4 +4671,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-7F564TUC.js.map
+//# sourceMappingURL=chunk-W6TIQ26E.js.map

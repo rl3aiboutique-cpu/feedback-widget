@@ -309,14 +309,20 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
               } else if (frame.event === "synthesizing") {
                 setState("synthesizing");
               } else if (frame.event === "synthesis") {
-                const data = (frame.data as { data?: Synthesis })?.data;
+                const payload = frame.data as {
+                  ts?: string;
+                  data?: Synthesis;
+                };
+                const data = payload?.data;
                 if (data) {
-                  // Append the synthesis as a chat msg so the timeline
-                  // keeps every iteration. The legacy ``synthesis``
-                  // state stays in sync pointing at the latest emit
-                  // (used by callers that haven't migrated to reading
-                  // from the messages array yet).
-                  const synthTs = new Date().toISOString();
+                  // ``ts`` MUST come from the server — that is the id
+                  // the approve / edit endpoints look up in the
+                  // ``messages`` JSONB. A FE-generated ts would never
+                  // match what was persisted → 404 on every action.
+                  const synthTs =
+                    typeof payload.ts === "string" && payload.ts.length > 0
+                      ? payload.ts
+                      : new Date().toISOString();
                   setMessages((prev) => [
                     ...prev,
                     {

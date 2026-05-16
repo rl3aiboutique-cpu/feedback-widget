@@ -745,12 +745,22 @@ def build_chat_router(
         user: CurrentUserSnapshot = UserDep,
         db: Session = SessionDep,
     ) -> SynthesisCardResponse:
-        """Confirm one synthesis card as the winning version.
+        """Confirm one synthesis card as the winning version + finalise
+        the ticket.
 
-        Only the owner can approve. Sets ``confirmed=true`` on the matching
-        message and ``false`` on every other synthesis msg in the same chat
-        — the one-winner invariant. Updates ``synthesis_json`` so a later
-        confirm-session call uses the approved spec.
+        Two-step transaction:
+        1. ``approve_synthesis`` flips the ``confirmed`` flag on the chosen
+           msg and copies its synthesis dict into ``synthesis_json``
+           (one-winner invariant).
+        2. ``confirm_session`` reads ``synthesis_json`` and populates the
+           ticket header — title, description, type, severity, ticket_code,
+           url, route, app_version, etc. — so admin queries see a fully
+           structured row instead of an awaiting_confirm chat shell.
+
+        Both steps run inside a single ``db.commit()`` so the ticket
+        either gets ALL the metadata or none — no partially-confirmed
+        rows. ChatSessionMissingSynthesisError is caught defensively but
+        cannot happen because approve_synthesis just wrote synthesis_json.
         """
         try:
             winner = service.approve_synthesis(
@@ -759,6 +769,17 @@ def build_chat_router(
                 tenant_id=user.tenant_id,
                 user_id=user.user_id,
                 synthesis_ts=synthesis_ts,
+            )
+            # Finalise ticket metadata from the approved synthesis. This
+            # is what gives the row a ticket_code + title + type +
+            # severity that the admin queue can sort and filter on.
+            service.confirm_session(
+                session=db,
+                chat_session_id=session_id,
+                tenant_id=user.tenant_id,
+                user_id=user.user_id,
+                settings=settings,
+                storage=storage,
             )
         except ChatSessionNotFoundError as exc:
             raise HTTPException(
@@ -770,10 +791,24 @@ def build_chat_router(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="synthesis version not found",
             ) from exc
+        except ChatSessionMissingSynthesisError as exc:
+            # Defensive — approve_synthesis just wrote synthesis_json so
+            # this branch should be unreachable. Logged to catch any
+            # future race where the two steps drift apart.
+            logger.error(
+                "approve+confirm raced: synthesis_json missing after approve "
+                "(session=%s ts=%s)",
+                session_id,
+                synthesis_ts,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="approve raced with synthesis write",
+            ) from exc
 
         db.commit()
         logger.info(
-            "synthesis approved: user=%s session=%s ts=%s",
+            "synthesis approved + ticket finalised: user=%s session=%s ts=%s",
             user.user_id,
             session_id,
             synthesis_ts,

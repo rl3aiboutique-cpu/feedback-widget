@@ -609,7 +609,15 @@ class ChatService:
         yield {"type": "turn_done", "turn": parsed_scrubbed}
         if is_synth and isinstance(parsed_scrubbed["synthesis"], dict):
             yield {"type": "synthesizing"}
-            yield {"type": "synthesis", "data": parsed_scrubbed["synthesis"]}
+            # ``ts`` is the canonical id the approve / edit endpoints
+            # use to locate the synthesis msg in ``messages`` JSONB.
+            # Without it the FE generates its own ts client-side, which
+            # never matches what was persisted → POST .../approve 404s.
+            yield {
+                "type": "synthesis",
+                "ts": synthesis_ts,
+                "data": parsed_scrubbed["synthesis"],
+            }
 
     # ── S5: confirm / abandon ──────────────────────────────────────────
 
