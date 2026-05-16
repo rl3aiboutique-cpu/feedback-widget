@@ -20,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-Q47BSZRO.js";
+} from "./chunk-F24SWIVF.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -369,9 +369,9 @@ function ElementSelector({ onLock, onCancel }) {
 }
 
 // src/FeedbackButton.tsx
-import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
+import { Fragment as Fragment2, jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-LIU5W6NT.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-6LLBTMFJ.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -431,7 +431,7 @@ function FeedbackButton() {
       "data-feedback-widget-root": "true",
       className: "rl3-feedback-scope dark",
       children: [
-        launcherHidden ? null : /* @__PURE__ */ jsxs2(
+        launcherHidden ? null : /* @__PURE__ */ jsx2(
           "button",
           {
             type: "button",
@@ -441,26 +441,39 @@ function FeedbackButton() {
               count: String(pendingCount)
             }) : t("feedback.open_button"),
             "data-feedback-id": "feedback.open_button",
-            className: `fixed z-[2147483640] flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5 shadow-lg
-                    bg-background border border-input text-foreground hover:bg-accent
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
-                    focus-visible:ring-offset-2 transition-all hover:scale-[1.02] hover:shadow-xl
-                    ${cornerClass}`,
+            className: [
+              "group fixed z-[2147483640]",
+              "inline-flex items-center justify-center",
+              "h-12 w-12 rounded-full",
+              "bg-background/80 backdrop-blur-md",
+              "shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6),0_2px_4px_rgba(0,0,0,0.25)]",
+              "transition-all duration-200 ease-out",
+              "hover:shadow-[0_12px_32px_-6px_hsl(var(--primary)/0.5),0_4px_12px_rgba(0,0,0,0.4)]",
+              "hover:-translate-y-0.5",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+              cornerClass
+            ].join(" "),
             style: accentStyle,
-            children: [
-              /* @__PURE__ */ jsxs2("span", { className: "relative", children: [
-                /* @__PURE__ */ jsx2(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
-                pendingCount > 0 ? /* @__PURE__ */ jsx2(
+            children: /* @__PURE__ */ jsxs2("span", { className: "relative inline-flex items-center justify-center", children: [
+              /* @__PURE__ */ jsx2(Rl3Mark, { className: "h-9 w-9 shrink-0 transition-transform duration-500 ease-out group-hover:rotate-6 group-hover:scale-105" }),
+              pendingCount > 0 ? /* @__PURE__ */ jsxs2(Fragment2, { children: [
+                /* @__PURE__ */ jsx2(
                   "span",
                   {
                     "aria-hidden": "true",
-                    className: "absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground ring-2 ring-background",
+                    className: "absolute inset-0 -m-1 rounded-full bg-primary/30 blur-md animate-pulse"
+                  }
+                ),
+                /* @__PURE__ */ jsx2(
+                  "span",
+                  {
+                    "aria-hidden": "true",
+                    className: "absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground",
                     children: pendingCount > 9 ? "9+" : pendingCount
                   }
-                ) : null
-              ] }),
-              /* @__PURE__ */ jsx2("span", { className: "text-sm font-semibold", children: t("feedback.button_label") })
-            ]
+                )
+              ] }) : null
+            ] })
           }
         ),
         open || pickerActive ? /* @__PURE__ */ jsx2(Suspense, { fallback: null, children: /* @__PURE__ */ jsx2(

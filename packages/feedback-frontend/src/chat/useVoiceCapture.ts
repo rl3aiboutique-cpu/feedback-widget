@@ -71,7 +71,7 @@ const _TICK_INTERVAL_MS = 250;
 /** Number of vertical bars in the waveform. Matches the visual count
  * the recorder bar renders — keeping it here makes the hook the single
  * source of truth. */
-export const AUDIO_LEVEL_BARS = 40;
+export const AUDIO_LEVEL_BARS = 72;
 
 /** Throttle the AnalyserNode poll to ~30 FPS — half of 60 FPS. The eye
  * cannot see individual bar shifts faster than that, and skipping every

@@ -19,6 +19,7 @@
 
 import { File as FileIcon, FileText, Image as ImageIcon, X } from "lucide-react";
 import { type ReactElement, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useDeleteChatAttachmentMutation, useFeedbackDetailQuery } from "../adapter";
 import type { FeedbackAttachmentRead } from "../client";
@@ -236,10 +237,13 @@ function _ThumbDetailModal({
   if (item.previewUrl) {
     return <Lightbox url={item.previewUrl} onClose={onClose} />;
   }
-  // Non-image: simple modal with filename + MIME + size.
-  return (
+  // Non-image: simple modal with filename + MIME + size. Portal so
+  // it escapes the SheetContent's transform / stacking context and
+  // anchors to the viewport, not the sheet.
+  if (typeof document === "undefined") return <></>;
+  return createPortal(
     <div
-      className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 p-6"
+      className="rl3-feedback-scope dark fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/85 backdrop-blur-sm p-6"
       role="dialog"
       aria-modal="true"
       aria-label={`Attachment details — ${item.label}`}
@@ -255,7 +259,7 @@ function _ThumbDetailModal({
       >
         <X className="h-4 w-4" />
       </button>
-      <div className="flex max-w-sm flex-col gap-2 rounded-md border border-input/60 bg-background p-4 shadow-2xl">
+      <div className="flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl">
         <h3 className="text-sm font-semibold">{item.label}</h3>
         {item.sublabel ? (
           <p className="text-xs text-muted-foreground">{item.sublabel}</p>
@@ -266,6 +270,7 @@ function _ThumbDetailModal({
           </p>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

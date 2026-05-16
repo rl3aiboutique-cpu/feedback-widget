@@ -50,10 +50,10 @@ function _shortId(id: string): string {
 }
 
 const _SEVERITY_STYLES: Record<string, string> = {
-  blocker: "border-destructive/40 bg-destructive/10 text-destructive",
-  major: "border-amber-500/40 bg-amber-500/10 text-amber-600",
-  minor: "border-blue-500/30 bg-blue-500/10 text-blue-600",
-  idea: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600",
+  blocker: "bg-destructive/15 text-destructive",
+  major: "bg-amber-500/15 text-amber-500",
+  minor: "bg-blue-500/15 text-blue-400",
+  idea: "bg-emerald-500/15 text-emerald-500",
 };
 
 export function TicketRow({
@@ -73,55 +73,61 @@ export function TicketRow({
       onClick={onClick}
       data-feedback-id="feedback.tickets.row"
       title={row.title ?? "(no title yet)"}
-      className="flex w-full items-center gap-2 rounded-md border border-input/60 bg-background px-2.5 py-1.5 text-left text-xs transition hover:border-primary/40 hover:bg-accent/50"
+      className="flex w-full flex-col gap-1 rounded-lg bg-secondary/50 px-3 py-2.5 text-left text-sm transition hover:bg-secondary"
     >
-      <StatusPill status={row.status} />
-      {row.severity ? (
-        <span
-          className={`hidden md:inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${
-            _SEVERITY_STYLES[row.severity] ??
-            "border-muted-foreground/30 bg-muted text-muted-foreground"
-          }`}
-        >
-          {row.severity}
+      {/* Row 1 — title with the action dot inline, time on the right.
+            Title is the FIRST thing the eye lands on. */}
+      <div className="flex w-full items-center gap-2">
+        {row.user_action_required ? (
+          <span
+            className="inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500"
+            title="Action required"
+            aria-label="Action required"
+          />
+        ) : null}
+        <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+          {row.title ?? (
+            <span className="italic text-muted-foreground">(no title yet)</span>
+          )}
         </span>
-      ) : null}
-      <code className="hidden sm:inline shrink-0 font-mono text-[10px] text-muted-foreground">
-        {row.ticket_code || "—"}
-      </code>
-      {row.user_action_required ? (
-        <span
-          className="inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500"
-          title="Action required"
-          aria-label="Action required"
-        />
-      ) : null}
-      <span className="min-w-0 flex-1 truncate text-foreground">
-        {row.title ?? (
-          <span className="italic text-muted-foreground">(no title yet)</span>
-        )}
-      </span>
-      <span className="ml-auto hidden md:inline-flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1">
-          <UserIcon className="h-3 w-3" />
-          <span className="font-mono">{creatorLabel}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+          {_relativeTime(lastActivity)}
         </span>
-        {row.type ? (
-          <span className="inline-flex items-center gap-1">
-            <Bug className="h-3 w-3" />
-            {row.type}
+      </div>
+
+      {/* Row 2 — metadata chips: status pill + severity + author +
+            type + attachments. Compact, no ticket code (id was noise). */}
+      <div className="flex w-full items-center gap-2 text-[11px] text-muted-foreground">
+        <StatusPill status={row.status} />
+        {row.severity ? (
+          <span
+            className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${
+              _SEVERITY_STYLES[row.severity] ??
+              "bg-muted text-muted-foreground"
+            }`}
+          >
+            {row.severity}
           </span>
         ) : null}
-        {attachmentCount > 0 ? (
+        <span className="ml-auto inline-flex items-center gap-2.5">
           <span className="inline-flex items-center gap-1">
-            <Paperclip className="h-3 w-3" />
-            {attachmentCount}
+            <UserIcon className="h-3.5 w-3.5" />
+            <span className="font-mono">{creatorLabel}</span>
           </span>
-        ) : null}
-      </span>
-      <span className="shrink-0 text-[10px] text-muted-foreground tabular-nums">
-        {_relativeTime(lastActivity)}
-      </span>
+          {row.type ? (
+            <span className="inline-flex items-center gap-1">
+              <Bug className="h-3.5 w-3.5" />
+              {row.type}
+            </span>
+          ) : null}
+          {attachmentCount > 0 ? (
+            <span className="inline-flex items-center gap-1">
+              <Paperclip className="h-3.5 w-3.5" />
+              {attachmentCount}
+            </span>
+          ) : null}
+        </span>
+      </div>
     </button>
   );
 }

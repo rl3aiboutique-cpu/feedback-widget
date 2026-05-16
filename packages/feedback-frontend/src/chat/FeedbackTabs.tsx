@@ -29,7 +29,7 @@ export function FeedbackTabs({
         onClick={() => onTabChange("compose")}
         className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
           activeTab === "compose"
-            ? "bg-background shadow-sm text-foreground"
+            ? "bg-card text-foreground shadow-md"
             : "text-muted-foreground hover:text-foreground"
         }`}
         data-feedback-id="feedback.tab.compose"
@@ -44,7 +44,7 @@ export function FeedbackTabs({
         onClick={() => onTabChange("mine")}
         className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${
           activeTab === "mine"
-            ? "bg-background shadow-sm text-foreground"
+            ? "bg-card text-foreground shadow-md"
             : "text-muted-foreground hover:text-foreground"
         }`}
         data-feedback-id="feedback.tab.mine"

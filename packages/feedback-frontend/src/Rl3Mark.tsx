@@ -44,7 +44,7 @@ export function Rl3Mark({
           the rl3.ai site identity (no gradient, no accent inside the
           mark). The gradientId prop is kept for backward compat with
           older host code that referenced it. */}
-      <rect width="32" height="32" rx="8" fill="#000000" stroke="#C4B07F" strokeWidth="1" />
+      <rect width="32" height="32" rx="8" fill="#000000" />
       <text
         x="16"
         y="22"

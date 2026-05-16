@@ -17,6 +17,7 @@
 
 import { AlertTriangle, Download, Send, Trash2, User } from "lucide-react";
 import { type ReactElement, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import {
@@ -40,7 +41,9 @@ import { AttachmentTray } from "./AttachmentTray";
 import { ChatTimeline } from "./ChatTimeline";
 import { Composer } from "./Composer";
 import { StatusPill } from "./StatusPill";
+import { VoiceRecorder } from "./VoiceRecorder";
 import { useChatRunStream } from "./useChatRunStream";
+import { useVoiceFlow } from "./useVoiceFlow";
 import type { ChatMessage } from "./types";
 
 const _ADMIN_STATUSES: FeedbackStatus[] = [
@@ -138,6 +141,27 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
   const [hardDeleteInput, setHardDeleteInput] = useState("");
   const uploadAttachment = useUploadChatAttachmentMutation();
   const stream = useChatRunStream({ bindings, sessionId: feedbackId });
+
+  // Controlled composer + voice flow — same UX as the new-feedback
+  // sheet so the reply experience inside an open ticket matches the
+  // first-turn capture. Voice transcripts land in ``composerValue``
+  // for inline edit before the user hits Send.
+  const [composerValue, setComposerValue] = useState("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState(false);
+  const voice = useVoiceFlow({
+    bindings,
+    sessionId: feedbackId,
+    onTranscript: (text) => {
+      setComposerValue((prev) => (prev ? `${prev} ${text}`.trim() : text));
+      setComposerAutoFocus(true);
+    },
+  });
+  useEffect(() => {
+    if (composerAutoFocus) {
+      const t = window.setTimeout(() => setComposerAutoFocus(false), 50);
+      return () => window.clearTimeout(t);
+    }
+  }, [composerAutoFocus]);
 
   const isAdmin = useCanTriageFeedback();
   const isOwner = !!(
@@ -307,9 +331,9 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
   };
 
   return (
-    <div className="flex h-full flex-col gap-2 p-2">
+    <div className="flex h-full flex-col">
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1 border-b border-input/40 pb-2">
+      <div className="flex flex-col gap-1 px-2 pt-2 pb-2 bg-card/50">
         <div className="flex items-center justify-between gap-2">
           {detail.data ? (
             <div className="flex items-center gap-2">
@@ -323,14 +347,51 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
               <StatusPill status={detail.data.status} />
             </div>
           ) : <span />}
-          <button
-            type="button"
-            onClick={onBack}
-            className="text-xs text-muted-foreground hover:text-foreground"
-            data-feedback-id="feedback.ticket_detail.back"
-          >
-            ← Back
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Owner inline actions — Download + Delete as icon-only
+                ghost buttons so the chat layout below (tray + composer)
+                stays clean. Tooltips explain on hover. */}
+            {isOwner ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={onDownloadOwn}
+                  title="Download ZIP"
+                  aria-label="Download ZIP"
+                  className="h-7 w-7 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  data-feedback-id="feedback.ticket_detail.download_mine"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  title="Delete ticket"
+                  aria-label="Delete ticket"
+                  className="h-7 w-7 rounded-md text-destructive hover:bg-destructive/10"
+                  disabled={softDelete.isPending}
+                  onClick={() => {
+                    if (
+                      confirm(
+                        "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it.",
+                      )
+                    ) {
+                      softDelete.mutate(
+                        { ticketId: feedbackId },
+                        { onSuccess: onBack },
+                      );
+                    }
+                  }}
+                  data-feedback-id="feedback.ticket_detail.delete_mine_inline"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            ) : null}
+          </div>
         </div>
         {detail.data ? (
           <>
@@ -370,6 +431,10 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
         ) : null}
       </div>
 
+      {/* Content sections — admin panel, synthesis, timeline scroll
+          inside this padded zone. AttachmentTray + Composer sit
+          flush below (same structure as new-feedback) so spacing
+          matches pixel-for-pixel between tabs. */}
       {detail.isLoading ? (
         <p className="p-4 text-sm text-muted-foreground">
           {t("feedback.mine.loading")}
@@ -378,10 +443,14 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
         <p className="p-4 text-sm text-destructive">{t("feedback.mine.error")}</p>
       ) : (
         <>
+          {/* Padded scrollable middle zone (admin panel + synthesis +
+              timeline). Mirrors FeedbackChatSheet body — composer +
+              tray sit FLUSH below this. */}
+          <div className="flex flex-col gap-2 px-2 pt-2 pb-2 flex-1 min-h-0 overflow-y-auto">
           {/* ── Admin actions panel — ARRIBA, justo bajo el header ─ */}
           {isAdmin ? (
             <details
-              className="rounded-md border border-primary/30 bg-primary/5 p-2"
+              className="rounded-md bg-primary/10 p-2"
               open
             >
               <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -398,7 +467,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
                         onAdminStatusChange(e.target.value as FeedbackStatus)
                       }
                       data-feedback-id="feedback.ticket_detail.status_select"
-                      className="rounded-md border border-input bg-background px-1.5 py-0.5 text-xs"
+                      className="rounded-md bg-secondary px-1.5 py-0.5 text-xs"
                     >
                       {_ADMIN_STATUSES.map((s) => (
                         <option key={s} value={s}>
@@ -477,7 +546,7 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
 
           {/* ── Action-required banner (owner only) ──────────────── */}
           {needsUserReply ? (
-            <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <div className="flex items-center gap-2 rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-700">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>
                 <span className="font-semibold">The team is waiting for your reply.</span>{" "}
@@ -487,20 +556,19 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
           ) : null}
 
           {/* ── Conversation timeline (synthesis cards live inline) ─ */}
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <ChatTimeline
-              messages={stream.messages}
-              isThinking={stream.state === "bot_thinking"}
-              thinkingLabel="Thinking…"
-              onApproveSynthesis={isOwner ? onApproveSynthesis : undefined}
-              onEditSynthesis={isOwner ? onEditSynthesis : undefined}
-              synthesisBusy={synthesisBusy}
-            />
-            {stream.error ? (
-              <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {stream.error}
-              </div>
-            ) : null}
+          <ChatTimeline
+            messages={stream.messages}
+            isThinking={stream.state === "bot_thinking"}
+            thinkingLabel="Thinking…"
+            onApproveSynthesis={isOwner ? onApproveSynthesis : undefined}
+            onEditSynthesis={isOwner ? onEditSynthesis : undefined}
+            synthesisBusy={synthesisBusy}
+          />
+          {stream.error ? (
+            <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {stream.error}
+            </div>
+          ) : null}
           </div>
 
           {/* ── Attachment tray (screenshot + uploaded files) ──── */}
@@ -513,67 +581,60 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
             includeScreenshots={true}
           />
 
-          {/* ── Owner ZIP — always available so submitter can hand-off
-                 the ticket to a coding LLM (decision A — user-zip full
-                 bundle). Hits ``/mine/{id}/download`` which only the
-                 owner can call; admins have their own copy in the
-                 admin actions panel. */}
-          {isOwner ? (
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:bg-destructive/10"
-                disabled={softDelete.isPending}
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it.",
-                    )
-                  ) {
-                    softDelete.mutate(
-                      { ticketId: feedbackId },
-                      { onSuccess: onBack },
-                    );
-                  }
-                }}
-                data-feedback-id="feedback.ticket_detail.delete_mine_inline"
-              >
-                <Trash2 className="h-3 w-3 mr-1" /> Delete
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={onDownloadOwn}
-                data-feedback-id="feedback.ticket_detail.download_mine"
-              >
-                <Download className="h-3 w-3 mr-1" /> Download ZIP
-              </Button>
-            </div>
-          ) : null}
+          {/* Owner actions (Delete + Download ZIP) moved up to the
+                 header strip so the tray + composer stack stays
+                 visually identical to the new-feedback tab. */}
 
-          {/* ── Owner reply composer — SAME pill as new-feedback ── */}
+          {/* ── Owner reply composer — SAME pill as new-feedback ──
+                 incluyendo paperclip + mic + send con misma morfología
+                 brand. Voice flow propio (useVoiceFlow) porque
+                 TicketDetail vive fuera de useFeedbackChat. */}
           {isOwner && !isTerminal ? (
-            <Composer
-              onSend={onSendUser}
-              disabled={stream.state === "bot_thinking"}
-              placeholder={
-                needsUserReply
-                  ? "Reply to the team's question…"
-                  : "Continue the conversation…"
-              }
-              onAttachFiles={onAttachFiles}
-              attachDisabled={uploadAttachment.isPending}
-            />
+            voice.state === "recording" || voice.state === "transcribing" ? (
+              <VoiceRecorder
+                state={
+                  voice.state === "transcribing" ? "transcribing" : "recording"
+                }
+                duration_ms={voice.duration_ms}
+                getAudioLevels={voice.getAudioLevels}
+                onStop={() => void voice.stopVoice()}
+                onCancel={voice.cancelVoice}
+              />
+            ) : (
+              <Composer
+                onSend={async (content) => {
+                  await onSendUser(content);
+                  setComposerValue("");
+                }}
+                disabled={stream.state === "bot_thinking"}
+                placeholder={
+                  needsUserReply
+                    ? "Reply to the team's question…"
+                    : "Continue the conversation…"
+                }
+                onAttachFiles={onAttachFiles}
+                attachDisabled={uploadAttachment.isPending}
+                onVoiceToggle={() => void voice.startVoice()}
+                value={composerValue}
+                onValueChange={setComposerValue}
+                autoFocus={composerAutoFocus}
+              />
+            )
+          ) : null}
+          {voice.error ? (
+            <p
+              className="mx-3 text-[10px] text-destructive"
+              data-feedback-id="feedback.ticket_detail.voice_error"
+            >
+              {voice.error}
+            </p>
           ) : null}
 
           {/* ── Owner footer (terminal — just the read-only label;
                  the Delete button moved up to the always-visible
                  owner row next to Download ZIP). */}
           {isOwner && isTerminal ? (
-            <div className="flex items-center justify-end gap-2 border-t border-input/40 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <span className="text-[10px] italic text-muted-foreground">
                 Ticket is {detail.data.status} — closed for replies.
               </span>
@@ -588,9 +649,10 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
              user must type the literal "DELETE" string before the
              permanent action is enabled — prevents accidental clicks
              that would unwind the audit trail and S3 attachments. */}
-      {hardDeleteOpen ? (
+      {hardDeleteOpen && typeof document !== "undefined"
+        ? createPortal(
         <div
-          className="fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/70 p-4"
+          className="rl3-feedback-scope dark fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
           onClick={() => setHardDeleteOpen(false)}
         >
           <div
@@ -657,8 +719,10 @@ export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactEl
               </Button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </div>,
+        document.body,
+      )
+      : null}
     </div>
   );
 }

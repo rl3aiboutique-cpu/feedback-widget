@@ -19,6 +19,7 @@
 
 import { Image as ImageIcon, X } from "lucide-react";
 import { useEffect, useState, type MouseEvent, type ReactElement } from "react";
+import { createPortal } from "react-dom";
 
 export interface CapturePreviewProps {
   blob: Blob | null;
@@ -59,11 +60,14 @@ export function Lightbox({
     if (e.target === e.currentTarget) onClose();
   }
 
-  return (
+  // Render via portal to document.body so the modal escapes the
+  // SheetContent's transform / stacking context. Without the portal,
+  // ``fixed inset-0`` anchored to the animated sheet instead of the
+  // viewport, leaving the lightbox trapped inside the right rail.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
-      // Above SheetContent's z-index so it covers the entire sheet.
-      // shadcn Sheet content uses z-50; pick something higher.
-      className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
+      className="rl3-feedback-scope dark fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/85 backdrop-blur-sm p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Attached capture — expanded view"
@@ -80,9 +84,10 @@ export function Lightbox({
       <img
         src={url}
         alt="Attached capture — expanded view"
-        className="max-h-[90vh] max-w-[90vw] rounded-md border border-input/40 shadow-2xl"
+        className="max-h-[90vh] max-w-[90vw] rounded-md shadow-2xl"
       />
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -128,38 +128,55 @@ export function FeedbackButton(): React.ReactElement | null {
       className="rl3-feedback-scope dark"
     >
       {launcherHidden ? null : (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={t("feedback.open_button")}
-        title={
-          pendingCount > 0
-            ? t("feedback.open_button_with_pending", {
-                count: String(pendingCount),
-              })
-            : t("feedback.open_button")
-        }
-        data-feedback-id="feedback.open_button"
-        className={`fixed z-[2147483640] flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5 shadow-lg
-                    bg-background border border-input text-foreground hover:bg-accent
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
-                    focus-visible:ring-offset-2 transition-all hover:scale-[1.02] hover:shadow-xl
-                    ${cornerClass}`}
-        style={accentStyle}
-      >
-        <span className="relative">
-          <Rl3Mark className="h-7 w-7 shrink-0" />
-          {pendingCount > 0 ? (
-            <span
-              aria-hidden="true"
-              className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground ring-2 ring-background"
-            >
-              {pendingCount > 9 ? "9+" : pendingCount}
-            </span>
-          ) : null}
-        </span>
-        <span className="text-sm font-semibold">{t("feedback.button_label")}</span>
-      </button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t("feedback.open_button")}
+          title={
+            pendingCount > 0
+              ? t("feedback.open_button_with_pending", {
+                  count: String(pendingCount),
+                })
+              : t("feedback.open_button")
+          }
+          data-feedback-id="feedback.open_button"
+          className={[
+            "group fixed z-[2147483640]",
+            "inline-flex items-center justify-center",
+            "h-12 w-12 rounded-full",
+            "bg-background/80 backdrop-blur-md",
+            "shadow-[0_8px_24px_-8px_rgba(0,0,0,0.6),0_2px_4px_rgba(0,0,0,0.25)]",
+            "transition-all duration-200 ease-out",
+            "hover:shadow-[0_12px_32px_-6px_hsl(var(--primary)/0.5),0_4px_12px_rgba(0,0,0,0.4)]",
+            "hover:-translate-y-0.5",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+            cornerClass,
+          ].join(" ")}
+          style={accentStyle}
+        >
+          {/* Animated RL3 mark: gentle hover rotation + pulsing ring
+              when something is pending. No wordmark — the mark itself
+              carries the brand. */}
+          <span className="relative inline-flex items-center justify-center">
+            <Rl3Mark className="h-9 w-9 shrink-0 transition-transform duration-500 ease-out group-hover:rotate-6 group-hover:scale-105" />
+            {pendingCount > 0 ? (
+              <>
+                {/* Soft glow halo (no outline ring) when something is
+                    pending — pulses opacity, not the border. */}
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 -m-1 rounded-full bg-primary/30 blur-md animate-pulse"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground"
+                >
+                  {pendingCount > 9 ? "9+" : pendingCount}
+                </span>
+              </>
+            ) : null}
+          </span>
+        </button>
       )}
 
       {/* v1.0.0 (S3F shell-hybrid) — the chat sheet is the only path.

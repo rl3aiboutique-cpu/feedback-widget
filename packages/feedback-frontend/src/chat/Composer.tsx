@@ -168,12 +168,41 @@ export function Composer({
     <div className="border-t border-input/40 bg-background/95 px-3 py-3 backdrop-blur">
       <div
         className={[
-          "flex flex-col rounded-2xl border bg-card/60 transition shadow-sm",
-          focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60",
+          "flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 transition shadow-sm",
+          focused ? "ring-2 ring-primary/40" : "",
         ].join(" ")}
       >
-        {/* Row 1 — textarea (auto-grows). Holds full attention; no
-              icons stealing focus from the input zone. */}
+        {showAttach ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={_ACCEPT_ATTRIBUTE}
+              onChange={onPickFiles}
+              hidden
+              data-feedback-id="feedback.chat_attach_input"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || attachDisabled}
+              aria-label="Attach files"
+              title={
+                attachDisabled
+                  ? "Attachment limit reached (5 max)"
+                  : "Attach files"
+              }
+              data-feedback-id="feedback.chat_attach"
+              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </>
+        ) : null}
+
         <textarea
           ref={textareaRef}
           value={value}
@@ -184,79 +213,45 @@ export function Composer({
           disabled={disabled}
           placeholder={placeholder ?? DEFAULT_PLACEHOLDER}
           rows={1}
-          className="resize-none border-0 bg-transparent px-4 pt-3 pb-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50"
+          className="flex-1 resize-none border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50"
           style={{ minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` }}
           data-feedback-id="feedback.chat_composer"
         />
 
-        {/* Row 2 — action row with subtle top divider. Paperclip/mic
-              cluster on the left, send pill on the right. Send morphs
-              from dim-secondary to solid-beige when text is present. */}
-        <div className="flex items-center justify-between gap-2 border-t border-input/30 px-2 py-1.5">
-          <div className="flex items-center gap-1">
-            {showAttach ? (
-              <>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept={_ACCEPT_ATTRIBUTE}
-                  onChange={onPickFiles}
-                  hidden
-                  data-feedback-id="feedback.chat_attach_input"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={disabled || attachDisabled}
-                  aria-label="Attach files"
-                  title={
-                    attachDisabled
-                      ? "Attachment limit reached (5 max)"
-                      : "Attach files"
-                  }
-                  data-feedback-id="feedback.chat_attach"
-                  className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-                >
-                  <Paperclip className="h-4 w-4" />
-                </Button>
-              </>
-            ) : null}
-            {showVoice ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={onVoiceToggle}
-                disabled={disabled}
-                aria-label="Record voice message"
-                data-feedback-id="feedback.chat_mic"
-                className="h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
-              >
-                <Mic className="h-4 w-4" />
-              </Button>
-            ) : null}
-          </div>
-
+        {showVoice ? (
           <Button
             type="button"
-            onClick={() => void submit()}
-            disabled={disabled || !hasText}
-            aria-label="Send"
-            data-feedback-id="feedback.chat_send"
-            className={[
-              "h-8 shrink-0 rounded-md px-3 text-xs font-medium transition flex items-center gap-1.5",
-              hasText
-                ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90"
-                : "bg-secondary text-muted-foreground cursor-not-allowed",
-            ].join(" ")}
+            variant="ghost"
+            size="icon"
+            onClick={onVoiceToggle}
+            disabled={disabled}
+            aria-label="Record voice message"
+            data-feedback-id="feedback.chat_mic"
+            className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
-            <SendHorizontal className="h-3.5 w-3.5" />
-            <span>Send</span>
+            <Mic className="h-4 w-4" />
           </Button>
-        </div>
+        ) : null}
+
+        {/* Send morphs: dim secondary at rest, solid RL3 beige when
+              text is present. Same pattern as the 2-row design,
+              compressed into the single-line pill. */}
+        <Button
+          type="button"
+          size="icon"
+          onClick={() => void submit()}
+          disabled={disabled || !hasText}
+          aria-label="Send"
+          data-feedback-id="feedback.chat_send"
+          className={[
+            "h-8 w-8 shrink-0 rounded-full transition",
+            hasText
+              ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90"
+              : "bg-secondary text-muted-foreground cursor-not-allowed",
+          ].join(" ")}
+        >
+          <SendHorizontal className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

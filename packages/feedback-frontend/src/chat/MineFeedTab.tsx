@@ -129,7 +129,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
     <div className="flex h-full flex-col gap-2 p-2">
       {/* Scope toggle (admin only) */}
       {canTriage ? (
-        <div className="inline-flex w-full items-center gap-1 rounded-full border border-input/60 bg-muted/30 p-0.5">
+        <div className="inline-flex w-full items-center gap-1 rounded-full bg-secondary p-0.5">
           <button
             type="button"
             onClick={() => {
@@ -178,7 +178,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             }}
             placeholder="Search title or code…"
             data-feedback-id="feedback.tickets.search"
-            className="w-full rounded-md border border-input bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full rounded-md bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <select
@@ -188,7 +188,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             setPage(1);
           }}
           data-feedback-id="feedback.tickets.status_filter"
-          className="rounded-md border border-input bg-secondary px-2 py-1 text-xs"
+          className="rounded-md bg-secondary px-2 py-1 text-xs"
         >
           <option value="">All statuses</option>
           {_STATUS_OPTIONS.map((s) => (
@@ -204,7 +204,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             setPage(1);
           }}
           data-feedback-id="feedback.tickets.type_filter"
-          className="rounded-md border border-input bg-secondary px-2 py-1 text-xs"
+          className="rounded-md bg-secondary px-2 py-1 text-xs"
         >
           <option value="">All types</option>
           {_TYPE_OPTIONS.map((tp) => (
@@ -225,13 +225,10 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
         ) : null}
       </div>
 
-      {/* List — never scrollable. The page size + dense single-line
-          rows keep all 20 items visible inside the available height.
-          ``overflow-hidden`` enforces that contract: if the viewport
-          shrinks below the card stack, the bottom rows clip rather
-          than introduce an inner scrollbar (the user paginates with
-          the footer instead). */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* List — scrollable. Rows are now two-line cards so 20 don't
+          always fit in the viewport; the inner scrollbar keeps the
+          pagination footer pinned at the bottom of the tab. */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <p className="text-sm text-muted-foreground p-4">
             {t("feedback.mine.loading")}
@@ -269,7 +266,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
       {/* Pagination footer — applies to both scopes (Mine paginates
           client-side, All paginates against the backend). */}
       {totalPages > 1 ? (
-        <div className="flex items-center justify-between gap-2 border-t border-input/40 pt-2">
+        <div className="flex items-center justify-between gap-2 pt-2">
           <span className="text-[10px] text-muted-foreground tabular-nums">
             {(page - 1) * _PAGE_SIZE + 1}-
             {Math.min(page * _PAGE_SIZE, total)} of {total}
@@ -281,7 +278,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
               disabled={page <= 1}
               aria-label="Previous page"
               data-feedback-id="feedback.tickets.prev"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-30"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -294,7 +291,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
               disabled={page >= totalPages}
               aria-label="Next page"
               data-feedback-id="feedback.tickets.next"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-30"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>

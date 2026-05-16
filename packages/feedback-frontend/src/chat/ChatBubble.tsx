@@ -50,10 +50,10 @@ export function ChatBubble({ role, text, caption }: ChatBubbleProps): ReactEleme
   //    without overpowering long messages; soft top-right corner.
   //  - Admin: violet stays for cross-role differentiation.
   const bubbleClass = isUser
-    ? "rounded-2xl rounded-tr-md border-primary/40 bg-primary/20 text-foreground"
+    ? "rounded-2xl rounded-tr-md bg-primary/25 text-foreground"
     : isAdmin
-      ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/15 text-foreground"
-      : "rounded-2xl rounded-tl-md border-input bg-card text-foreground shadow-sm";
+      ? "rounded-2xl rounded-tl-md bg-violet-500/20 text-foreground"
+      : "rounded-2xl rounded-tl-md bg-secondary text-foreground";
 
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
@@ -67,7 +67,7 @@ export function ChatBubble({ role, text, caption }: ChatBubbleProps): ReactEleme
         ) : null}
         <div
           className={[
-            "whitespace-pre-wrap break-words border px-3.5 py-2 text-sm leading-relaxed",
+            "whitespace-pre-wrap break-words px-3.5 py-2 text-sm leading-relaxed",
             bubbleClass,
           ].join(" ")}
           data-feedback-id={

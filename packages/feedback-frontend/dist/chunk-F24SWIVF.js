@@ -1,5 +1,6 @@
 // src/chat/FeedbackChatSheet.tsx
-import { useCallback as useCallback6, useEffect as useEffect10, useState as useState11 } from "react";
+import { ArrowLeft } from "lucide-react";
+import { useCallback as useCallback7, useEffect as useEffect10, useState as useState12 } from "react";
 
 // src/FeedbackProvider.tsx
 import { createContext, useContext, useMemo as useMemo2 } from "react";
@@ -712,7 +713,7 @@ function Rl3Mark({
       role: "img",
       "aria-label": "RL3",
       children: [
-        /* @__PURE__ */ jsx2("rect", { width: "32", height: "32", rx: "8", fill: "#000000", stroke: "#C4B07F", strokeWidth: "1" }),
+        /* @__PURE__ */ jsx2("rect", { width: "32", height: "32", rx: "8", fill: "#000000" }),
         /* @__PURE__ */ jsx2(
           "text",
           {
@@ -832,7 +833,7 @@ function useResizableSheet() {
 
 // src/ui/sheet.tsx
 import * as SheetPrimitive from "@radix-ui/react-dialog";
-import { ChevronLeft, ChevronRight, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 
 // src/lib/utils.ts
 import { clsx } from "clsx";
@@ -923,16 +924,6 @@ function SheetContent({
                 "aria-label": "Resize panel",
                 children: [
                   /* @__PURE__ */ jsx3(
-                    "span",
-                    {
-                      "aria-hidden": "true",
-                      className: cn(
-                        "pointer-events-none absolute top-0 bottom-0 left-1/2 w-px -translate-x-1/2 transition-colors",
-                        isDragging ? "bg-primary/70" : "bg-input/60 group-hover:bg-primary/40"
-                      )
-                    }
-                  ),
-                  /* @__PURE__ */ jsxs2(
                     "button",
                     {
                       type: "button",
@@ -940,17 +931,14 @@ function SheetContent({
                       "aria-hidden": "true",
                       className: cn(
                         "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2",
-                        "inline-flex h-9 w-9 items-center justify-center rounded-full",
-                        "border border-input bg-card text-foreground shadow-md",
-                        "transition-transform duration-150 ease-out",
-                        isDragging ? "scale-110 shadow-lg border-primary" : "hover:scale-105 hover:border-primary/60"
-                      ),
-                      children: [
-                        /* @__PURE__ */ jsx3(ChevronLeft, { className: "h-3.5 w-3.5 -mr-1" }),
-                        /* @__PURE__ */ jsx3(ChevronRight, { className: "h-3.5 w-3.5 -ml-1" })
-                      ]
+                        "inline-flex h-12 w-3 items-center justify-center rounded-full",
+                        "bg-muted-foreground/40",
+                        "transition-colors duration-150 ease-out",
+                        isDragging ? "bg-primary" : "hover:bg-muted-foreground/70"
+                      )
                     }
-                  )
+                  ),
+                  /* @__PURE__ */ jsx3("span", { className: "sr-only", children: "Resize panel" })
                 ]
               }
             )
@@ -1119,10 +1107,12 @@ function CapturePicker({
 // src/chat/AttachmentTray.tsx
 import { File as FileIcon, FileText, Image as ImageIcon3, X as X2 } from "lucide-react";
 import { useEffect as useEffect3, useState as useState3 } from "react";
+import { createPortal as createPortal2 } from "react-dom";
 
 // src/chat/CapturePreview.tsx
 import { Image as ImageIcon2, X } from "lucide-react";
 import { useEffect as useEffect2, useState as useState2 } from "react";
+import { createPortal } from "react-dom";
 import { Fragment, jsx as jsx5, jsxs as jsxs4 } from "react/jsx-runtime";
 function Lightbox({
   url,
@@ -1138,35 +1128,39 @@ function Lightbox({
   function onBackdropClick(e) {
     if (e.target === e.currentTarget) onClose();
   }
-  return /* @__PURE__ */ jsxs4(
-    "div",
-    {
-      className: "fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6",
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": "Attached capture \u2014 expanded view",
-      onClick: onBackdropClick,
-      children: [
-        /* @__PURE__ */ jsx5(
-          "button",
-          {
-            type: "button",
-            onClick: onClose,
-            "aria-label": "Cerrar vista ampliada",
-            className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
-            children: /* @__PURE__ */ jsx5(X, { className: "h-4 w-4" })
-          }
-        ),
-        /* @__PURE__ */ jsx5(
-          "img",
-          {
-            src: url,
-            alt: "Attached capture \u2014 expanded view",
-            className: "max-h-[90vh] max-w-[90vw] rounded-md border border-input/40 shadow-2xl"
-          }
-        )
-      ]
-    }
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    /* @__PURE__ */ jsxs4(
+      "div",
+      {
+        className: "rl3-feedback-scope dark fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/85 backdrop-blur-sm p-6",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": "Attached capture \u2014 expanded view",
+        onClick: onBackdropClick,
+        children: [
+          /* @__PURE__ */ jsx5(
+            "button",
+            {
+              type: "button",
+              onClick: onClose,
+              "aria-label": "Cerrar vista ampliada",
+              className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
+              children: /* @__PURE__ */ jsx5(X, { className: "h-4 w-4" })
+            }
+          ),
+          /* @__PURE__ */ jsx5(
+            "img",
+            {
+              src: url,
+              alt: "Attached capture \u2014 expanded view",
+              className: "max-h-[90vh] max-w-[90vw] rounded-md shadow-2xl"
+            }
+          )
+        ]
+      }
+    ),
+    document.body
   );
 }
 
@@ -1309,37 +1303,41 @@ function _ThumbDetailModal({
   if (item.previewUrl) {
     return /* @__PURE__ */ jsx6(Lightbox, { url: item.previewUrl, onClose });
   }
-  return /* @__PURE__ */ jsxs5(
-    "div",
-    {
-      className: "fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 p-6",
-      role: "dialog",
-      "aria-modal": "true",
-      "aria-label": `Attachment details \u2014 ${item.label}`,
-      onClick: (e) => {
-        if (e.target === e.currentTarget) onClose();
-      },
-      children: [
-        /* @__PURE__ */ jsx6(
-          "button",
-          {
-            type: "button",
-            onClick: onClose,
-            "aria-label": "Close",
-            className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
-            children: /* @__PURE__ */ jsx6(X2, { className: "h-4 w-4" })
-          }
-        ),
-        /* @__PURE__ */ jsxs5("div", { className: "flex max-w-sm flex-col gap-2 rounded-md border border-input/60 bg-background p-4 shadow-2xl", children: [
-          /* @__PURE__ */ jsx6("h3", { className: "text-sm font-semibold", children: item.label }),
-          item.sublabel ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: item.sublabel }) : null,
-          item.byteSize !== null ? /* @__PURE__ */ jsxs5("p", { className: "text-xs text-muted-foreground", children: [
-            "Size: ",
-            _formatBytes(item.byteSize)
-          ] }) : null
-        ] })
-      ]
-    }
+  if (typeof document === "undefined") return /* @__PURE__ */ jsx6(Fragment2, {});
+  return createPortal2(
+    /* @__PURE__ */ jsxs5(
+      "div",
+      {
+        className: "rl3-feedback-scope dark fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/85 backdrop-blur-sm p-6",
+        role: "dialog",
+        "aria-modal": "true",
+        "aria-label": `Attachment details \u2014 ${item.label}`,
+        onClick: (e) => {
+          if (e.target === e.currentTarget) onClose();
+        },
+        children: [
+          /* @__PURE__ */ jsx6(
+            "button",
+            {
+              type: "button",
+              onClick: onClose,
+              "aria-label": "Close",
+              className: "absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-background/90 text-foreground shadow-md transition hover:bg-background",
+              children: /* @__PURE__ */ jsx6(X2, { className: "h-4 w-4" })
+            }
+          ),
+          /* @__PURE__ */ jsxs5("div", { className: "flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl", children: [
+            /* @__PURE__ */ jsx6("h3", { className: "text-sm font-semibold", children: item.label }),
+            item.sublabel ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: item.sublabel }) : null,
+            item.byteSize !== null ? /* @__PURE__ */ jsxs5("p", { className: "text-xs text-muted-foreground", children: [
+              "Size: ",
+              _formatBytes(item.byteSize)
+            ] }) : null
+          ] })
+        ]
+      }
+    ),
+    document.body
   );
 }
 
@@ -1363,7 +1361,7 @@ function ChatBubble({ role, text, caption }) {
   const isUser = role === "user";
   const isAdmin = role === "admin";
   const isAssistant = role === "assistant";
-  const bubbleClass = isUser ? "rounded-2xl rounded-tr-md border-primary/40 bg-primary/20 text-foreground" : isAdmin ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/15 text-foreground" : "rounded-2xl rounded-tl-md border-input bg-card text-foreground shadow-sm";
+  const bubbleClass = isUser ? "rounded-2xl rounded-tr-md bg-primary/25 text-foreground" : isAdmin ? "rounded-2xl rounded-tl-md bg-violet-500/20 text-foreground" : "rounded-2xl rounded-tl-md bg-secondary text-foreground";
   return /* @__PURE__ */ jsxs6("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: [
     isAssistant || isAdmin ? /* @__PURE__ */ jsx7("div", { className: "mr-2 mt-0.5", children: /* @__PURE__ */ jsx7(AssistantAvatar, {}) }) : null,
     /* @__PURE__ */ jsxs6("div", { className: `flex max-w-[78%] flex-col gap-1 ${isUser ? "items-end" : "items-start"}`, children: [
@@ -1375,7 +1373,7 @@ function ChatBubble({ role, text, caption }) {
         "div",
         {
           className: [
-            "whitespace-pre-wrap break-words border px-3.5 py-2 text-sm leading-relaxed",
+            "whitespace-pre-wrap break-words px-3.5 py-2 text-sm leading-relaxed",
             bubbleClass
           ].join(" "),
           "data-feedback-id": isAdmin ? "feedback.chat_bubble.admin" : isAssistant ? "feedback.chat_bubble.assistant" : "feedback.chat_bubble.user",
@@ -1448,7 +1446,7 @@ function Input({ className, type, ...props }) {
       type,
       "data-slot": "input",
       className: cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input h-9 w-full min-w-0 rounded-md border bg-secondary px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground h-9 w-full min-w-0 rounded-md bg-secondary px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
@@ -1466,7 +1464,7 @@ function Textarea({ className, ...props }) {
     {
       "data-slot": "textarea",
       className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input min-h-16 w-full rounded-md border bg-secondary px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground min-h-16 w-full rounded-md bg-secondary px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
@@ -1818,7 +1816,7 @@ import {
 import { useCallback as useCallback2, useEffect as useEffect5, useRef as useRef2, useState as useState5 } from "react";
 var _MAX_DURATION_MS = 6e4;
 var _TICK_INTERVAL_MS = 250;
-var AUDIO_LEVEL_BARS = 40;
+var AUDIO_LEVEL_BARS = 72;
 var _LEVEL_FRAME_INTERVAL_MS = 1e3 / 30;
 var _PREFERRED_MIME_TYPES = [
   "audio/webm;codecs=opus",
@@ -2207,10 +2205,39 @@ function Composer({
     "div",
     {
       className: [
-        "flex flex-col rounded-2xl border bg-card/60 transition shadow-sm",
-        focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60"
+        "flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5 transition shadow-sm",
+        focused ? "ring-2 ring-primary/40" : ""
       ].join(" "),
       children: [
+        showAttach ? /* @__PURE__ */ jsxs9(Fragment4, { children: [
+          /* @__PURE__ */ jsx13(
+            "input",
+            {
+              ref: fileInputRef,
+              type: "file",
+              multiple: true,
+              accept: _ACCEPT_ATTRIBUTE,
+              onChange: onPickFiles,
+              hidden: true,
+              "data-feedback-id": "feedback.chat_attach_input"
+            }
+          ),
+          /* @__PURE__ */ jsx13(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "icon",
+              onClick: () => fileInputRef.current?.click(),
+              disabled: disabled || attachDisabled,
+              "aria-label": "Attach files",
+              title: attachDisabled ? "Attachment limit reached (5 max)" : "Attach files",
+              "data-feedback-id": "feedback.chat_attach",
+              className: "h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+              children: /* @__PURE__ */ jsx13(Paperclip, { className: "h-4 w-4" })
+            }
+          )
+        ] }) : null,
         /* @__PURE__ */ jsx13(
           "textarea",
           {
@@ -2223,76 +2250,41 @@ function Composer({
             disabled,
             placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
             rows: 1,
-            className: "resize-none border-0 bg-transparent px-4 pt-3 pb-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50",
+            className: "flex-1 resize-none border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50",
             style: { minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` },
             "data-feedback-id": "feedback.chat_composer"
           }
         ),
-        /* @__PURE__ */ jsxs9("div", { className: "flex items-center justify-between gap-2 border-t border-input/30 px-2 py-1.5", children: [
-          /* @__PURE__ */ jsxs9("div", { className: "flex items-center gap-1", children: [
-            showAttach ? /* @__PURE__ */ jsxs9(Fragment4, { children: [
-              /* @__PURE__ */ jsx13(
-                "input",
-                {
-                  ref: fileInputRef,
-                  type: "file",
-                  multiple: true,
-                  accept: _ACCEPT_ATTRIBUTE,
-                  onChange: onPickFiles,
-                  hidden: true,
-                  "data-feedback-id": "feedback.chat_attach_input"
-                }
-              ),
-              /* @__PURE__ */ jsx13(
-                Button,
-                {
-                  type: "button",
-                  variant: "ghost",
-                  size: "icon",
-                  onClick: () => fileInputRef.current?.click(),
-                  disabled: disabled || attachDisabled,
-                  "aria-label": "Attach files",
-                  title: attachDisabled ? "Attachment limit reached (5 max)" : "Attach files",
-                  "data-feedback-id": "feedback.chat_attach",
-                  className: "h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  children: /* @__PURE__ */ jsx13(Paperclip, { className: "h-4 w-4" })
-                }
-              )
-            ] }) : null,
-            showVoice ? /* @__PURE__ */ jsx13(
-              Button,
-              {
-                type: "button",
-                variant: "ghost",
-                size: "icon",
-                onClick: onVoiceToggle,
-                disabled,
-                "aria-label": "Record voice message",
-                "data-feedback-id": "feedback.chat_mic",
-                className: "h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground",
-                children: /* @__PURE__ */ jsx13(Mic, { className: "h-4 w-4" })
-              }
-            ) : null
-          ] }),
-          /* @__PURE__ */ jsxs9(
-            Button,
-            {
-              type: "button",
-              onClick: () => void submit(),
-              disabled: disabled || !hasText,
-              "aria-label": "Send",
-              "data-feedback-id": "feedback.chat_send",
-              className: [
-                "h-8 shrink-0 rounded-md px-3 text-xs font-medium transition flex items-center gap-1.5",
-                hasText ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90" : "bg-secondary text-muted-foreground cursor-not-allowed"
-              ].join(" "),
-              children: [
-                /* @__PURE__ */ jsx13(SendHorizontal, { className: "h-3.5 w-3.5" }),
-                /* @__PURE__ */ jsx13("span", { children: "Send" })
-              ]
-            }
-          )
-        ] })
+        showVoice ? /* @__PURE__ */ jsx13(
+          Button,
+          {
+            type: "button",
+            variant: "ghost",
+            size: "icon",
+            onClick: onVoiceToggle,
+            disabled,
+            "aria-label": "Record voice message",
+            "data-feedback-id": "feedback.chat_mic",
+            className: "h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+            children: /* @__PURE__ */ jsx13(Mic, { className: "h-4 w-4" })
+          }
+        ) : null,
+        /* @__PURE__ */ jsx13(
+          Button,
+          {
+            type: "button",
+            size: "icon",
+            onClick: () => void submit(),
+            disabled: disabled || !hasText,
+            "aria-label": "Send",
+            "data-feedback-id": "feedback.chat_send",
+            className: [
+              "h-8 w-8 shrink-0 rounded-full transition",
+              hasText ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90" : "bg-secondary text-muted-foreground cursor-not-allowed"
+            ].join(" "),
+            children: /* @__PURE__ */ jsx13(SendHorizontal, { className: "h-4 w-4" })
+          }
+        )
       ]
     }
   ) });
@@ -2320,7 +2312,7 @@ function FeedbackTabs({
             role: "tab",
             "aria-selected": activeTab === "compose",
             onClick: () => onTabChange("compose"),
-            className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "compose" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
+            className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "compose" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.compose",
             children: [
               /* @__PURE__ */ jsx14(MessageSquarePlus, { className: "h-3.5 w-3.5" }),
@@ -2335,7 +2327,7 @@ function FeedbackTabs({
             role: "tab",
             "aria-selected": activeTab === "mine",
             onClick: () => onTabChange("mine"),
-            className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "mine" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`,
+            className: `flex items-center justify-center gap-1.5 px-3 py-1.5 rounded transition-colors ${activeTab === "mine" ? "bg-card text-foreground shadow-md" : "text-muted-foreground hover:text-foreground"}`,
             "data-feedback-id": "feedback.tab.mine",
             children: [
               /* @__PURE__ */ jsx14(Inbox, { className: "h-3.5 w-3.5" }),
@@ -2407,7 +2399,7 @@ function FooterActions({
 }
 
 // src/chat/MineFeedTab.tsx
-import { ChevronLeft as ChevronLeft2, ChevronRight as ChevronRight2, Inbox as Inbox2, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox as Inbox2, Search } from "lucide-react";
 import { useState as useState7 } from "react";
 
 // src/hooks/useCanTriageFeedback.ts
@@ -2492,10 +2484,10 @@ function _shortId(id) {
   return `${id.slice(0, 4)}\u2026${id.slice(-4)}`;
 }
 var _SEVERITY_STYLES = {
-  blocker: "border-destructive/40 bg-destructive/10 text-destructive",
-  major: "border-amber-500/40 bg-amber-500/10 text-amber-600",
-  minor: "border-blue-500/30 bg-blue-500/10 text-blue-600",
-  idea: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+  blocker: "bg-destructive/15 text-destructive",
+  major: "bg-amber-500/15 text-amber-500",
+  minor: "bg-blue-500/15 text-blue-400",
+  idea: "bg-emerald-500/15 text-emerald-500"
 };
 function TicketRow({
   row,
@@ -2513,41 +2505,44 @@ function TicketRow({
       onClick,
       "data-feedback-id": "feedback.tickets.row",
       title: row.title ?? "(no title yet)",
-      className: "flex w-full items-center gap-2 rounded-md border border-input/60 bg-background px-2.5 py-1.5 text-left text-xs transition hover:border-primary/40 hover:bg-accent/50",
+      className: "flex w-full flex-col gap-1 rounded-lg bg-secondary/50 px-3 py-2.5 text-left text-sm transition hover:bg-secondary",
       children: [
-        /* @__PURE__ */ jsx17(StatusPill, { status: row.status }),
-        row.severity ? /* @__PURE__ */ jsx17(
-          "span",
-          {
-            className: `hidden md:inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium leading-none ${_SEVERITY_STYLES[row.severity] ?? "border-muted-foreground/30 bg-muted text-muted-foreground"}`,
-            children: row.severity
-          }
-        ) : null,
-        /* @__PURE__ */ jsx17("code", { className: "hidden sm:inline shrink-0 font-mono text-[10px] text-muted-foreground", children: row.ticket_code || "\u2014" }),
-        row.user_action_required ? /* @__PURE__ */ jsx17(
-          "span",
-          {
-            className: "inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500",
-            title: "Action required",
-            "aria-label": "Action required"
-          }
-        ) : null,
-        /* @__PURE__ */ jsx17("span", { className: "min-w-0 flex-1 truncate text-foreground", children: row.title ?? /* @__PURE__ */ jsx17("span", { className: "italic text-muted-foreground", children: "(no title yet)" }) }),
-        /* @__PURE__ */ jsxs12("span", { className: "ml-auto hidden md:inline-flex shrink-0 items-center gap-2 text-[10px] text-muted-foreground", children: [
-          /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
-            /* @__PURE__ */ jsx17(UserIcon, { className: "h-3 w-3" }),
-            /* @__PURE__ */ jsx17("span", { className: "font-mono", children: creatorLabel })
-          ] }),
-          row.type ? /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
-            /* @__PURE__ */ jsx17(Bug, { className: "h-3 w-3" }),
-            row.type
-          ] }) : null,
-          attachmentCount > 0 ? /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
-            /* @__PURE__ */ jsx17(Paperclip2, { className: "h-3 w-3" }),
-            attachmentCount
-          ] }) : null
+        /* @__PURE__ */ jsxs12("div", { className: "flex w-full items-center gap-2", children: [
+          row.user_action_required ? /* @__PURE__ */ jsx17(
+            "span",
+            {
+              className: "inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500",
+              title: "Action required",
+              "aria-label": "Action required"
+            }
+          ) : null,
+          /* @__PURE__ */ jsx17("span", { className: "min-w-0 flex-1 truncate font-medium text-foreground", children: row.title ?? /* @__PURE__ */ jsx17("span", { className: "italic text-muted-foreground", children: "(no title yet)" }) }),
+          /* @__PURE__ */ jsx17("span", { className: "shrink-0 text-[11px] text-muted-foreground tabular-nums", children: _relativeTime(lastActivity) })
         ] }),
-        /* @__PURE__ */ jsx17("span", { className: "shrink-0 text-[10px] text-muted-foreground tabular-nums", children: _relativeTime(lastActivity) })
+        /* @__PURE__ */ jsxs12("div", { className: "flex w-full items-center gap-2 text-[11px] text-muted-foreground", children: [
+          /* @__PURE__ */ jsx17(StatusPill, { status: row.status }),
+          row.severity ? /* @__PURE__ */ jsx17(
+            "span",
+            {
+              className: `inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium leading-none ${_SEVERITY_STYLES[row.severity] ?? "bg-muted text-muted-foreground"}`,
+              children: row.severity
+            }
+          ) : null,
+          /* @__PURE__ */ jsxs12("span", { className: "ml-auto inline-flex items-center gap-2.5", children: [
+            /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
+              /* @__PURE__ */ jsx17(UserIcon, { className: "h-3.5 w-3.5" }),
+              /* @__PURE__ */ jsx17("span", { className: "font-mono", children: creatorLabel })
+            ] }),
+            row.type ? /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
+              /* @__PURE__ */ jsx17(Bug, { className: "h-3.5 w-3.5" }),
+              row.type
+            ] }) : null,
+            attachmentCount > 0 ? /* @__PURE__ */ jsxs12("span", { className: "inline-flex items-center gap-1", children: [
+              /* @__PURE__ */ jsx17(Paperclip2, { className: "h-3.5 w-3.5" }),
+              attachmentCount
+            ] }) : null
+          ] })
+        ] })
       ]
     }
   );
@@ -2617,7 +2612,7 @@ function MineFeedTab({ onSelectFeedback }) {
     setPage(1);
   };
   return /* @__PURE__ */ jsxs13("div", { className: "flex h-full flex-col gap-2 p-2", children: [
-    canTriage ? /* @__PURE__ */ jsxs13("div", { className: "inline-flex w-full items-center gap-1 rounded-full border border-input/60 bg-muted/30 p-0.5", children: [
+    canTriage ? /* @__PURE__ */ jsxs13("div", { className: "inline-flex w-full items-center gap-1 rounded-full bg-secondary p-0.5", children: [
       /* @__PURE__ */ jsx18(
         "button",
         {
@@ -2665,7 +2660,7 @@ function MineFeedTab({ onSelectFeedback }) {
             },
             placeholder: "Search title or code\u2026",
             "data-feedback-id": "feedback.tickets.search",
-            className: "w-full rounded-md border border-input bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className: "w-full rounded-md bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
           }
         )
       ] }),
@@ -2678,7 +2673,7 @@ function MineFeedTab({ onSelectFeedback }) {
             setPage(1);
           },
           "data-feedback-id": "feedback.tickets.status_filter",
-          className: "rounded-md border border-input bg-secondary px-2 py-1 text-xs",
+          className: "rounded-md bg-secondary px-2 py-1 text-xs",
           children: [
             /* @__PURE__ */ jsx18("option", { value: "", children: "All statuses" }),
             _STATUS_OPTIONS.map((s) => /* @__PURE__ */ jsx18("option", { value: s, children: s }, s))
@@ -2694,7 +2689,7 @@ function MineFeedTab({ onSelectFeedback }) {
             setPage(1);
           },
           "data-feedback-id": "feedback.tickets.type_filter",
-          className: "rounded-md border border-input bg-secondary px-2 py-1 text-xs",
+          className: "rounded-md bg-secondary px-2 py-1 text-xs",
           children: [
             /* @__PURE__ */ jsx18("option", { value: "", children: "All types" }),
             _TYPE_OPTIONS.map((tp) => /* @__PURE__ */ jsx18("option", { value: tp, children: tp }, tp))
@@ -2712,7 +2707,7 @@ function MineFeedTab({ onSelectFeedback }) {
         }
       ) : null
     ] }),
-    /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-hidden", children: isLoading ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") }) : isError ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") }) : rows.length === 0 ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-col items-center justify-center gap-3 px-4 py-12 text-center", children: [
+    /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-y-auto", children: isLoading ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") }) : isError ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") }) : rows.length === 0 ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-col items-center justify-center gap-3 px-4 py-12 text-center", children: [
       /* @__PURE__ */ jsx18("div", { className: "flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground", children: /* @__PURE__ */ jsx18(Inbox2, { className: "h-6 w-6" }) }),
       /* @__PURE__ */ jsx18("p", { className: "text-sm font-medium text-foreground", children: "No tickets yet" }),
       /* @__PURE__ */ jsxs13("p", { className: "max-w-[280px] text-xs text-muted-foreground", children: [
@@ -2729,7 +2724,7 @@ function MineFeedTab({ onSelectFeedback }) {
         onClick: () => onSelectFeedback?.(r.id)
       }
     ) }, r.id)) }) }),
-    totalPages > 1 ? /* @__PURE__ */ jsxs13("div", { className: "flex items-center justify-between gap-2 border-t border-input/40 pt-2", children: [
+    totalPages > 1 ? /* @__PURE__ */ jsxs13("div", { className: "flex items-center justify-between gap-2 pt-2", children: [
       /* @__PURE__ */ jsxs13("span", { className: "text-[10px] text-muted-foreground tabular-nums", children: [
         (page - 1) * _PAGE_SIZE + 1,
         "-",
@@ -2746,8 +2741,8 @@ function MineFeedTab({ onSelectFeedback }) {
             disabled: page <= 1,
             "aria-label": "Previous page",
             "data-feedback-id": "feedback.tickets.prev",
-            className: "inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30",
-            children: /* @__PURE__ */ jsx18(ChevronLeft2, { className: "h-3.5 w-3.5" })
+            className: "inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-30",
+            children: /* @__PURE__ */ jsx18(ChevronLeft, { className: "h-3.5 w-3.5" })
           }
         ),
         /* @__PURE__ */ jsxs13("span", { className: "text-[11px] tabular-nums text-foreground", children: [
@@ -2763,8 +2758,8 @@ function MineFeedTab({ onSelectFeedback }) {
             disabled: page >= totalPages,
             "aria-label": "Next page",
             "data-feedback-id": "feedback.tickets.next",
-            className: "inline-flex h-7 w-7 items-center justify-center rounded-md border border-input text-muted-foreground transition hover:bg-accent disabled:opacity-30",
-            children: /* @__PURE__ */ jsx18(ChevronRight2, { className: "h-3.5 w-3.5" })
+            className: "inline-flex h-7 w-7 items-center justify-center rounded-md bg-secondary text-muted-foreground transition hover:bg-accent hover:text-foreground disabled:opacity-30",
+            children: /* @__PURE__ */ jsx18(ChevronRight, { className: "h-3.5 w-3.5" })
           }
         )
       ] })
@@ -2774,10 +2769,140 @@ function MineFeedTab({ onSelectFeedback }) {
 
 // src/chat/TicketDetail.tsx
 import { AlertTriangle, Download, Send, Trash2, User } from "lucide-react";
-import { useEffect as useEffect7, useRef as useRef5, useState as useState9 } from "react";
+import { useEffect as useEffect8, useRef as useRef6, useState as useState10 } from "react";
+import { createPortal as createPortal3 } from "react-dom";
+
+// src/chat/VoiceRecorder.tsx
+import { Check as Check3, Loader2 as Loader22, X as X4 } from "lucide-react";
+import { useEffect as useEffect7, useRef as useRef4 } from "react";
+import { Fragment as Fragment5, jsx as jsx19, jsxs as jsxs14 } from "react/jsx-runtime";
+var _MAX_DURATION_MS2 = 6e4;
+var _BAR_MIN_PX = 3;
+var _BAR_MAX_PX = 26;
+function _formatMs(ms) {
+  const clamped = Math.max(0, Math.min(ms, _MAX_DURATION_MS2));
+  const seconds = Math.floor(clamped / 1e3);
+  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
+  const ss = String(seconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+function _Waveform({
+  active,
+  getAudioLevels
+}) {
+  const barRefs = useRef4([]);
+  const rafRef = useRef4(null);
+  useEffect7(() => {
+    if (!active) {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      return;
+    }
+    const loop = () => {
+      const levels = getAudioLevels();
+      const bars = barRefs.current;
+      const last = bars.length - 1;
+      for (let i = 0; i < bars.length; i++) {
+        const bar = bars[i];
+        if (!bar) continue;
+        const level = levels[last - i] ?? 0;
+        const px = Math.max(
+          _BAR_MIN_PX,
+          Math.round(_BAR_MIN_PX + level * (_BAR_MAX_PX - _BAR_MIN_PX))
+        );
+        bar.style.height = `${px}px`;
+      }
+      rafRef.current = window.requestAnimationFrame(loop);
+    };
+    rafRef.current = window.requestAnimationFrame(loop);
+    return () => {
+      if (rafRef.current !== null) {
+        window.cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [active, getAudioLevels]);
+  return /* @__PURE__ */ jsx19("div", { className: "flex flex-1 items-center justify-center gap-[2px] h-8 px-2", "aria-hidden": "true", children: Array.from({ length: AUDIO_LEVEL_BARS }).map((_, i) => /* @__PURE__ */ jsx19(
+    "span",
+    {
+      ref: (el) => {
+        barRefs.current[i] = el;
+      },
+      className: "w-[2px] rounded-full bg-foreground/80 transition-[height] duration-75",
+      style: { height: `${_BAR_MIN_PX}px` }
+    },
+    i
+  )) });
+}
+function VoiceRecorder({
+  state,
+  duration_ms,
+  getAudioLevels,
+  onStop,
+  onCancel
+}) {
+  if (state !== "recording" && state !== "stopping" && state !== "transcribing") return null;
+  const isRecording = state === "recording";
+  const isWorking = state === "stopping" || state === "transcribing";
+  const timer = _formatMs(duration_ms);
+  return /* @__PURE__ */ jsxs14(
+    "output",
+    {
+      "aria-live": "polite",
+      "aria-label": isRecording ? "Recording" : "Transcribing",
+      "data-feedback-id": "feedback.voice_recorder",
+      className: "flex items-center gap-2 border-t border-input bg-background px-3 py-3",
+      children: [
+        /* @__PURE__ */ jsx19(
+          Button,
+          {
+            type: "button",
+            variant: "ghost",
+            size: "sm",
+            onClick: onCancel,
+            disabled: isWorking,
+            "aria-label": "Discard recording",
+            "data-feedback-id": "feedback.voice_cancel",
+            className: "rounded-full",
+            children: /* @__PURE__ */ jsx19(X4, { className: "h-4 w-4" })
+          }
+        ),
+        /* @__PURE__ */ jsx19("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs14("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
+          /* @__PURE__ */ jsx19(Loader22, { className: "h-4 w-4 animate-spin" }),
+          /* @__PURE__ */ jsx19("span", { children: "Transcribing\u2026" })
+        ] }) : /* @__PURE__ */ jsxs14(Fragment5, { children: [
+          /* @__PURE__ */ jsx19(_Waveform, { active: isRecording, getAudioLevels }),
+          /* @__PURE__ */ jsx19(
+            "span",
+            {
+              className: "shrink-0 pr-1 text-[10px] tabular-nums text-muted-foreground",
+              "aria-hidden": "true",
+              children: timer
+            }
+          )
+        ] }) }),
+        /* @__PURE__ */ jsx19(
+          Button,
+          {
+            type: "button",
+            size: "sm",
+            onClick: onStop,
+            disabled: isWorking,
+            "aria-label": "Stop and send",
+            "data-feedback-id": "feedback.voice_stop",
+            className: "rounded-full",
+            children: /* @__PURE__ */ jsx19(Check3, { className: "h-4 w-4" })
+          }
+        )
+      ]
+    }
+  );
+}
 
 // src/chat/useChatRunStream.ts
-import { useCallback as useCallback4, useRef as useRef4, useState as useState8 } from "react";
+import { useCallback as useCallback4, useRef as useRef5, useState as useState8 } from "react";
 
 // src/client/idempotency.ts
 function newIdempotencyKey() {
@@ -2840,7 +2965,7 @@ function useChatRunStream(args) {
   const [partial_text, setPartialText] = useState8("");
   const [synthesis, setSynthesis] = useState8(null);
   const [error, setError] = useState8(null);
-  const abortRef = useRef4(null);
+  const abortRef = useRef5(null);
   const reset = useCallback4(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -3056,8 +3181,110 @@ function useChatRunStream(args) {
   };
 }
 
+// src/chat/useVoiceFlow.ts
+import { useCallback as useCallback5, useState as useState9 } from "react";
+function _buildVoiceUrl(b, sessionId) {
+  const base = b.apiBaseUrl.replace(/\/$/, "");
+  const prefix = b.apiPathPrefix ?? "/api/v1/feedback";
+  return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/voice`;
+}
+function useVoiceFlow({
+  bindings,
+  sessionId,
+  onTranscript
+}) {
+  const voiceCapture = useVoiceCapture();
+  const [state, setState] = useState9("idle");
+  const [error, setError] = useState9(null);
+  const [stickyLang, setStickyLang] = useState9("");
+  const startVoice = useCallback5(async () => {
+    setError(null);
+    setState("recording");
+    await voiceCapture.startRecording();
+    if (voiceCapture.state === "error" || voiceCapture.error) {
+      setError(voiceCapture.error ?? "Microphone unavailable");
+      setState("error");
+    }
+  }, [voiceCapture]);
+  const cancelVoice = useCallback5(() => {
+    voiceCapture.cancelRecording();
+    setError(null);
+    setState("idle");
+  }, [voiceCapture]);
+  const stopVoice = useCallback5(async () => {
+    if (!sessionId) {
+      setError("session not initialised");
+      setState("error");
+      return;
+    }
+    const result = await voiceCapture.stopRecording();
+    if (!result || result.blob.size === 0) {
+      setState("idle");
+      return;
+    }
+    setState("transcribing");
+    try {
+      const url = _buildVoiceUrl(bindings, sessionId);
+      const headers = {};
+      try {
+        const csrf = await bindings.getCsrfToken();
+        if (csrf) headers["X-CSRF-Token"] = csrf;
+      } catch {
+      }
+      if (bindings.authHeader) {
+        try {
+          const auth = await bindings.authHeader();
+          if (auth) headers.Authorization = auth;
+        } catch {
+        }
+      }
+      const form = new FormData();
+      const ext = result.mime_type.includes("mp4") ? "m4a" : result.mime_type.includes("ogg") ? "ogg" : "webm";
+      form.append("audio", result.blob, `clip.${ext}`);
+      if (stickyLang) {
+        form.append("language_hint", stickyLang);
+      }
+      const resp = await fetch(url, {
+        method: "POST",
+        credentials: "include",
+        headers,
+        body: form
+      });
+      if (!resp.ok) {
+        let detail = resp.statusText;
+        try {
+          const data = await resp.json();
+          if (data && typeof data.detail === "string") detail = data.detail;
+        } catch {
+        }
+        setError(`Voice transcription failed (${resp.status}): ${detail}`);
+        setState("error");
+        return;
+      }
+      const body = await resp.json();
+      const transcript = body.transcript ?? "";
+      const lang = body.lang ?? "";
+      if (lang) setStickyLang(lang);
+      onTranscript(transcript, lang);
+      setState("idle");
+    } catch (err) {
+      setError(String(err.message ?? err));
+      setState("error");
+    }
+  }, [bindings, sessionId, stickyLang, voiceCapture, onTranscript]);
+  return {
+    state,
+    duration_ms: voiceCapture.duration_ms,
+    error,
+    getAudioLevels: voiceCapture.getAudioLevels,
+    startVoice,
+    stopVoice,
+    cancelVoice
+  };
+}
+
 // src/chat/TicketDetail.tsx
-import { Fragment as Fragment5, jsx as jsx19, jsxs as jsxs14 } from "react/jsx-runtime";
+import { Fragment as Fragment6, jsx as jsx20, jsxs as jsxs15 } from "react/jsx-runtime";
 var _ADMIN_STATUSES = [
   "open",
   "in_review",
@@ -3126,16 +3353,32 @@ function TicketDetail({ feedbackId, onBack }) {
   const softDelete = useSoftDeleteTicketMutation();
   const adminSoftDelete = useAdminSoftDeleteTicketMutation();
   const adminHardDelete = useAdminHardDeleteTicketMutation();
-  const [hardDeleteOpen, setHardDeleteOpen] = useState9(false);
-  const [hardDeleteInput, setHardDeleteInput] = useState9("");
+  const [hardDeleteOpen, setHardDeleteOpen] = useState10(false);
+  const [hardDeleteInput, setHardDeleteInput] = useState10("");
   const uploadAttachment = useUploadChatAttachmentMutation();
   const stream = useChatRunStream({ bindings, sessionId: feedbackId });
+  const [composerValue, setComposerValue] = useState10("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState10(false);
+  const voice = useVoiceFlow({
+    bindings,
+    sessionId: feedbackId,
+    onTranscript: (text) => {
+      setComposerValue((prev) => prev ? `${prev} ${text}`.trim() : text);
+      setComposerAutoFocus(true);
+    }
+  });
+  useEffect8(() => {
+    if (composerAutoFocus) {
+      const t2 = window.setTimeout(() => setComposerAutoFocus(false), 50);
+      return () => window.clearTimeout(t2);
+    }
+  }, [composerAutoFocus]);
   const isAdmin = useCanTriageFeedback();
   const isOwner = !!(detail.data && currentUser && detail.data.user_id === currentUser.id);
   const isTerminal = detail.data ? _TERMINAL_STATUSES.has(detail.data.status) : false;
   const needsUserReply = !!(detail.data && detail.data.user_action_required && isOwner);
-  const hydratedRef = useRef5(null);
-  useEffect7(() => {
+  const hydratedRef = useRef6(null);
+  useEffect8(() => {
     if (!detail.data) return;
     const key = `${detail.data.id}::${detail.data.updated_at ?? ""}::${(detail.data.messages ?? []).length}`;
     if (hydratedRef.current === key) return;
@@ -3146,7 +3389,7 @@ function TicketDetail({ feedbackId, onBack }) {
     });
     hydratedRef.current = key;
   }, [detail.data?.id, detail.data?.updated_at, detail.data?.messages?.length]);
-  const [adminDraft, setAdminDraft] = useState9("");
+  const [adminDraft, setAdminDraft] = useState10("");
   const onSendAdmin = () => {
     const body = adminDraft.trim();
     if (!body) return;
@@ -3254,11 +3497,11 @@ function TicketDetail({ feedbackId, onBack }) {
       );
     }
   };
-  return /* @__PURE__ */ jsxs14("div", { className: "flex h-full flex-col gap-2 p-2", children: [
-    /* @__PURE__ */ jsxs14("div", { className: "flex flex-col gap-1 border-b border-input/40 pb-2", children: [
-      /* @__PURE__ */ jsxs14("div", { className: "flex items-center justify-between gap-2", children: [
-        detail.data ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center gap-2", children: [
-          detail.data.user_action_required ? /* @__PURE__ */ jsx19(
+  return /* @__PURE__ */ jsxs15("div", { className: "flex h-full flex-col", children: [
+    /* @__PURE__ */ jsxs15("div", { className: "flex flex-col gap-1 px-2 pt-2 pb-2 bg-card/50", children: [
+      /* @__PURE__ */ jsxs15("div", { className: "flex items-center justify-between gap-2", children: [
+        detail.data ? /* @__PURE__ */ jsxs15("div", { className: "flex items-center gap-2", children: [
+          detail.data.user_action_required ? /* @__PURE__ */ jsx20(
             "span",
             {
               className: "inline-flex h-2 w-2 rounded-full bg-amber-500",
@@ -3266,168 +3509,198 @@ function TicketDetail({ feedbackId, onBack }) {
               "aria-label": "Action required"
             }
           ) : null,
-          /* @__PURE__ */ jsx19(StatusPill, { status: detail.data.status })
-        ] }) : /* @__PURE__ */ jsx19("span", {}),
-        /* @__PURE__ */ jsx19(
-          "button",
-          {
-            type: "button",
-            onClick: onBack,
-            className: "text-xs text-muted-foreground hover:text-foreground",
-            "data-feedback-id": "feedback.ticket_detail.back",
-            children: "\u2190 Back"
-          }
-        )
+          /* @__PURE__ */ jsx20(StatusPill, { status: detail.data.status })
+        ] }) : /* @__PURE__ */ jsx20("span", {}),
+        /* @__PURE__ */ jsx20("div", { className: "flex items-center gap-1", children: isOwner ? /* @__PURE__ */ jsxs15(Fragment6, { children: [
+          /* @__PURE__ */ jsx20(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "icon",
+              onClick: onDownloadOwn,
+              title: "Download ZIP",
+              "aria-label": "Download ZIP",
+              className: "h-7 w-7 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground",
+              "data-feedback-id": "feedback.ticket_detail.download_mine",
+              children: /* @__PURE__ */ jsx20(Download, { className: "h-3.5 w-3.5" })
+            }
+          ),
+          /* @__PURE__ */ jsx20(
+            Button,
+            {
+              type: "button",
+              variant: "ghost",
+              size: "icon",
+              title: "Delete ticket",
+              "aria-label": "Delete ticket",
+              className: "h-7 w-7 rounded-md text-destructive hover:bg-destructive/10",
+              disabled: softDelete.isPending,
+              onClick: () => {
+                if (confirm(
+                  "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it."
+                )) {
+                  softDelete.mutate(
+                    { ticketId: feedbackId },
+                    { onSuccess: onBack }
+                  );
+                }
+              },
+              "data-feedback-id": "feedback.ticket_detail.delete_mine_inline",
+              children: /* @__PURE__ */ jsx20(Trash2, { className: "h-3.5 w-3.5" })
+            }
+          )
+        ] }) : null })
       ] }),
-      detail.data ? /* @__PURE__ */ jsxs14(Fragment5, { children: [
-        /* @__PURE__ */ jsxs14("div", { className: "flex flex-wrap items-center gap-2", children: [
-          /* @__PURE__ */ jsx19("code", { className: "font-mono text-[11px] text-muted-foreground", children: detail.data.ticket_code || "\u2014" }),
-          /* @__PURE__ */ jsx19("h2", { className: "truncate text-sm font-semibold text-foreground", children: detail.data.title ?? /* @__PURE__ */ jsx19("span", { className: "italic text-muted-foreground", children: "(no title yet)" }) })
+      detail.data ? /* @__PURE__ */ jsxs15(Fragment6, { children: [
+        /* @__PURE__ */ jsxs15("div", { className: "flex flex-wrap items-center gap-2", children: [
+          /* @__PURE__ */ jsx20("code", { className: "font-mono text-[11px] text-muted-foreground", children: detail.data.ticket_code || "\u2014" }),
+          /* @__PURE__ */ jsx20("h2", { className: "truncate text-sm font-semibold text-foreground", children: detail.data.title ?? /* @__PURE__ */ jsx20("span", { className: "italic text-muted-foreground", children: "(no title yet)" }) })
         ] }),
-        /* @__PURE__ */ jsxs14("div", { className: "flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground", children: [
-          /* @__PURE__ */ jsxs14("span", { className: "inline-flex items-center gap-1", children: [
-            /* @__PURE__ */ jsx19(User, { className: "h-3 w-3" }),
-            isOwner ? "You" : /* @__PURE__ */ jsx19("code", { className: "font-mono", children: _shortId2(detail.data.user_id) })
+        /* @__PURE__ */ jsxs15("div", { className: "flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground", children: [
+          /* @__PURE__ */ jsxs15("span", { className: "inline-flex items-center gap-1", children: [
+            /* @__PURE__ */ jsx20(User, { className: "h-3 w-3" }),
+            isOwner ? "You" : /* @__PURE__ */ jsx20("code", { className: "font-mono", children: _shortId2(detail.data.user_id) })
           ] }),
-          detail.data.created_at ? /* @__PURE__ */ jsxs14("span", { children: [
+          detail.data.created_at ? /* @__PURE__ */ jsxs15("span", { children: [
             "created ",
             _formatTs(detail.data.created_at)
           ] }) : null,
-          detail.data.last_admin_msg_at ? /* @__PURE__ */ jsxs14("span", { className: "text-primary", children: [
+          detail.data.last_admin_msg_at ? /* @__PURE__ */ jsxs15("span", { className: "text-primary", children: [
             "team replied ",
             _formatTs(detail.data.last_admin_msg_at)
           ] }) : null,
-          detail.data.type ? /* @__PURE__ */ jsxs14("span", { children: [
+          detail.data.type ? /* @__PURE__ */ jsxs15("span", { children: [
             "type: ",
             detail.data.type
           ] }) : null,
-          detail.data.severity ? /* @__PURE__ */ jsxs14("span", { children: [
+          detail.data.severity ? /* @__PURE__ */ jsxs15("span", { children: [
             "severity: ",
             detail.data.severity
           ] }) : null
         ] })
       ] }) : null
     ] }),
-    detail.isLoading ? /* @__PURE__ */ jsx19("p", { className: "p-4 text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx19("p", { className: "p-4 text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs14(Fragment5, { children: [
-      isAdmin ? /* @__PURE__ */ jsxs14(
-        "details",
-        {
-          className: "rounded-md border border-primary/30 bg-primary/5 p-2",
-          open: true,
-          children: [
-            /* @__PURE__ */ jsx19("summary", { className: "cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-primary", children: "Admin actions" }),
-            /* @__PURE__ */ jsxs14("div", { className: "mt-2 flex flex-col gap-2", children: [
-              /* @__PURE__ */ jsxs14("div", { className: "flex flex-wrap items-center gap-2", children: [
-                /* @__PURE__ */ jsxs14("label", { className: "flex items-center gap-1 text-xs", children: [
-                  /* @__PURE__ */ jsx19("span", { className: "text-muted-foreground", children: "Status" }),
-                  /* @__PURE__ */ jsx19(
-                    "select",
+    detail.isLoading ? /* @__PURE__ */ jsx20("p", { className: "p-4 text-sm text-muted-foreground", children: t("feedback.mine.loading") }) : detail.isError || !detail.data ? /* @__PURE__ */ jsx20("p", { className: "p-4 text-sm text-destructive", children: t("feedback.mine.error") }) : /* @__PURE__ */ jsxs15(Fragment6, { children: [
+      /* @__PURE__ */ jsxs15("div", { className: "flex flex-col gap-2 px-2 pt-2 pb-2 flex-1 min-h-0 overflow-y-auto", children: [
+        isAdmin ? /* @__PURE__ */ jsxs15(
+          "details",
+          {
+            className: "rounded-md bg-primary/10 p-2",
+            open: true,
+            children: [
+              /* @__PURE__ */ jsx20("summary", { className: "cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-primary", children: "Admin actions" }),
+              /* @__PURE__ */ jsxs15("div", { className: "mt-2 flex flex-col gap-2", children: [
+                /* @__PURE__ */ jsxs15("div", { className: "flex flex-wrap items-center gap-2", children: [
+                  /* @__PURE__ */ jsxs15("label", { className: "flex items-center gap-1 text-xs", children: [
+                    /* @__PURE__ */ jsx20("span", { className: "text-muted-foreground", children: "Status" }),
+                    /* @__PURE__ */ jsx20(
+                      "select",
+                      {
+                        value: detail.data.status,
+                        disabled: adminAction.isPending,
+                        onChange: (e) => onAdminStatusChange(e.target.value),
+                        "data-feedback-id": "feedback.ticket_detail.status_select",
+                        className: "rounded-md bg-secondary px-1.5 py-0.5 text-xs",
+                        children: _ADMIN_STATUSES.map((s) => /* @__PURE__ */ jsx20("option", { value: s, children: s }, s))
+                      }
+                    )
+                  ] }),
+                  /* @__PURE__ */ jsxs15(
+                    Button,
                     {
-                      value: detail.data.status,
-                      disabled: adminAction.isPending,
-                      onChange: (e) => onAdminStatusChange(e.target.value),
-                      "data-feedback-id": "feedback.ticket_detail.status_select",
-                      className: "rounded-md border border-input bg-background px-1.5 py-0.5 text-xs",
-                      children: _ADMIN_STATUSES.map((s) => /* @__PURE__ */ jsx19("option", { value: s, children: s }, s))
+                      type: "button",
+                      variant: "ghost",
+                      size: "sm",
+                      onClick: onDownloadAdmin,
+                      "data-feedback-id": "feedback.ticket_detail.download",
+                      children: [
+                        /* @__PURE__ */ jsx20(Download, { className: "h-3 w-3 mr-1" }),
+                        " ZIP"
+                      ]
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs15(
+                    Button,
+                    {
+                      type: "button",
+                      variant: "ghost",
+                      size: "sm",
+                      className: "text-destructive hover:bg-destructive/10",
+                      disabled: adminSoftDelete.isPending,
+                      onClick: () => {
+                        if (confirm("Soft-delete this ticket? (reversible via /restore)")) {
+                          adminSoftDelete.mutate(
+                            { ticketId: feedbackId },
+                            { onSuccess: onBack }
+                          );
+                        }
+                      },
+                      "data-feedback-id": "feedback.ticket_detail.delete",
+                      children: [
+                        /* @__PURE__ */ jsx20(Trash2, { className: "h-3 w-3 mr-1" }),
+                        " Soft delete"
+                      ]
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs15(
+                    Button,
+                    {
+                      type: "button",
+                      variant: "ghost",
+                      size: "sm",
+                      className: "text-destructive border border-destructive/40 hover:bg-destructive hover:text-destructive-foreground",
+                      onClick: () => {
+                        setHardDeleteInput("");
+                        setHardDeleteOpen(true);
+                      },
+                      "data-feedback-id": "feedback.ticket_detail.hard_delete",
+                      children: [
+                        /* @__PURE__ */ jsx20(Trash2, { className: "h-3 w-3 mr-1" }),
+                        " Hard delete"
+                      ]
                     }
                   )
                 ] }),
-                /* @__PURE__ */ jsxs14(
-                  Button,
+                /* @__PURE__ */ jsx20(
+                  Textarea,
                   {
-                    type: "button",
-                    variant: "ghost",
-                    size: "sm",
-                    onClick: onDownloadAdmin,
-                    "data-feedback-id": "feedback.ticket_detail.download",
-                    children: [
-                      /* @__PURE__ */ jsx19(Download, { className: "h-3 w-3 mr-1" }),
-                      " ZIP"
-                    ]
+                    value: adminDraft,
+                    onChange: (e) => setAdminDraft(e.target.value),
+                    placeholder: "Reply as admin \xB7 this lands inside the chat and the LLM sees it on the next user turn",
+                    rows: 2,
+                    maxLength: 5e3,
+                    disabled: adminAction.isPending,
+                    "data-feedback-id": "feedback.ticket_detail.admin_draft"
                   }
                 ),
-                /* @__PURE__ */ jsxs14(
+                /* @__PURE__ */ jsx20("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs15(
                   Button,
                   {
                     type: "button",
-                    variant: "ghost",
                     size: "sm",
-                    className: "text-destructive hover:bg-destructive/10",
-                    disabled: adminSoftDelete.isPending,
-                    onClick: () => {
-                      if (confirm("Soft-delete this ticket? (reversible via /restore)")) {
-                        adminSoftDelete.mutate(
-                          { ticketId: feedbackId },
-                          { onSuccess: onBack }
-                        );
-                      }
-                    },
-                    "data-feedback-id": "feedback.ticket_detail.delete",
+                    onClick: onSendAdmin,
+                    disabled: adminAction.isPending || adminDraft.trim().length === 0,
+                    "data-feedback-id": "feedback.ticket_detail.admin_send",
                     children: [
-                      /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-                      " Soft delete"
+                      /* @__PURE__ */ jsx20(Send, { className: "mr-1 h-3.5 w-3.5" }),
+                      adminAction.isPending ? t("feedback.comments.sending") : "Inject into chat"
                     ]
                   }
-                ),
-                /* @__PURE__ */ jsxs14(
-                  Button,
-                  {
-                    type: "button",
-                    variant: "ghost",
-                    size: "sm",
-                    className: "text-destructive border border-destructive/40 hover:bg-destructive hover:text-destructive-foreground",
-                    onClick: () => {
-                      setHardDeleteInput("");
-                      setHardDeleteOpen(true);
-                    },
-                    "data-feedback-id": "feedback.ticket_detail.hard_delete",
-                    children: [
-                      /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-                      " Hard delete"
-                    ]
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ jsx19(
-                Textarea,
-                {
-                  value: adminDraft,
-                  onChange: (e) => setAdminDraft(e.target.value),
-                  placeholder: "Reply as admin \xB7 this lands inside the chat and the LLM sees it on the next user turn",
-                  rows: 2,
-                  maxLength: 5e3,
-                  disabled: adminAction.isPending,
-                  "data-feedback-id": "feedback.ticket_detail.admin_draft"
-                }
-              ),
-              /* @__PURE__ */ jsx19("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs14(
-                Button,
-                {
-                  type: "button",
-                  size: "sm",
-                  onClick: onSendAdmin,
-                  disabled: adminAction.isPending || adminDraft.trim().length === 0,
-                  "data-feedback-id": "feedback.ticket_detail.admin_send",
-                  children: [
-                    /* @__PURE__ */ jsx19(Send, { className: "mr-1 h-3.5 w-3.5" }),
-                    adminAction.isPending ? t("feedback.comments.sending") : "Inject into chat"
-                  ]
-                }
-              ) })
-            ] })
-          ]
-        }
-      ) : null,
-      needsUserReply ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700", children: [
-        /* @__PURE__ */ jsx19(AlertTriangle, { className: "h-4 w-4 shrink-0" }),
-        /* @__PURE__ */ jsxs14("span", { children: [
-          /* @__PURE__ */ jsx19("span", { className: "font-semibold", children: "The team is waiting for your reply." }),
-          " ",
-          "Send a message below to continue the conversation."
-        ] })
-      ] }) : null,
-      /* @__PURE__ */ jsxs14("div", { className: "flex-1 min-h-0 overflow-y-auto", children: [
-        /* @__PURE__ */ jsx19(
+                ) })
+              ] })
+            ]
+          }
+        ) : null,
+        needsUserReply ? /* @__PURE__ */ jsxs15("div", { className: "flex items-center gap-2 rounded-md bg-amber-500/15 px-3 py-2 text-xs text-amber-700", children: [
+          /* @__PURE__ */ jsx20(AlertTriangle, { className: "h-4 w-4 shrink-0" }),
+          /* @__PURE__ */ jsxs15("span", { children: [
+            /* @__PURE__ */ jsx20("span", { className: "font-semibold", children: "The team is waiting for your reply." }),
+            " ",
+            "Send a message below to continue the conversation."
+          ] })
+        ] }) : null,
+        /* @__PURE__ */ jsx20(
           ChatTimeline,
           {
             messages: stream.messages,
@@ -3438,9 +3711,9 @@ function TicketDetail({ feedbackId, onBack }) {
             synthesisBusy
           }
         ),
-        stream.error ? /* @__PURE__ */ jsx19("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: stream.error }) : null
+        stream.error ? /* @__PURE__ */ jsx20("div", { className: "mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive", children: stream.error }) : null
       ] }),
-      /* @__PURE__ */ jsx19(
+      /* @__PURE__ */ jsx20(
         AttachmentTray,
         {
           sessionId: feedbackId,
@@ -3451,278 +3724,135 @@ function TicketDetail({ feedbackId, onBack }) {
           includeScreenshots: true
         }
       ),
-      isOwner ? /* @__PURE__ */ jsxs14("div", { className: "flex items-center justify-end gap-2", children: [
-        /* @__PURE__ */ jsxs14(
-          Button,
-          {
-            type: "button",
-            variant: "ghost",
-            size: "sm",
-            className: "text-destructive hover:bg-destructive/10",
-            disabled: softDelete.isPending,
-            onClick: () => {
-              if (confirm(
-                "Delete this ticket? It will be hidden from your list. Admins can restore or permanently delete it."
-              )) {
-                softDelete.mutate(
-                  { ticketId: feedbackId },
-                  { onSuccess: onBack }
-                );
-              }
-            },
-            "data-feedback-id": "feedback.ticket_detail.delete_mine_inline",
-            children: [
-              /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-              " Delete"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsxs14(
-          Button,
-          {
-            type: "button",
-            variant: "ghost",
-            size: "sm",
-            onClick: onDownloadOwn,
-            "data-feedback-id": "feedback.ticket_detail.download_mine",
-            children: [
-              /* @__PURE__ */ jsx19(Download, { className: "h-3 w-3 mr-1" }),
-              " Download ZIP"
-            ]
-          }
-        )
-      ] }) : null,
-      isOwner && !isTerminal ? /* @__PURE__ */ jsx19(
+      isOwner && !isTerminal ? voice.state === "recording" || voice.state === "transcribing" ? /* @__PURE__ */ jsx20(
+        VoiceRecorder,
+        {
+          state: voice.state === "transcribing" ? "transcribing" : "recording",
+          duration_ms: voice.duration_ms,
+          getAudioLevels: voice.getAudioLevels,
+          onStop: () => void voice.stopVoice(),
+          onCancel: voice.cancelVoice
+        }
+      ) : /* @__PURE__ */ jsx20(
         Composer,
         {
-          onSend: onSendUser,
+          onSend: async (content) => {
+            await onSendUser(content);
+            setComposerValue("");
+          },
           disabled: stream.state === "bot_thinking",
           placeholder: needsUserReply ? "Reply to the team's question\u2026" : "Continue the conversation\u2026",
           onAttachFiles,
-          attachDisabled: uploadAttachment.isPending
+          attachDisabled: uploadAttachment.isPending,
+          onVoiceToggle: () => void voice.startVoice(),
+          value: composerValue,
+          onValueChange: setComposerValue,
+          autoFocus: composerAutoFocus
         }
       ) : null,
-      isOwner && isTerminal ? /* @__PURE__ */ jsx19("div", { className: "flex items-center justify-end gap-2 border-t border-input/40 pt-2", children: /* @__PURE__ */ jsxs14("span", { className: "text-[10px] italic text-muted-foreground", children: [
+      voice.error ? /* @__PURE__ */ jsx20(
+        "p",
+        {
+          className: "mx-3 text-[10px] text-destructive",
+          "data-feedback-id": "feedback.ticket_detail.voice_error",
+          children: voice.error
+        }
+      ) : null,
+      isOwner && isTerminal ? /* @__PURE__ */ jsx20("div", { className: "flex items-center justify-end gap-2 pt-2", children: /* @__PURE__ */ jsxs15("span", { className: "text-[10px] italic text-muted-foreground", children: [
         "Ticket is ",
         detail.data.status,
         " \u2014 closed for replies."
       ] }) }) : null
     ] }),
-    hardDeleteOpen ? /* @__PURE__ */ jsx19(
-      "div",
-      {
-        className: "fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/70 p-4",
-        onClick: () => setHardDeleteOpen(false),
-        children: /* @__PURE__ */ jsxs14(
-          "div",
-          {
-            className: "w-full max-w-md rounded-lg border border-destructive/50 bg-card p-5 shadow-2xl",
-            onClick: (e) => e.stopPropagation(),
-            children: [
-              /* @__PURE__ */ jsx19("h3", { className: "text-sm font-bold text-destructive", children: "Permanently delete this ticket?" }),
-              /* @__PURE__ */ jsxs14("p", { className: "mt-2 text-xs text-muted-foreground", children: [
-                "This drops the ticket row + every S3 attachment + the chat history. ",
-                /* @__PURE__ */ jsx19("span", { className: "font-semibold", children: "Not reversible." }),
-                " ",
-                'Prefer "Soft delete" unless you are certain.'
-              ] }),
-              /* @__PURE__ */ jsxs14("p", { className: "mt-3 text-xs", children: [
-                "To confirm, type ",
-                /* @__PURE__ */ jsx19("code", { className: "rounded bg-muted px-1 py-0.5 font-mono text-xs", children: "DELETE" }),
-                " below:"
-              ] }),
-              /* @__PURE__ */ jsx19(
-                "input",
-                {
-                  type: "text",
-                  value: hardDeleteInput,
-                  onChange: (e) => setHardDeleteInput(e.target.value),
-                  autoFocus: true,
-                  className: "mt-2 w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-mono outline-none focus:border-destructive",
-                  placeholder: "DELETE",
-                  "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm_input"
-                }
-              ),
-              /* @__PURE__ */ jsxs14("div", { className: "mt-4 flex justify-end gap-2", children: [
-                /* @__PURE__ */ jsx19(
-                  Button,
+    hardDeleteOpen && typeof document !== "undefined" ? createPortal3(
+      /* @__PURE__ */ jsx20(
+        "div",
+        {
+          className: "rl3-feedback-scope dark fixed inset-0 z-[2147483600] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4",
+          onClick: () => setHardDeleteOpen(false),
+          children: /* @__PURE__ */ jsxs15(
+            "div",
+            {
+              className: "w-full max-w-md rounded-lg border border-destructive/50 bg-card p-5 shadow-2xl",
+              onClick: (e) => e.stopPropagation(),
+              children: [
+                /* @__PURE__ */ jsx20("h3", { className: "text-sm font-bold text-destructive", children: "Permanently delete this ticket?" }),
+                /* @__PURE__ */ jsxs15("p", { className: "mt-2 text-xs text-muted-foreground", children: [
+                  "This drops the ticket row + every S3 attachment + the chat history. ",
+                  /* @__PURE__ */ jsx20("span", { className: "font-semibold", children: "Not reversible." }),
+                  " ",
+                  'Prefer "Soft delete" unless you are certain.'
+                ] }),
+                /* @__PURE__ */ jsxs15("p", { className: "mt-3 text-xs", children: [
+                  "To confirm, type ",
+                  /* @__PURE__ */ jsx20("code", { className: "rounded bg-muted px-1 py-0.5 font-mono text-xs", children: "DELETE" }),
+                  " below:"
+                ] }),
+                /* @__PURE__ */ jsx20(
+                  "input",
                   {
-                    type: "button",
-                    variant: "ghost",
-                    size: "sm",
-                    onClick: () => setHardDeleteOpen(false),
-                    disabled: adminHardDelete.isPending,
-                    children: "Cancel"
+                    type: "text",
+                    value: hardDeleteInput,
+                    onChange: (e) => setHardDeleteInput(e.target.value),
+                    autoFocus: true,
+                    className: "mt-2 w-full rounded-md border border-input bg-background px-2 py-1 text-sm font-mono outline-none focus:border-destructive",
+                    placeholder: "DELETE",
+                    "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm_input"
                   }
                 ),
-                /* @__PURE__ */ jsxs14(
-                  Button,
-                  {
-                    type: "button",
-                    size: "sm",
-                    className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-                    disabled: hardDeleteInput !== "DELETE" || adminHardDelete.isPending,
-                    onClick: () => {
-                      adminHardDelete.mutate(
-                        { ticketId: feedbackId },
-                        {
-                          onSuccess: () => {
-                            setHardDeleteOpen(false);
-                            onBack();
-                          },
-                          onError: (err) => adapter.toast.error(
-                            err instanceof Error ? err.message : "Hard delete failed."
-                          )
-                        }
-                      );
-                    },
-                    "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm",
-                    children: [
-                      /* @__PURE__ */ jsx19(Trash2, { className: "h-3 w-3 mr-1" }),
-                      " Permanently delete"
-                    ]
-                  }
-                )
-              ] })
-            ]
-          }
-        )
-      }
+                /* @__PURE__ */ jsxs15("div", { className: "mt-4 flex justify-end gap-2", children: [
+                  /* @__PURE__ */ jsx20(
+                    Button,
+                    {
+                      type: "button",
+                      variant: "ghost",
+                      size: "sm",
+                      onClick: () => setHardDeleteOpen(false),
+                      disabled: adminHardDelete.isPending,
+                      children: "Cancel"
+                    }
+                  ),
+                  /* @__PURE__ */ jsxs15(
+                    Button,
+                    {
+                      type: "button",
+                      size: "sm",
+                      className: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                      disabled: hardDeleteInput !== "DELETE" || adminHardDelete.isPending,
+                      onClick: () => {
+                        adminHardDelete.mutate(
+                          { ticketId: feedbackId },
+                          {
+                            onSuccess: () => {
+                              setHardDeleteOpen(false);
+                              onBack();
+                            },
+                            onError: (err) => adapter.toast.error(
+                              err instanceof Error ? err.message : "Hard delete failed."
+                            )
+                          }
+                        );
+                      },
+                      "data-feedback-id": "feedback.ticket_detail.hard_delete_confirm",
+                      children: [
+                        /* @__PURE__ */ jsx20(Trash2, { className: "h-3 w-3 mr-1" }),
+                        " Permanently delete"
+                      ]
+                    }
+                  )
+                ] })
+              ]
+            }
+          )
+        }
+      ),
+      document.body
     ) : null
   ] });
 }
 
-// src/chat/VoiceRecorder.tsx
-import { Check as Check3, Loader2 as Loader22, X as X4 } from "lucide-react";
-import { useEffect as useEffect8, useRef as useRef6 } from "react";
-import { Fragment as Fragment6, jsx as jsx20, jsxs as jsxs15 } from "react/jsx-runtime";
-var _MAX_DURATION_MS2 = 6e4;
-var _BAR_MIN_PX = 3;
-var _BAR_MAX_PX = 26;
-function _formatMs(ms) {
-  const clamped = Math.max(0, Math.min(ms, _MAX_DURATION_MS2));
-  const seconds = Math.floor(clamped / 1e3);
-  const mm = String(Math.floor(seconds / 60)).padStart(2, "0");
-  const ss = String(seconds % 60).padStart(2, "0");
-  return `${mm}:${ss}`;
-}
-function _Waveform({
-  active,
-  getAudioLevels
-}) {
-  const barRefs = useRef6([]);
-  const rafRef = useRef6(null);
-  useEffect8(() => {
-    if (!active) {
-      if (rafRef.current !== null) {
-        window.cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      return;
-    }
-    const loop = () => {
-      const levels = getAudioLevels();
-      const bars = barRefs.current;
-      const last = bars.length - 1;
-      for (let i = 0; i < bars.length; i++) {
-        const bar = bars[i];
-        if (!bar) continue;
-        const level = levels[last - i] ?? 0;
-        const px = Math.max(
-          _BAR_MIN_PX,
-          Math.round(_BAR_MIN_PX + level * (_BAR_MAX_PX - _BAR_MIN_PX))
-        );
-        bar.style.height = `${px}px`;
-      }
-      rafRef.current = window.requestAnimationFrame(loop);
-    };
-    rafRef.current = window.requestAnimationFrame(loop);
-    return () => {
-      if (rafRef.current !== null) {
-        window.cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    };
-  }, [active, getAudioLevels]);
-  return /* @__PURE__ */ jsx20("div", { className: "flex flex-1 items-center justify-center gap-[2px] h-8 px-2", "aria-hidden": "true", children: Array.from({ length: AUDIO_LEVEL_BARS }).map((_, i) => /* @__PURE__ */ jsx20(
-    "span",
-    {
-      ref: (el) => {
-        barRefs.current[i] = el;
-      },
-      className: "w-[2px] rounded-full bg-foreground/80 transition-[height] duration-75",
-      style: { height: `${_BAR_MIN_PX}px` }
-    },
-    i
-  )) });
-}
-function VoiceRecorder({
-  state,
-  duration_ms,
-  getAudioLevels,
-  onStop,
-  onCancel
-}) {
-  if (state !== "recording" && state !== "stopping" && state !== "transcribing") return null;
-  const isRecording = state === "recording";
-  const isWorking = state === "stopping" || state === "transcribing";
-  const timer = _formatMs(duration_ms);
-  return /* @__PURE__ */ jsxs15(
-    "output",
-    {
-      "aria-live": "polite",
-      "aria-label": isRecording ? "Recording" : "Transcribing",
-      "data-feedback-id": "feedback.voice_recorder",
-      className: "flex items-center gap-2 border-t border-input bg-background px-3 py-3",
-      children: [
-        /* @__PURE__ */ jsx20(
-          Button,
-          {
-            type: "button",
-            variant: "ghost",
-            size: "sm",
-            onClick: onCancel,
-            disabled: isWorking,
-            "aria-label": "Discard recording",
-            "data-feedback-id": "feedback.voice_cancel",
-            className: "rounded-full",
-            children: /* @__PURE__ */ jsx20(X4, { className: "h-4 w-4" })
-          }
-        ),
-        /* @__PURE__ */ jsx20("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs15("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
-          /* @__PURE__ */ jsx20(Loader22, { className: "h-4 w-4 animate-spin" }),
-          /* @__PURE__ */ jsx20("span", { children: "Transcribing\u2026" })
-        ] }) : /* @__PURE__ */ jsxs15(Fragment6, { children: [
-          /* @__PURE__ */ jsx20(_Waveform, { active: isRecording, getAudioLevels }),
-          /* @__PURE__ */ jsx20(
-            "span",
-            {
-              className: "shrink-0 pr-1 text-[10px] tabular-nums text-muted-foreground",
-              "aria-hidden": "true",
-              children: timer
-            }
-          )
-        ] }) }),
-        /* @__PURE__ */ jsx20(
-          Button,
-          {
-            type: "button",
-            size: "sm",
-            onClick: onStop,
-            disabled: isWorking,
-            "aria-label": "Stop and send",
-            "data-feedback-id": "feedback.voice_stop",
-            className: "rounded-full",
-            children: /* @__PURE__ */ jsx20(Check3, { className: "h-4 w-4" })
-          }
-        )
-      ]
-    }
-  );
-}
-
 // src/chat/useFeedbackChat.ts
-import { useCallback as useCallback5, useEffect as useEffect9, useRef as useRef7, useState as useState10 } from "react";
+import { useCallback as useCallback6, useEffect as useEffect9, useRef as useRef7, useState as useState11 } from "react";
 
 // src/capture/diagnostics.ts
 var MAX_CONSOLE_ENTRIES = 20;
@@ -4010,7 +4140,7 @@ function _buildAbandonUrl(bindings, sessionId) {
   const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
   return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/abandon`;
 }
-function _buildVoiceUrl(bindings, sessionId) {
+function _buildVoiceUrl2(bindings, sessionId) {
   const base = bindings.apiBaseUrl.replace(/\/$/, "");
   const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
   return `${base}${prefix}/chat/sessions/${encodeURIComponent(sessionId)}/voice`;
@@ -4058,33 +4188,33 @@ function useFeedbackChat() {
   const bindings = useFeedbackBindings();
   const adapter = useFeedbackAdapter();
   const user = adapter.useCurrentUser();
-  const [sessionId, setSessionId] = useState10(null);
+  const [sessionId, setSessionId] = useState11(null);
   const stream = useChatRunStream({ bindings, sessionId });
-  const [overrideState, setOverrideState] = useState10(null);
-  const [openError, setOpenError] = useState10(null);
-  const [pageScreenshotBlob, setPageScreenshotBlob] = useState10(null);
-  const [screenshotBlob, setScreenshotBlob] = useState10(null);
-  const [screenshotCleared, setScreenshotCleared] = useState10(false);
+  const [overrideState, setOverrideState] = useState11(null);
+  const [openError, setOpenError] = useState11(null);
+  const [pageScreenshotBlob, setPageScreenshotBlob] = useState11(null);
+  const [screenshotBlob, setScreenshotBlob] = useState11(null);
+  const [screenshotCleared, setScreenshotCleared] = useState11(false);
   const openingRef = useRef7(false);
-  const [captureMode, setCaptureMode] = useState10("page");
-  const [lockedElement, setLockedElement] = useState10(null);
-  const [activeTab, setActiveTab] = useState10("compose");
+  const [captureMode, setCaptureMode] = useState11("page");
+  const [lockedElement, setLockedElement] = useState11(null);
+  const [activeTab, setActiveTab] = useState11("compose");
   const voiceCapture = useVoiceCapture();
-  const [voiceState, setVoiceState] = useState10("idle");
-  const [voiceTranscript, setVoiceTranscript] = useState10("");
-  const [voiceLang, setVoiceLang] = useState10("");
-  const [voiceError, setVoiceError] = useState10(null);
-  const [composerValue, setComposerValue] = useState10("");
-  const [composerAutoFocus, setComposerAutoFocus] = useState10(false);
+  const [voiceState, setVoiceState] = useState11("idle");
+  const [voiceTranscript, setVoiceTranscript] = useState11("");
+  const [voiceLang, setVoiceLang] = useState11("");
+  const [voiceError, setVoiceError] = useState11(null);
+  const [composerValue, setComposerValue] = useState11("");
+  const [composerAutoFocus, setComposerAutoFocus] = useState11(false);
   const composerFromVoiceRef = useRef7(false);
-  const setMode = useCallback5((mode) => {
+  const setMode = useCallback6((mode) => {
     setCaptureMode(mode);
   }, []);
-  const clearLocked = useCallback5(() => {
+  const clearLocked = useCallback6(() => {
     setLockedElement(null);
     setCaptureMode("page");
   }, []);
-  const acceptLocked = useCallback5((info) => {
+  const acceptLocked = useCallback6((info) => {
     let enriched = info;
     if (info.outer_html === void 0 && typeof document !== "undefined") {
       try {
@@ -4099,11 +4229,11 @@ function useFeedbackChat() {
     setLockedElement(enriched);
     setCaptureMode("element");
   }, []);
-  const selectTab = useCallback5((tab) => {
+  const selectTab = useCallback6((tab) => {
     setActiveTab(tab);
   }, []);
-  const GREETING_CAPTURE = "Tell me what's on your mind.";
-  const _createSessionLazily = useCallback5(async () => {
+  const GREETING_CAPTURE = "What would you like to change or improve?";
+  const _createSessionLazily = useCallback6(async () => {
     const auto_context = _buildAutoContext({
       appVersion: adapter.appVersion,
       gitSha: adapter.gitSha,
@@ -4140,7 +4270,7 @@ function useFeedbackChat() {
     setSessionId(body.session_id);
     return body.session_id;
   }, [adapter.appVersion, adapter.gitSha, bindings, user?.role, lockedElement]);
-  const openSheet = useCallback5(async () => {
+  const openSheet = useCallback6(async () => {
     if (openingRef.current) return;
     openingRef.current = true;
     installDiagnostics();
@@ -4170,7 +4300,7 @@ function useFeedbackChat() {
       openingRef.current = false;
     }
   }, [stream]);
-  const closeSheet = useCallback5(() => {
+  const closeSheet = useCallback6(() => {
     stream.reset();
     setSessionId(null);
     setOverrideState(null);
@@ -4186,7 +4316,7 @@ function useFeedbackChat() {
     setScreenshotCleared(false);
     openingRef.current = false;
   }, [stream]);
-  const clearScreenshot = useCallback5(() => {
+  const clearScreenshot = useCallback6(() => {
     setScreenshotBlob(null);
     setPageScreenshotBlob(null);
     setScreenshotCleared(true);
@@ -4206,7 +4336,7 @@ function useFeedbackChat() {
       cancelled = true;
     };
   }, [captureMode, lockedElement, pageScreenshotBlob, screenshotCleared]);
-  const sendUserMessage = useCallback5(
+  const sendUserMessage = useCallback6(
     async (content) => {
       const via = composerFromVoiceRef.current ? "voice" : "text";
       composerFromVoiceRef.current = false;
@@ -4241,7 +4371,7 @@ function useFeedbackChat() {
     },
     [stream, screenshotBlob, sessionId, _createSessionLazily]
   );
-  const confirmSynthesis = useCallback5(async () => {
+  const confirmSynthesis = useCallback6(async () => {
     if (!sessionId) {
       setOpenError("session not initialised");
       stream.setStateExternal("error");
@@ -4315,7 +4445,7 @@ function useFeedbackChat() {
       }
     }
   }, [bindings, stream, sessionId, adapter, screenshotBlob]);
-  const abandonSession = useCallback5(async () => {
+  const abandonSession = useCallback6(async () => {
     if (!sessionId) return;
     try {
       const url = _buildAbandonUrl(bindings, sessionId);
@@ -4346,7 +4476,7 @@ function useFeedbackChat() {
       }
     }
   }, [bindings, sessionId]);
-  const loadConversation = useCallback5(
+  const loadConversation = useCallback6(
     async (item) => {
       if (item.kind === "submitted") {
         const code = item.ticket_code ?? "\u2014";
@@ -4441,37 +4571,46 @@ function useFeedbackChat() {
     },
     [bindings, stream]
   );
-  const newConversation = useCallback5(async () => {
+  const newConversation = useCallback6(async () => {
     stream.reset();
     setSessionId(null);
     setOverrideState(null);
     setOpenError(null);
     await openSheet();
   }, [stream, openSheet]);
-  const adjustSynthesis = useCallback5(() => {
+  const adjustSynthesis = useCallback6(() => {
     stream.clearSynthesis();
     stream.pushAssistantMessage("\xBFQu\xE9 cambiar\xEDas del resumen?");
     stream.setStateExternal("awaiting_user");
   }, [stream]);
-  const startVoice = useCallback5(async () => {
+  const startVoice = useCallback6(async () => {
     setVoiceError(null);
     setVoiceTranscript("");
     setVoiceLang("");
+    try {
+      if (!sessionId) {
+        await _createSessionLazily();
+      }
+    } catch (err) {
+      setVoiceError(String(err.message ?? err));
+      setVoiceState("error");
+      return;
+    }
     setVoiceState("recording");
     await voiceCapture.startRecording();
     if (voiceCapture.state === "error" || voiceCapture.error) {
       setVoiceError(voiceCapture.error ?? "Microphone unavailable");
       setVoiceState("error");
     }
-  }, [voiceCapture]);
-  const cancelVoice = useCallback5(() => {
+  }, [voiceCapture, sessionId, _createSessionLazily]);
+  const cancelVoice = useCallback6(() => {
     voiceCapture.cancelRecording();
     setVoiceTranscript("");
     setVoiceLang("");
     setVoiceError(null);
     setVoiceState("idle");
   }, [voiceCapture]);
-  const stopVoice = useCallback5(async () => {
+  const stopVoice = useCallback6(async () => {
     if (!sessionId) {
       setVoiceError("session not initialised");
       setVoiceState("error");
@@ -4484,7 +4623,7 @@ function useFeedbackChat() {
     }
     setVoiceState("transcribing");
     try {
-      const url = _buildVoiceUrl(bindings, sessionId);
+      const url = _buildVoiceUrl2(bindings, sessionId);
       const headers = {};
       try {
         const csrf = await bindings.getCsrfToken();
@@ -4542,7 +4681,7 @@ function useFeedbackChat() {
       setVoiceState("error");
     }
   }, [bindings, sessionId, voiceCapture]);
-  const confirmVoiceTranscript = useCallback5(
+  const confirmVoiceTranscript = useCallback6(
     async (text) => {
       const trimmed = text.trim();
       if (!trimmed) {
@@ -4556,7 +4695,7 @@ function useFeedbackChat() {
     },
     [stream]
   );
-  const setComposerValueCb = useCallback5((next) => {
+  const setComposerValueCb = useCallback6((next) => {
     setComposerValue((current) => {
       if (next !== current) {
         composerFromVoiceRef.current = false;
@@ -4573,12 +4712,17 @@ function useFeedbackChat() {
   }, [composerAutoFocus]);
   const effectiveState = overrideState ?? stream.state;
   const effectiveError = openError ?? stream.error;
+  const ensureSession = useCallback6(async () => {
+    if (sessionId) return sessionId;
+    return await _createSessionLazily();
+  }, [sessionId, _createSessionLazily]);
   return {
     state: effectiveState,
     messages: stream.messages,
     partialText: stream.partial_text,
     synthesis: stream.synthesis,
     updateSynthesisMsg: stream.updateSynthesisMsg,
+    ensureSession,
     error: effectiveError,
     openSheet,
     closeSheet,
@@ -4681,9 +4825,10 @@ function FeedbackChatSheet({
     setComposerValue,
     composerAutoFocus,
     sessionId: activeSessionId,
-    updateSynthesisMsg
+    updateSynthesisMsg,
+    ensureSession
   } = chat;
-  const [selectedFeedbackId, setSelectedFeedbackId] = useState11(null);
+  const [selectedFeedbackId, setSelectedFeedbackId] = useState12(null);
   useEffect10(() => {
     if (activeTab !== "mine") setSelectedFeedbackId(null);
   }, [activeTab]);
@@ -4703,7 +4848,7 @@ function FeedbackChatSheet({
     const tid = window.setTimeout(() => onOpenChange(false), 3e3);
     return () => window.clearTimeout(tid);
   }, [state, onOpenChange]);
-  const handleOpenChange = useCallback6(
+  const handleOpenChange = useCallback7(
     (next) => {
       if (!next && state !== "done" && state !== "idle") {
         void abandonSession();
@@ -4713,7 +4858,7 @@ function FeedbackChatSheet({
     [state, abandonSession, onOpenChange]
   );
   const synthesisBusy = approveSynthesis.isPending || editSynthesis.isPending;
-  const onApproveSynthesis = useCallback6(
+  const onApproveSynthesis = useCallback7(
     async (ts) => {
       if (!activeSessionId) return;
       let screenshotB64 = null;
@@ -4752,7 +4897,7 @@ function FeedbackChatSheet({
       screenshotBlob
     ]
   );
-  const onEditSynthesis = useCallback6(
+  const onEditSynthesis = useCallback7(
     async (ts, patch) => {
       if (!activeSessionId) return;
       try {
@@ -4810,6 +4955,18 @@ function FeedbackChatSheet({
               onModeChange: setMode,
               compact: true
             }
+          ) : null,
+          activeTab === "mine" && selectedFeedbackId ? /* @__PURE__ */ jsx21(
+            "button",
+            {
+              type: "button",
+              onClick: () => setSelectedFeedbackId(null),
+              title: "Back to list",
+              "aria-label": "Back to list",
+              className: "shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-input bg-card text-foreground hover:bg-accent hover:text-accent-foreground transition",
+              "data-feedback-id": "feedback.ticket_detail.back_inline",
+              children: /* @__PURE__ */ jsx21(ArrowLeft, { className: "h-4 w-4" })
+            }
           ) : null
         ] }),
         activeTab === "compose" ? /* @__PURE__ */ jsxs16(Fragment7, { children: [
@@ -4853,10 +5010,21 @@ function FeedbackChatSheet({
               onSend: sendUserMessage,
               disabled: state === "bot_thinking",
               onVoiceToggle: () => void startVoice(),
-              onAttachFiles: activeSessionId ? (files) => {
+              onAttachFiles: async (files) => {
+                let sid = activeSessionId;
+                if (!sid) {
+                  try {
+                    sid = await ensureSession();
+                  } catch (err) {
+                    adapter.toast.error(
+                      err instanceof Error ? err.message : "Could not start session."
+                    );
+                    return;
+                  }
+                }
                 for (const f of files) {
                   uploadAttachment.mutate(
-                    { sessionId: activeSessionId, file: f },
+                    { sessionId: sid, file: f },
                     {
                       onError: (err) => {
                         adapter.toast.error(
@@ -4866,7 +5034,7 @@ function FeedbackChatSheet({
                     }
                   );
                 }
-              } : void 0,
+              },
               attachDisabled: uploadAttachment.isPending,
               value: composerValue,
               onValueChange: setComposerValue,
@@ -4917,4 +5085,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-Q47BSZRO.js.map
+//# sourceMappingURL=chunk-F24SWIVF.js.map

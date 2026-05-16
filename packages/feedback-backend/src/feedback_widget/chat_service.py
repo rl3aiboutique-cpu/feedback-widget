@@ -73,7 +73,7 @@ from feedback_widget.service import (
 from feedback_widget.settings import FeedbackSettings, get_settings
 from feedback_widget.storage import StorageBackend
 
-GREETING_CAPTURE = "Tell me what's on your mind."
+GREETING_CAPTURE = "What would you like to change or improve?"
 GREETING_REFINE = "Here's your ticket. What would you like to adjust?"
 
 

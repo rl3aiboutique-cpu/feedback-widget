@@ -24,6 +24,7 @@
  * is replaced by the Mis feedbacks tab + `<MineFeedTab>` (S3F).
  */
 
+import { ArrowLeft } from "lucide-react";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { useFeedbackAdapter } from "../FeedbackProvider";
@@ -144,6 +145,7 @@ export function FeedbackChatSheet({
     composerAutoFocus,
     sessionId: activeSessionId,
     updateSynthesisMsg,
+    ensureSession,
   } = chat;
 
   // S3E — when the user picks a row in Mis feedbacks, the right pane
@@ -328,6 +330,22 @@ export function FeedbackChatSheet({
               compact
             />
           ) : null}
+          {/* When a ticket detail is open, the Back button lives here
+              inline with the tabs (mirrors the CapturePicker slot in
+              compose) so the ticket view header stays clean and the
+              user has a single navigation anchor at the top. */}
+          {activeTab === "mine" && selectedFeedbackId ? (
+            <button
+              type="button"
+              onClick={() => setSelectedFeedbackId(null)}
+              title="Back to list"
+              aria-label="Back to list"
+              className="shrink-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-input bg-card text-foreground hover:bg-accent hover:text-accent-foreground transition"
+              data-feedback-id="feedback.ticket_detail.back_inline"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          ) : null}
         </div>
 
         {activeTab === "compose" ? (
@@ -374,26 +392,40 @@ export function FeedbackChatSheet({
                 onSend={sendUserMessage}
                 disabled={state === "bot_thinking"}
                 onVoiceToggle={() => void startVoice()}
-                onAttachFiles={
-                  activeSessionId
-                    ? (files) => {
-                        for (const f of files) {
-                          uploadAttachment.mutate(
-                            { sessionId: activeSessionId, file: f },
-                            {
-                              onError: (err) => {
-                                adapter.toast.error(
-                                  err instanceof Error
-                                    ? err.message
-                                    : "Could not upload the file.",
-                                );
-                              },
-                            },
+                onAttachFiles={async (files) => {
+                  // Lazy session: paperclip can fire BEFORE the user
+                  // sends the first message. Force-create the session
+                  // here so the upload has a target — without this
+                  // the paperclip would have to be hidden until turn 1
+                  // and the user would lose attachments-first UX.
+                  let sid = activeSessionId;
+                  if (!sid) {
+                    try {
+                      sid = await ensureSession();
+                    } catch (err) {
+                      adapter.toast.error(
+                        err instanceof Error
+                          ? err.message
+                          : "Could not start session.",
+                      );
+                      return;
+                    }
+                  }
+                  for (const f of files) {
+                    uploadAttachment.mutate(
+                      { sessionId: sid, file: f },
+                      {
+                        onError: (err) => {
+                          adapter.toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Could not upload the file.",
                           );
-                        }
-                      }
-                    : undefined
-                }
+                        },
+                      },
+                    );
+                  }
+                }}
                 attachDisabled={uploadAttachment.isPending}
                 value={composerValue}
                 onValueChange={setComposerValue}

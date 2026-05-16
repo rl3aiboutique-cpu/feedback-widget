@@ -79,6 +79,12 @@ export interface UseFeedbackChatResult {
   messages: ChatMessage[];
   partialText: string;
   synthesis: Synthesis | null;
+  /** Force-create the session if it doesn't exist yet (lazy creation
+   *  was deferred to first user message). Used by callers that need a
+   *  sessionId BEFORE the first message — e.g. the paperclip uploader,
+   *  which would otherwise be hidden on turn 0. Returns the resolved
+   *  sessionId or throws if creation fails. */
+  ensureSession: () => Promise<string>;
   /** Patch one synthesis bubble in the timeline without re-fetch.
    *  Used after the approve / edit mutations land server-side so the
    *  UI flips Confirmed / re-renders the edited body instantly. */
@@ -334,7 +340,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
    *  types something. Keeping the greeting hardcoded here lets the
    *  sheet feel instant. If the BE greeting ever changes, mirror it
    *  here. */
-  const GREETING_CAPTURE = "Tell me what's on your mind.";
+  const GREETING_CAPTURE = "What would you like to change or improve?";
 
   /** Lazy session creation. Called from ``sendUserMessage`` the first
    *  time the user actually sends content, so we never create empty
@@ -803,6 +809,19 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     setVoiceError(null);
     setVoiceTranscript("");
     setVoiceLang("");
+    // Lazy session: voice can be the first interaction (user records
+    // their feedback before typing anything). Create the session here
+    // so ``stopVoice`` has a target — without this the voice upload
+    // would 404 with "session not initialised".
+    try {
+      if (!sessionId) {
+        await _createSessionLazily();
+      }
+    } catch (err) {
+      setVoiceError(String((err as Error).message ?? err));
+      setVoiceState("error");
+      return;
+    }
     setVoiceState("recording");
     await voiceCapture.startRecording();
     // If start failed, the hook flips state=error; mirror it here so
@@ -811,7 +830,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
       setVoiceError(voiceCapture.error ?? "Microphone unavailable");
       setVoiceState("error");
     }
-  }, [voiceCapture]);
+  }, [voiceCapture, sessionId, _createSessionLazily]);
 
   const cancelVoice = useCallback(() => {
     voiceCapture.cancelRecording();
@@ -968,12 +987,18 @@ export function useFeedbackChat(): UseFeedbackChatResult {
   const effectiveState: ChatState = overrideState ?? stream.state;
   const effectiveError = openError ?? stream.error;
 
+  const ensureSession = useCallback(async (): Promise<string> => {
+    if (sessionId) return sessionId;
+    return await _createSessionLazily();
+  }, [sessionId, _createSessionLazily]);
+
   return {
     state: effectiveState,
     messages: stream.messages,
     partialText: stream.partial_text,
     synthesis: stream.synthesis,
     updateSynthesisMsg: stream.updateSynthesisMsg,
+    ensureSession,
     error: effectiveError,
     openSheet,
     closeSheet,

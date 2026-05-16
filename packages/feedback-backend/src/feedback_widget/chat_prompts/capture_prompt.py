@@ -340,7 +340,7 @@ you MAY synthesize. If ANY remain → next turn targets the gap.
 
 # First turn
 
-"Tell me what's on your mind." (in {LANGUAGE}, no questions yet)
+"What would you like to change or improve?" (in {LANGUAGE}, no questions yet)
 """
 
 # Tag persisted on each call row so admins can correlate behaviour
