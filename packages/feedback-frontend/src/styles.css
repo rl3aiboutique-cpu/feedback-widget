@@ -139,44 +139,47 @@
        we are protecting the widget's design system. */
     --background: 0 0% 0% !important;
     --foreground: 0 0% 98% !important;
-    --card: 0 0% 6% !important;
+    --card: 0 0% 7% !important;
     --card-foreground: 0 0% 98% !important;
-    --popover: 0 0% 6% !important;
+    --popover: 0 0% 7% !important;
     --popover-foreground: 0 0% 98% !important;
     --primary: 42 32% 64% !important;
     --primary-foreground: 0 0% 8% !important;
-    --secondary: 0 0% 12% !important;
+    --secondary: 0 0% 14% !important;
     --secondary-foreground: 0 0% 95% !important;
-    --muted: 0 0% 10% !important;
-    --muted-foreground: 0 0% 60% !important;
+    --muted: 0 0% 12% !important;
+    --muted-foreground: 0 0% 65% !important;
     --accent: 42 32% 64% !important;
     --accent-foreground: 0 0% 8% !important;
     --destructive: 0 70% 55% !important;
     --destructive-foreground: 0 0% 98% !important;
-    --border: 0 0% 15% !important;
-    --input: 0 0% 15% !important;
+    --border: 0 0% 20% !important;
+    --input: 0 0% 22% !important;
     --ring: 42 32% 64% !important;
     --radius: 0.5rem !important;
 
-    /* Tailwind 4 colour namespace — fully computed, host-immune. */
+    /* Tailwind 4 colour namespace — fully computed, host-immune.
+       Elevation steps tuned for pure-black background: each surface
+       layer steps up ~6-8% lightness so inputs / cards / pills are
+       visibly distinct without resorting to outlines. */
     --color-background: hsl(0 0% 0%) !important;
     --color-foreground: hsl(0 0% 98%) !important;
-    --color-card: hsl(0 0% 6%) !important;
+    --color-card: hsl(0 0% 7%) !important;
     --color-card-foreground: hsl(0 0% 98%) !important;
-    --color-popover: hsl(0 0% 6%) !important;
+    --color-popover: hsl(0 0% 7%) !important;
     --color-popover-foreground: hsl(0 0% 98%) !important;
     --color-primary: hsl(42 32% 64%) !important;
     --color-primary-foreground: hsl(0 0% 8%) !important;
-    --color-secondary: hsl(0 0% 12%) !important;
+    --color-secondary: hsl(0 0% 14%) !important;
     --color-secondary-foreground: hsl(0 0% 95%) !important;
-    --color-muted: hsl(0 0% 10%) !important;
-    --color-muted-foreground: hsl(0 0% 60%) !important;
+    --color-muted: hsl(0 0% 12%) !important;
+    --color-muted-foreground: hsl(0 0% 65%) !important;
     --color-accent: hsl(42 32% 64%) !important;
     --color-accent-foreground: hsl(0 0% 8%) !important;
     --color-destructive: hsl(0 70% 55%) !important;
     --color-destructive-foreground: hsl(0 0% 98%) !important;
-    --color-border: hsl(0 0% 15%) !important;
-    --color-input: hsl(0 0% 15%) !important;
+    --color-border: hsl(0 0% 20%) !important;
+    --color-input: hsl(0 0% 22%) !important;
     --color-ring: hsl(42 32% 64%) !important;
 
     /* Reset host typography that would otherwise leak into the

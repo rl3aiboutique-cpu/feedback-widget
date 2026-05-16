@@ -178,7 +178,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             }}
             placeholder="Search title or code…"
             data-feedback-id="feedback.tickets.search"
-            className="w-full rounded-md border border-input bg-background pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className="w-full rounded-md border border-input bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
         <select
@@ -188,7 +188,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             setPage(1);
           }}
           data-feedback-id="feedback.tickets.status_filter"
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+          className="rounded-md border border-input bg-secondary px-2 py-1 text-xs"
         >
           <option value="">All statuses</option>
           {_STATUS_OPTIONS.map((s) => (
@@ -204,7 +204,7 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
             setPage(1);
           }}
           data-feedback-id="feedback.tickets.type_filter"
-          className="rounded-md border border-input bg-background px-2 py-1 text-xs"
+          className="rounded-md border border-input bg-secondary px-2 py-1 text-xs"
         >
           <option value="">All types</option>
           {_TYPE_OPTIONS.map((tp) => (

@@ -1408,7 +1408,7 @@ function Input({ className, type, ...props }) {
       type,
       "data-slot": "input",
       className: cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input h-9 w-full min-w-0 rounded-md border bg-secondary px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
@@ -1426,7 +1426,7 @@ function Textarea({ className, ...props }) {
     {
       "data-slot": "textarea",
       className: cn(
-        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+        "placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground border-input min-h-16 w-full rounded-md border bg-secondary px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
         "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
         "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
         className
@@ -2614,7 +2614,7 @@ function MineFeedTab({ onSelectFeedback }) {
             },
             placeholder: "Search title or code\u2026",
             "data-feedback-id": "feedback.tickets.search",
-            className: "w-full rounded-md border border-input bg-background pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+            className: "w-full rounded-md border border-input bg-secondary pl-7 pr-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
           }
         )
       ] }),
@@ -2627,7 +2627,7 @@ function MineFeedTab({ onSelectFeedback }) {
             setPage(1);
           },
           "data-feedback-id": "feedback.tickets.status_filter",
-          className: "rounded-md border border-input bg-background px-2 py-1 text-xs",
+          className: "rounded-md border border-input bg-secondary px-2 py-1 text-xs",
           children: [
             /* @__PURE__ */ jsx18("option", { value: "", children: "All statuses" }),
             _STATUS_OPTIONS.map((s) => /* @__PURE__ */ jsx18("option", { value: s, children: s }, s))
@@ -2643,7 +2643,7 @@ function MineFeedTab({ onSelectFeedback }) {
             setPage(1);
           },
           "data-feedback-id": "feedback.tickets.type_filter",
-          className: "rounded-md border border-input bg-background px-2 py-1 text-xs",
+          className: "rounded-md border border-input bg-secondary px-2 py-1 text-xs",
           children: [
             /* @__PURE__ */ jsx18("option", { value: "", children: "All types" }),
             _TYPE_OPTIONS.map((tp) => /* @__PURE__ */ jsx18("option", { value: tp, children: tp }, tp))
@@ -4721,7 +4721,7 @@ function FeedbackChatSheet({
       widthPx: resize.width,
       isDragging: resize.isDragging,
       onResizeStart: resize.isMobile ? void 0 : resize.startResize,
-      className: "rl3-feedback-scope flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0",
+      className: "rl3-feedback-scope dark flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0",
       "data-feedback-widget-root": "true",
       children: [
         /* @__PURE__ */ jsxs16(SheetHeader, { className: "border-b border-input/60 px-4 pt-4 pb-3", children: [
@@ -4858,4 +4858,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-4ZIN3HD2.js.map
+//# sourceMappingURL=chunk-KSEMRYQ4.js.map

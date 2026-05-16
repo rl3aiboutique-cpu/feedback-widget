@@ -20,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-4ZIN3HD2.js";
+} from "./chunk-KSEMRYQ4.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -371,7 +371,7 @@ function ElementSelector({ onLock, onCancel }) {
 // src/FeedbackButton.tsx
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-A5PKVWGX.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-NTH5A5ZA.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -425,51 +425,58 @@ function FeedbackButton() {
   const accentStyle = config.brandPrimaryHex ? { "--feedback-brand": config.brandPrimaryHex } : void 0;
   const sheetActuallyOpen = open && !pickerActive;
   const launcherHidden = sheetActuallyOpen;
-  return /* @__PURE__ */ jsxs2("div", { "data-feedback-widget-root": "true", className: "rl3-feedback-scope", children: [
-    launcherHidden ? null : /* @__PURE__ */ jsxs2(
-      "button",
-      {
-        type: "button",
-        onClick: () => setOpen(true),
-        "aria-label": t("feedback.open_button"),
-        title: pendingCount > 0 ? t("feedback.open_button_with_pending", {
-          count: String(pendingCount)
-        }) : t("feedback.open_button"),
-        "data-feedback-id": "feedback.open_button",
-        className: `fixed z-[2147483640] flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5 shadow-lg
+  return /* @__PURE__ */ jsxs2(
+    "div",
+    {
+      "data-feedback-widget-root": "true",
+      className: "rl3-feedback-scope dark",
+      children: [
+        launcherHidden ? null : /* @__PURE__ */ jsxs2(
+          "button",
+          {
+            type: "button",
+            onClick: () => setOpen(true),
+            "aria-label": t("feedback.open_button"),
+            title: pendingCount > 0 ? t("feedback.open_button_with_pending", {
+              count: String(pendingCount)
+            }) : t("feedback.open_button"),
+            "data-feedback-id": "feedback.open_button",
+            className: `fixed z-[2147483640] flex items-center gap-2 rounded-full pl-2 pr-4 py-1.5 shadow-lg
                     bg-background border border-input text-foreground hover:bg-accent
                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
                     focus-visible:ring-offset-2 transition-all hover:scale-[1.02] hover:shadow-xl
                     ${cornerClass}`,
-        style: accentStyle,
-        children: [
-          /* @__PURE__ */ jsxs2("span", { className: "relative", children: [
-            /* @__PURE__ */ jsx2(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
-            pendingCount > 0 ? /* @__PURE__ */ jsx2(
-              "span",
-              {
-                "aria-hidden": "true",
-                className: "absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground ring-2 ring-background",
-                children: pendingCount > 9 ? "9+" : pendingCount
-              }
-            ) : null
-          ] }),
-          /* @__PURE__ */ jsx2("span", { className: "text-sm font-semibold", children: t("feedback.button_label") })
-        ]
-      }
-    ),
-    open || pickerActive ? /* @__PURE__ */ jsx2(Suspense, { fallback: null, children: /* @__PURE__ */ jsx2(
-      FeedbackChatSheetLazy,
-      {
-        open: open && !pickerActive,
-        onOpenChange: setOpen,
-        locked: locked?.info ?? null,
-        onActivatePicker: handleActivatePicker,
-        onClearLocked: handleClearLocked
-      }
-    ) }) : null,
-    pickerActive ? /* @__PURE__ */ jsx2(ElementSelector, { onLock: handlePickerLock, onCancel: handlePickerCancel }) : null
-  ] });
+            style: accentStyle,
+            children: [
+              /* @__PURE__ */ jsxs2("span", { className: "relative", children: [
+                /* @__PURE__ */ jsx2(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
+                pendingCount > 0 ? /* @__PURE__ */ jsx2(
+                  "span",
+                  {
+                    "aria-hidden": "true",
+                    className: "absolute -top-1 -right-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold text-destructive-foreground ring-2 ring-background",
+                    children: pendingCount > 9 ? "9+" : pendingCount
+                  }
+                ) : null
+              ] }),
+              /* @__PURE__ */ jsx2("span", { className: "text-sm font-semibold", children: t("feedback.button_label") })
+            ]
+          }
+        ),
+        open || pickerActive ? /* @__PURE__ */ jsx2(Suspense, { fallback: null, children: /* @__PURE__ */ jsx2(
+          FeedbackChatSheetLazy,
+          {
+            open: open && !pickerActive,
+            onOpenChange: setOpen,
+            locked: locked?.info ?? null,
+            onActivatePicker: handleActivatePicker,
+            onClearLocked: handleClearLocked
+          }
+        ) }) : null,
+        pickerActive ? /* @__PURE__ */ jsx2(ElementSelector, { onLock: handlePickerLock, onCancel: handlePickerCancel }) : null
+      ]
+    }
+  );
 }
 var FeedbackButton_default = FeedbackButton;
 
