@@ -108,16 +108,28 @@
   }
 
   /* ── Theme isolation scope ─────────────────────────────────────────
-     Hosts redefine `--primary`, `--card`, `--background`, etc. at
-     :root. Without this scope the widget would inherit the host's
-     palette (so a CRM using oklch cyan would tint every widget
-     button cyan). Wrap the FAB + every sheet/portal under this class
-     and the shadcn tokens resolve to the widget's design system
-     regardless of what the host theme says. The values mirror the
-     ``.dark`` block above — the widget ships dark-mode-only for v1. */
-  .rl3-feedback-scope,
-  .rl3-feedback-scope.dark,
-  .dark .rl3-feedback-scope {
+     Hosts redefine ``--primary``, ``--card``, ``--background``, etc.
+     at :root AND remap Tailwind's ``--color-*`` tokens via their own
+     ``@theme inline`` blocks. When CBP (oklch palette) does
+     ``--color-background: var(--background)`` without the ``hsl()``
+     wrapper, the widget's ``bg-background`` utility resolves to a
+     raw HSL triplet ("222 84% 4.9%") which is an invalid colour —
+     the sheet renders transparent and host charts bleed through.
+
+     Fix: inside the scope we redefine BOTH the source tokens
+     (``--primary`` etc., kept for any consumer that still chains
+     through ``hsl(var(--primary))``) AND the Tailwind colour
+     namespace (``--color-primary`` etc.) with the FULLY computed
+     ``hsl(...)`` expression. This bypasses any host @theme remap
+     and gives the widget a self-contained palette wherever it is
+     mounted. Values mirror the ``.dark`` block above — the widget
+     ships dark-mode-only for v1.
+
+     Specificity bump: ``html .rl3-feedback-scope`` beats the
+     unscoped ``:root`` selectors hosts often layer on top. */
+  html .rl3-feedback-scope,
+  html .rl3-feedback-scope.dark,
+  html .dark .rl3-feedback-scope {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -138,11 +150,36 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
     --radius: 0.5rem;
+
+    /* Tailwind 4 colour namespace — fully computed, host-immune. */
+    --color-background: hsl(222.2 84% 4.9%);
+    --color-foreground: hsl(210 40% 98%);
+    --color-card: hsl(222.2 84% 4.9%);
+    --color-card-foreground: hsl(210 40% 98%);
+    --color-popover: hsl(222.2 84% 4.9%);
+    --color-popover-foreground: hsl(210 40% 98%);
+    --color-primary: hsl(210 40% 98%);
+    --color-primary-foreground: hsl(222.2 47.4% 11.2%);
+    --color-secondary: hsl(217.2 32.6% 17.5%);
+    --color-secondary-foreground: hsl(210 40% 98%);
+    --color-muted: hsl(217.2 32.6% 17.5%);
+    --color-muted-foreground: hsl(215 20.2% 65.1%);
+    --color-accent: hsl(217.2 32.6% 17.5%);
+    --color-accent-foreground: hsl(210 40% 98%);
+    --color-destructive: hsl(0 62.8% 30.6%);
+    --color-destructive-foreground: hsl(210 40% 98%);
+    --color-border: hsl(217.2 32.6% 17.5%);
+    --color-input: hsl(217.2 32.6% 17.5%);
+    --color-ring: hsl(212.7 26.8% 83.9%);
+
     /* Reset host typography that would otherwise leak into the
        widget sheet (e.g. Inter from CBP overriding system stack). */
     font-family:
       ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
       "Helvetica Neue", Arial, sans-serif;
-    color: hsl(var(--foreground));
+    color: hsl(210 40% 98%);
+    /* Ensure the sheet itself has a solid backdrop even if a host
+       resets ``bg-background`` to transparent via specificity. */
+    background-color: hsl(222.2 84% 4.9%);
   }
 }
