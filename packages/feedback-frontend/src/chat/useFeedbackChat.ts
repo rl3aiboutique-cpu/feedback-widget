@@ -79,6 +79,13 @@ export interface UseFeedbackChatResult {
   messages: ChatMessage[];
   partialText: string;
   synthesis: Synthesis | null;
+  /** Patch one synthesis bubble in the timeline without re-fetch.
+   *  Used after the approve / edit mutations land server-side so the
+   *  UI flips Confirmed / re-renders the edited body instantly. */
+  updateSynthesisMsg: (
+    ts: string,
+    patch: { confirmed?: boolean; synthesis?: Synthesis },
+  ) => void;
   error: string | null;
   /** Open the sheet → screenshot → create session → seed greeting. */
   openSheet: () => Promise<void>;
@@ -159,6 +166,9 @@ export interface UseFeedbackChatResult {
    * into `composerValue` — the sheet forwards this as `autoFocus` so
    * the textarea receives focus + caret-at-end. */
   composerAutoFocus: boolean;
+  /** Active ticket / chat-session id once openSheet succeeded.
+   *  Exposed so the Composer can attach files via the S9 endpoint. */
+  sessionId: string | null;
 }
 
 function _buildAutoContext(args: {
@@ -457,9 +467,26 @@ export function useFeedbackChat(): UseFeedbackChatResult {
       const via = composerFromVoiceRef.current ? "voice" : "text";
       composerFromVoiceRef.current = false;
       setComposerValue("");
-      await stream.sendMessage(content, via);
+      // Strategy A — ship the latest captured screenshot inline on
+      // every turn so the multimodal LLM sees what the user is
+      // looking at right now. Re-encode the blob to base64 here;
+      // the chat-router decodes + re-encodes for the OpenAI/Gemini
+      // multimodal block. ``screenshotBlob`` may be null (capture
+      // failed or user cleared it) — the router falls back to
+      // ticket-side attachments in that case.
+      let screenshotB64: string | null = null;
+      let screenshotCt: string | null = null;
+      if (screenshotBlob) {
+        try {
+          screenshotB64 = await _blobToBase64(screenshotBlob);
+          screenshotCt = screenshotBlob.type || "image/png";
+        } catch {
+          screenshotB64 = null;
+        }
+      }
+      await stream.sendMessage(content, via, screenshotB64, screenshotCt);
     },
-    [stream],
+    [stream, screenshotBlob],
   );
 
   const confirmSynthesis = useCallback(async () => {
@@ -649,10 +676,28 @@ export function useFeedbackChat(): UseFeedbackChatResult {
         };
 
         // Map server-side messages (ts = ISO string) to the frontend's
-        // ChatMessage shape (ts = epoch ms). Filter to known roles only.
+        // ChatMessage shape. ``role: "synthesis"`` keeps the ts as the
+        // ISO string so approve/edit endpoints address the right msg.
         const messages: ChatMessage[] = [];
         for (const m of body.messages ?? []) {
-          const role = m.role === "user" || m.role === "assistant" ? m.role : null;
+          if (m.role === "synthesis") {
+            const synth = m.synthesis;
+            if (!synth || typeof synth !== "object") continue;
+            const tsStr =
+              typeof m.ts === "string" ? m.ts : new Date().toISOString();
+            messages.push({
+              role: "synthesis",
+              text: "",
+              ts: tsStr,
+              synthesis: synth as ChatMessage["synthesis"],
+              confirmed: m.confirmed === true,
+            });
+            continue;
+          }
+          const role =
+            m.role === "user" || m.role === "assistant" || m.role === "admin"
+              ? m.role
+              : null;
           if (!role) continue;
           const text = typeof m.text === "string" ? m.text : "";
           const ts = typeof m.ts === "string" ? Date.parse(m.ts) || Date.now() : Date.now();
@@ -887,6 +932,7 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     messages: stream.messages,
     partialText: stream.partial_text,
     synthesis: stream.synthesis,
+    updateSynthesisMsg: stream.updateSynthesisMsg,
     error: effectiveError,
     openSheet,
     closeSheet,
@@ -918,5 +964,9 @@ export function useFeedbackChat(): UseFeedbackChatResult {
     composerValue,
     setComposerValue: setComposerValueCb,
     composerAutoFocus,
+    /** Active ticket / chat-session id once openSheet succeeded.
+     *  Null before the first turn lands. Exposed so the Composer can
+     *  attach files to it via the S9 upload endpoint. */
+    sessionId,
   };
 }

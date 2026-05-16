@@ -44,7 +44,7 @@ export function FooterActions({
           ) : (
             <RotateCcw className="h-4 w-4 mr-1" />
           )}
-          ↺ Sigamos iterando
+          Keep iterating
         </Button>
         <Button
           type="button"
@@ -59,7 +59,7 @@ export function FooterActions({
           ) : (
             <Check className="h-4 w-4 mr-1" />
           )}
-          ✓ Confirmar
+          Confirm
         </Button>
       </div>
     );

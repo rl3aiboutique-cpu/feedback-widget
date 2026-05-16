@@ -22,6 +22,10 @@ export interface CapturePickerProps {
   onModeChange: (mode: CaptureMode) => void;
   /** When `true`, the picker is in read-only "badge" mode (after the chat has started). */
   readOnly?: boolean;
+  /** When `true`, render as icon-only buttons (28×28) so the picker
+   *  fits inline next to the tabs in a single header row. Tooltips
+   *  preserve the discoverability of each mode. */
+  compact?: boolean;
 }
 
 export function CapturePicker({
@@ -31,6 +35,7 @@ export function CapturePicker({
   onClearLocked,
   onModeChange,
   readOnly = false,
+  compact = false,
 }: CapturePickerProps): ReactElement {
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
@@ -54,11 +59,63 @@ export function CapturePicker({
     );
   }
 
+  // Compact form (icon-only) used inline next to the tabs row.
+  if (compact) {
+    const wholeActive = mode === "page";
+    const elementActive = mode === "element";
+    const baseBtn =
+      "inline-flex h-7 w-7 items-center justify-center rounded-full transition";
+    return (
+      <div
+        className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-input/60 bg-muted/30 p-0.5"
+        role="group"
+        aria-label="Capture mode"
+      >
+        <button
+          type="button"
+          onClick={() => {
+            onModeChange("page");
+            onClearLocked();
+          }}
+          aria-pressed={wholeActive}
+          aria-label={t("feedback.mode_whole_page")}
+          title={t("feedback.mode_whole_page")}
+          data-feedback-id="feedback.mode_whole_page"
+          className={[
+            baseBtn,
+            wholeActive
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          <ImageIcon className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={onActivatePicker}
+          aria-pressed={elementActive}
+          aria-label={t("feedback.mode_select_element")}
+          title={t("feedback.mode_select_element")}
+          data-feedback-id="feedback.mode_select_element"
+          className={[
+            baseBtn,
+            elementActive
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          ].join(" ")}
+        >
+          <MousePointer2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  // Minimalist redesign 2026-05-16 — dropped the "CAPTURE" uppercase
+  // label; the toggle pill plus the icons make the mode obvious and
+  // the label was eating ~50px of vertical chrome for zero
+  // information.
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {t("feedback.mode_label")}
-      </span>
       <div className="inline-flex items-center rounded-full border border-input/60 bg-muted/30 p-0.5">
         <button
           type="button"
@@ -67,6 +124,7 @@ export function CapturePicker({
             onClearLocked();
           }}
           data-feedback-id="feedback.mode_whole_page"
+          aria-label={t("feedback.mode_whole_page")}
           className={[
             "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition",
             mode === "page"
@@ -81,6 +139,7 @@ export function CapturePicker({
           type="button"
           onClick={onActivatePicker}
           data-feedback-id="feedback.mode_select_element"
+          aria-label={t("feedback.mode_select_element")}
           className={[
             "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition",
             mode === "element"

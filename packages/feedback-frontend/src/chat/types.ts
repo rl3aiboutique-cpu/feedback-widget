@@ -72,15 +72,33 @@ export interface ChatTurn {
   synthesis: Synthesis | null;
 }
 
-/** Rendered chat history entry. User messages have no parsed fields. */
+/** Rendered chat history entry. User messages have no parsed fields.
+ *  Admin entries land here via the /admin-action endpoint and render
+ *  with the dedicated admin bubble variant. ``role: "synthesis"`` carries
+ *  a Synthesis payload + confirmed flag — every iteration of the spec
+ *  card lives in the timeline so the user can compare versions; only
+ *  one ends up confirmed (one-winner invariant enforced server-side). */
 export interface ChatMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "admin" | "synthesis";
+  /** Empty for synthesis bubbles — the SynthesisCard renders the body
+   *  from ``synthesis``. Kept on the type so non-synthesis bubbles
+   *  remain unchanged. */
   text: string;
-  ts: number;
+  /** Number for legacy in-memory rows (Date.now); ISO string when the
+   *  row was hydrated from the server. The component layer compares
+   *  by string equality, so both forms coexist. */
+  ts: number | string;
   mode?: "discover" | "synthesize";
   covered?: ChatCovered;
   active_branch?: string;
   inferred?: ChatInferred | null;
+  /** Present on ``role: "synthesis"`` only — the spec payload to
+   *  render inside the timeline bubble. */
+  synthesis?: Synthesis;
+  /** Present on ``role: "synthesis"`` only — true when this version
+   *  has been approved as the winning spec. UI locks Approve on the
+   *  remaining versions once any one is confirmed. */
+  confirmed?: boolean;
 }
 
 /**

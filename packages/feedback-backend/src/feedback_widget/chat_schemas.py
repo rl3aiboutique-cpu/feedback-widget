@@ -57,10 +57,20 @@ class CreateChatSessionResponse(BaseModel):
 
 
 class ChatMessageRequest(BaseModel):
-    """One user-authored chat turn. Streamed back as SSE events."""
+    """One user-authored chat turn. Streamed back as SSE events.
+
+    ``screenshot_b64`` lets the frontend ship the latest page snapshot
+    on every turn so the multimodal LLM sees what the user is looking
+    at right now — without an S3 round-trip per turn. The backend
+    builds the LLMAttachment inline. Optional: when None the chat
+    falls back to whatever attachments are already persisted on the
+    ticket (paperclip uploads).
+    """
 
     content: str = Field(min_length=1, max_length=10_000)
     via: Literal["text", "voice"] = "text"
+    screenshot_b64: str | None = Field(default=None, max_length=16_777_216)
+    screenshot_content_type: str | None = Field(default=None, max_length=64)
 
 
 class InProgressSessionItem(BaseModel):
@@ -183,6 +193,30 @@ class AbandonChatSessionResponse(BaseModel):
     """Response of ``POST /chat/sessions/{sid}/abandon`` (S5)."""
 
     ok: Literal[True] = True
+
+
+# ── Synthesis card lifecycle (approve / edit) ────────────────────────
+
+
+class EditSynthesisRequest(BaseModel):
+    """Manual edit of one synthesis card. All fields optional — a
+    missing key keeps the previous value. Only the four user-facing
+    fields are editable; richer fields (personas, diagram, etc.) stay
+    LLM-owned to keep the surface small."""
+
+    title: str | None = Field(default=None, max_length=200)
+    summary: str | None = Field(default=None, max_length=4000)
+    user_story: str | None = Field(default=None, max_length=4000)
+    acceptance_criteria: list[str] | None = Field(default=None, max_length=20)
+
+
+class SynthesisCardResponse(BaseModel):
+    """Response of approve + edit endpoints — returns the resulting
+    synthesis msg so the client can re-hydrate without an extra GET."""
+
+    ts: str
+    confirmed: bool
+    synthesis: dict[str, object]
 
 
 # ── S4: voice transcription ──────────────────────────────────────────

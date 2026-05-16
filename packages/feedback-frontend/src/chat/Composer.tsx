@@ -21,7 +21,7 @@
  * still works text-only on Safari < 14 / HTTP-only origins.
  */
 
-import { Mic, SendHorizontal } from "lucide-react";
+import { Mic, Paperclip, SendHorizontal } from "lucide-react";
 import {
   type KeyboardEvent,
   type ReactElement,
@@ -35,6 +35,13 @@ import { Button } from "../ui/button";
 
 import { isVoiceCaptureSupported } from "./useVoiceCapture";
 
+/** Accept attribute mirrors the backend's legacy ``_ALLOWED_ATTACHMENT_TYPES``
+ *  (images + PDF + plain text + markdown + JSON). The server re-validates
+ *  via magic-byte sniff regardless, so this is purely a UX hint to the
+ *  native file picker. */
+const _ACCEPT_ATTRIBUTE =
+  "image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain,text/markdown,application/json,.log";
+
 export interface ComposerProps {
   /** Called with the trimmed message. Returns when the request was dispatched. */
   onSend: (content: string) => Promise<void> | void;
@@ -44,6 +51,13 @@ export interface ComposerProps {
   /** Called when the user taps the mic button. Parent toggles into
    * recording mode. When omitted, the mic button is hidden. */
   onVoiceToggle?: () => void;
+  /** Called when the user picks files via the paperclip. Receives the
+   * raw ``File[]`` array; the parent runs the upload mutation and
+   * surfaces errors. Omit to hide the paperclip. */
+  onAttachFiles?: (files: File[]) => void;
+  /** When true the paperclip is disabled (e.g. already at the
+   * MAX_USER_ATTACHMENTS cap). Tooltip explains why upstream. */
+  attachDisabled?: boolean;
   /** Controlled textarea value. When provided, the parent owns the
    * input state; pair with `onValueChange`. Omit to fall back to
    * uncontrolled (local-state) mode. */
@@ -55,7 +69,7 @@ export interface ComposerProps {
   autoFocus?: boolean;
 }
 
-const DEFAULT_PLACEHOLDER = "Escribe lo que tienes en mente…";
+const DEFAULT_PLACEHOLDER = "Type what's on your mind…";
 
 // Auto-grow caps. min keeps the pill compact when empty; max prevents
 // the textarea from eating the whole sheet when the user pastes a wall
@@ -68,6 +82,8 @@ export function Composer({
   disabled = false,
   placeholder,
   onVoiceToggle,
+  onAttachFiles,
+  attachDisabled = false,
   value: valueProp,
   onValueChange,
   autoFocus = false,
@@ -77,9 +93,23 @@ export function Composer({
   const isControlled = valueProp !== undefined;
   const value = isControlled ? valueProp : localValue;
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const voiceSupported = isVoiceCaptureSupported();
   const showVoice = typeof onVoiceToggle === "function" && voiceSupported;
+  const showAttach = typeof onAttachFiles === "function";
+
+  const onPickFiles = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const picked = event.target.files;
+      if (!picked || picked.length === 0) return;
+      const arr = Array.from(picked);
+      onAttachFiles?.(arr);
+      // Reset so picking the same file twice still fires onChange.
+      event.target.value = "";
+    },
+    [onAttachFiles],
+  );
 
   // Auto-grow: reset height to read scrollHeight, then clamp inside
   // [MIN, MAX]. Runs on every value change so paste / IME also adjust.
@@ -142,6 +172,36 @@ export function Composer({
           focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/50",
         ].join(" ")}
       >
+        {showAttach ? (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={_ACCEPT_ATTRIBUTE}
+              onChange={onPickFiles}
+              hidden
+              data-feedback-id="feedback.chat_attach_input"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || attachDisabled}
+              aria-label="Attach files"
+              title={
+                attachDisabled
+                  ? "Attachment limit reached (5 max)"
+                  : "Attach files"
+              }
+              data-feedback-id="feedback.chat_attach"
+              className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </>
+        ) : null}
         <textarea
           ref={textareaRef}
           value={value}
@@ -163,7 +223,7 @@ export function Composer({
             size="icon"
             onClick={onVoiceToggle}
             disabled={disabled}
-            aria-label="Grabar mensaje de voz"
+            aria-label="Record voice message"
             data-feedback-id="feedback.chat_mic"
             className="h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground"
           >

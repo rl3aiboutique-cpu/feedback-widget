@@ -1,46 +1,62 @@
 /**
- * Submitter-facing ticket detail view — opens when the user clicks a
- * row in Mis feedbacks (S3E).
+ * TicketDetail — full conversational workspace for one ticket.
  *
- * Layout:
+ * Mirrors the EXACT chat experience of the "New feedback" tab:
+ * ChatTimeline + AttachmentTray + Composer (paperclip + mic + send
+ * pill). The header carries status/code/meta; the admin actions
+ * panel sits AT THE TOP right under the header so reviewers see
+ * controls before they scroll the conversation; the synthesis card
+ * renders when the ticket has been confirmed; attachments are
+ * clickable thumbnails (open in lightbox / native browser).
  *
- *   ┌─ ← Volver  | ticket_code | <StatusPill> ─────────┐
- *   │ Title                                              │
- *   │ ┌─ Summary card (description) ──────────────────┐ │
- *   │ ┌─ Conversation (admin ↔ submitter bubbles) ────┐ │
- *   │ ┌─ Reply composer (textarea + send) ────────────┐ │
- *   └────────────────────────────────────────────────────┘
- *
- * Bubble routing from the submitter's perspective:
- *   - own comments  → role="user"  (right, primary tint)
- *   - admin comments → role="admin" (left, violet tint + "Equipo" badge)
- *
- * Polling is delegated to `useFeedbackCommentsQuery` (30s refresh) so
- * admin replies surface near-live without an explicit refresh.
- *
- * NOTE on synthesis: ``FeedbackRead`` does not currently expose
- * ``synthesis_json`` — the backend stores it on
- * ``feedback_chat_session`` and never serializes it on the feedback
- * row. For S3E we render ``title`` + ``description`` (always present)
- * as the read-only summary. Wiring the structured synthesis is a
- * follow-up (needs the FeedbackRead schema to gain ``synthesis_json``).
+ * The conversation is hydrated from the detail query and then driven
+ * by the same ``useChatRunStream`` hook the new-feedback flow uses,
+ * so streaming deltas, retries, and synthesis events all behave
+ * identically across both entry points.
  */
 
-import { Send } from "lucide-react";
-import { type ReactElement, useState } from "react";
+import { Download, Send, Trash2 } from "lucide-react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
-import { useFeedbackAdapter } from "../FeedbackProvider";
+import { useFeedbackAdapter, useFeedbackBindings } from "../FeedbackProvider";
 import {
-  FeedbackApiError,
+  downloadFeedbackBundleViaBindings,
+  downloadOwnFeedbackBundleViaBindings,
+  useAdminSoftDeleteTicketMutation,
+  useApproveSynthesisMutation,
+  useEditSynthesisMutation,
   useFeedbackDetailQuery,
   usePostFeedbackAdminActionMutation,
+  useSoftDeleteTicketMutation,
+  useUploadChatAttachmentMutation,
 } from "../adapter";
-import type { FeedbackTimelineMessage } from "../client";
+import type { FeedbackStatus } from "../client";
+import { useCanTriageFeedback } from "../hooks/useCanTriageFeedback";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
 
-import { ChatBubble } from "./ChatBubble";
+import { AttachmentTray } from "./AttachmentTray";
+import { ChatTimeline } from "./ChatTimeline";
+import { Composer } from "./Composer";
 import { StatusPill } from "./StatusPill";
+import { useChatRunStream } from "./useChatRunStream";
+import type { ChatMessage } from "./types";
+
+const _ADMIN_STATUSES: FeedbackStatus[] = [
+  "open",
+  "in_review",
+  "in_progress",
+  "waiting_for_user",
+  "resolved",
+  "wont_fix",
+  "closed",
+];
+
+const _TERMINAL_STATUSES = new Set<FeedbackStatus>([
+  "resolved",
+  "wont_fix",
+  "closed",
+]);
 
 export interface TicketDetailProps {
   feedbackId: string;
@@ -52,158 +68,487 @@ function _formatTs(dt: string | null | undefined): string {
   return dt.slice(0, 16).replace("T", " ");
 }
 
+function _shortId(id: string | null | undefined): string {
+  if (!id || id.length <= 10) return id ?? "?";
+  return `${id.slice(0, 4)}…${id.slice(-4)}`;
+}
+
+function _hydrateMessages(raw: unknown[] | null | undefined): ChatMessage[] {
+  if (!raw) return [];
+  const out: ChatMessage[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const role = o.role;
+    const tsRaw = o.ts;
+    if (
+      role !== "user" &&
+      role !== "assistant" &&
+      role !== "admin" &&
+      role !== "synthesis"
+    )
+      continue;
+    if (role === "synthesis") {
+      const synth = o.synthesis;
+      if (!synth || typeof synth !== "object") continue;
+      // Keep the original ISO ts string so approve/edit endpoints
+      // address the right msg server-side.
+      const tsStr =
+        typeof tsRaw === "string" ? tsRaw : new Date().toISOString();
+      out.push({
+        role: "synthesis",
+        text: "",
+        ts: tsStr,
+        synthesis: synth as ChatMessage["synthesis"],
+        confirmed: o.confirmed === true,
+      });
+      continue;
+    }
+    const text = o.text;
+    if (typeof text !== "string") continue;
+    let ts: number | string = Date.now();
+    if (typeof tsRaw === "string") {
+      const parsed = Date.parse(tsRaw);
+      if (!Number.isNaN(parsed)) ts = parsed;
+    } else if (typeof tsRaw === "number") {
+      ts = tsRaw;
+    }
+    out.push({ role, text, ts });
+  }
+  return out;
+}
+
 export function TicketDetail({ feedbackId, onBack }: TicketDetailProps): ReactElement {
   const adapter = useFeedbackAdapter();
+  const bindings = useFeedbackBindings();
   const t = adapter.useTranslation();
   const currentUser = adapter.useCurrentUser();
 
   const detail = useFeedbackDetailQuery(feedbackId);
-  // After unification the ticket carries its own ``messages`` JSONB
-  // — there is no separate comments fetch. We still surface a
-  // textarea here for the user so they can reply when admin
-  // injected a ``waiting_for_user`` ask; the reply flows through
-  // the chat run-turn pipeline via the admin-action endpoint when
-  // the current user is the admin, OR via the normal chat send
-  // mutation when the user is the submitter (TODO follow-up).
   const adminAction = usePostFeedbackAdminActionMutation();
+  const softDelete = useSoftDeleteTicketMutation();
+  const adminSoftDelete = useAdminSoftDeleteTicketMutation();
+  const uploadAttachment = useUploadChatAttachmentMutation();
+  const stream = useChatRunStream({ bindings, sessionId: feedbackId });
 
-  const messages: FeedbackTimelineMessage[] = detail.data?.messages ?? [];
-  const isAdmin = detail.data && currentUser && detail.data.user_id !== currentUser.id;
+  const isAdmin = useCanTriageFeedback();
+  const isOwner = !!(
+    detail.data && currentUser && detail.data.user_id === currentUser.id
+  );
+  const isTerminal = detail.data
+    ? _TERMINAL_STATUSES.has(detail.data.status)
+    : false;
+  const needsUserReply = !!(
+    detail.data && detail.data.user_action_required && isOwner
+  );
 
-  const [draft, setDraft] = useState("");
+  // Hydrate the stream timeline from the detail payload once per
+  // ticket. The streaming hook keeps the running messages array
+  // after that — sendMessage appends locally, the SSE turn_done
+  // adds the assistant reply, and ticket-detail refetches keep the
+  // long-term snapshot in sync with the DB.
+  const hydratedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!detail.data) return;
+    const key = `${detail.data.id}::${detail.data.updated_at ?? ""}::${
+      (detail.data.messages ?? []).length
+    }`;
+    if (hydratedRef.current === key) return;
+    const hydrated = _hydrateMessages(detail.data.messages ?? null);
+    stream.seedConversation({
+      messages: hydrated,
+      nextState: "awaiting_user",
+    });
+    hydratedRef.current = key;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail.data?.id, detail.data?.updated_at, detail.data?.messages?.length]);
 
-  const onSend = (): void => {
-    const body = draft.trim();
+  const [adminDraft, setAdminDraft] = useState("");
+
+  const onSendAdmin = (): void => {
+    const body = adminDraft.trim();
     if (!body) return;
     adminAction.mutate(
       { feedbackId, payload: { message_text: body } },
       {
-        onSuccess: () => setDraft(""),
-        onError: (err) => {
-          if (err instanceof FeedbackApiError) {
-            if (err.status === 429) {
-              const seconds = err.retryAfter ?? "?";
-              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
-              return;
-            }
-            if (err.status === 401 || err.status === 403) {
-              adapter.toast.error(t("feedback.comments.send_unauthorized"));
-              return;
-            }
-          }
-          adapter.toast.error(t("feedback.comments.send_error"));
+        onSuccess: () => {
+          setAdminDraft("");
+          hydratedRef.current = null;
         },
+        onError: () => adapter.toast.error(t("feedback.comments.send_error")),
       },
     );
   };
 
+  const onAdminStatusChange = (next: FeedbackStatus): void => {
+    if (!detail.data || next === detail.data.status) return;
+    adminAction.mutate(
+      { feedbackId, payload: { to_status: next } },
+      { onSuccess: () => (hydratedRef.current = null) },
+    );
+  };
+
+  const onSendUser = async (content: string): Promise<void> => {
+    await stream.sendMessage(content, "text", null, null);
+    hydratedRef.current = null;
+  };
+
+  const onAttachFiles = (files: File[]): void => {
+    for (const f of files) {
+      uploadAttachment.mutate(
+        { sessionId: feedbackId, file: f },
+        {
+          onError: (err) =>
+            adapter.toast.error(
+              err instanceof Error ? err.message : "Upload failed.",
+            ),
+        },
+      );
+    }
+  };
+
+  // ZIP download — goes through fetch + bindings auth so it works in
+  // hosts using Bearer tokens (a plain ``<a href>`` would never send
+  // ``Authorization`` because browser link navigation only forwards
+  // cookies, not custom headers).
+  const triggerBlobDownload = (blob: Blob, filename: string): void => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  };
+
+  const onDownloadOwn = async (): Promise<void> => {
+    try {
+      const { blob, filename } = await downloadOwnFeedbackBundleViaBindings(
+        bindings,
+        feedbackId,
+      );
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      adapter.toast.error(
+        err instanceof Error ? err.message : "Download failed.",
+      );
+    }
+  };
+
+  const onDownloadAdmin = async (): Promise<void> => {
+    try {
+      const { blob, filename } = await downloadFeedbackBundleViaBindings(
+        bindings,
+        feedbackId,
+      );
+      triggerBlobDownload(blob, filename);
+    } catch (err) {
+      adapter.toast.error(
+        err instanceof Error ? err.message : "Download failed.",
+      );
+    }
+  };
+
+  const approveSynthesis = useApproveSynthesisMutation();
+  const editSynthesis = useEditSynthesisMutation();
+  const synthesisBusy =
+    approveSynthesis.isPending || editSynthesis.isPending;
+
+  const onApproveSynthesis = async (ts: string): Promise<void> => {
+    try {
+      await approveSynthesis.mutateAsync({
+        sessionId: feedbackId,
+        synthesisTs: ts,
+      });
+      stream.updateSynthesisMsg(ts, { confirmed: true });
+      hydratedRef.current = null;
+    } catch (err) {
+      adapter.toast.error(
+        err instanceof Error ? err.message : "Could not approve spec.",
+      );
+    }
+  };
+
+  const onEditSynthesis = async (
+    ts: string,
+    patch: {
+      title?: string;
+      summary?: string;
+      user_story?: string;
+      acceptance_criteria?: string[];
+    },
+  ): Promise<void> => {
+    try {
+      const res = await editSynthesis.mutateAsync({
+        sessionId: feedbackId,
+        synthesisTs: ts,
+        patch,
+      });
+      stream.updateSynthesisMsg(ts, {
+        synthesis: res.synthesis as unknown as Parameters<
+          typeof stream.updateSynthesisMsg
+        >[1]["synthesis"],
+      });
+      hydratedRef.current = null;
+    } catch (err) {
+      adapter.toast.error(
+        err instanceof Error ? err.message : "Could not save edit.",
+      );
+    }
+  };
+
   return (
-    <div className="flex h-full flex-col gap-3 p-1">
-      <div className="flex items-center justify-between gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-xs text-muted-foreground hover:text-foreground"
-          data-feedback-id="feedback.ticket_detail.back"
-        >
-          ← Volver
-        </button>
+    <div className="flex h-full flex-col gap-2 p-2">
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-1 border-b border-input/40 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          {detail.data ? (
+            <div className="flex items-center gap-2">
+              {detail.data.user_action_required ? (
+                <span
+                  className="inline-flex h-2 w-2 rounded-full bg-amber-500"
+                  title="Action required"
+                  aria-label="Action required"
+                />
+              ) : null}
+              <StatusPill status={detail.data.status} />
+            </div>
+          ) : <span />}
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-xs text-muted-foreground hover:text-foreground"
+            data-feedback-id="feedback.ticket_detail.back"
+          >
+            ← Back
+          </button>
+        </div>
         {detail.data ? (
-          <div className="flex items-center gap-2">
-            <code className="font-mono text-xs px-1 py-0.5 rounded bg-muted shrink-0">
-              {detail.data.ticket_code || "—"}
-            </code>
-            <StatusPill status={detail.data.status} />
-          </div>
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="font-mono text-[11px] text-muted-foreground">
+                {detail.data.ticket_code || "—"}
+              </code>
+              <h2 className="truncate text-sm font-semibold text-foreground">
+                {detail.data.title ?? (
+                  <span className="italic text-muted-foreground">
+                    (no title yet)
+                  </span>
+                )}
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+              <span>
+                👤{" "}
+                {isOwner ? "You" : (
+                  <code className="font-mono">{_shortId(detail.data.user_id)}</code>
+                )}
+              </span>
+              {detail.data.created_at ? (
+                <span>created {_formatTs(detail.data.created_at)}</span>
+              ) : null}
+              {detail.data.last_admin_msg_at ? (
+                <span className="text-primary">
+                  team replied {_formatTs(detail.data.last_admin_msg_at)}
+                </span>
+              ) : null}
+              {detail.data.type ? <span>type: {detail.data.type}</span> : null}
+              {detail.data.severity ? (
+                <span>severity: {detail.data.severity}</span>
+              ) : null}
+            </div>
+          </>
         ) : null}
       </div>
 
       {detail.isLoading ? (
-        <p className="text-sm text-muted-foreground">{t("feedback.mine.loading")}</p>
+        <p className="p-4 text-sm text-muted-foreground">
+          {t("feedback.mine.loading")}
+        </p>
       ) : detail.isError || !detail.data ? (
-        <p className="text-sm text-destructive">{t("feedback.mine.error")}</p>
+        <p className="p-4 text-sm text-destructive">{t("feedback.mine.error")}</p>
       ) : (
         <>
-          <section
-            className="flex flex-col gap-2 rounded-lg border border-input bg-card p-3 shadow-sm"
-            data-feedback-id="feedback.ticket_detail.summary"
-          >
-            <h3 className="text-base font-bold text-foreground">{detail.data.title}</h3>
-            {detail.data.description ? (
-              <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                {detail.data.description}
-              </p>
-            ) : (
-              <p className="text-sm italic text-muted-foreground">
-                {t("feedback.mine.no_description")}
-              </p>
-            )}
-            {detail.data.triage_note ? (
-              <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
-                <p className="font-semibold uppercase tracking-wide text-primary mb-1">
-                  {t("feedback.mine.triage_note")}
-                </p>
-                <p className="whitespace-pre-wrap text-foreground">{detail.data.triage_note}</p>
+          {/* ── Admin actions panel — ARRIBA, justo bajo el header ─ */}
+          {isAdmin ? (
+            <details
+              className="rounded-md border border-primary/30 bg-primary/5 p-2"
+              open
+            >
+              <summary className="cursor-pointer text-[10px] font-semibold uppercase tracking-wide text-primary">
+                Admin actions
+              </summary>
+              <div className="mt-2 flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-1 text-xs">
+                    <span className="text-muted-foreground">Status</span>
+                    <select
+                      value={detail.data.status}
+                      disabled={adminAction.isPending}
+                      onChange={(e) =>
+                        onAdminStatusChange(e.target.value as FeedbackStatus)
+                      }
+                      data-feedback-id="feedback.ticket_detail.status_select"
+                      className="rounded-md border border-input bg-background px-1.5 py-0.5 text-xs"
+                    >
+                      {_ADMIN_STATUSES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onDownloadAdmin}
+                    data-feedback-id="feedback.ticket_detail.download"
+                  >
+                    <Download className="h-3 w-3 mr-1" /> ZIP
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:bg-destructive/10"
+                    disabled={adminSoftDelete.isPending}
+                    onClick={() => {
+                      if (confirm("Soft-delete this ticket?")) {
+                        adminSoftDelete.mutate(
+                          { ticketId: feedbackId },
+                          { onSuccess: onBack },
+                        );
+                      }
+                    }}
+                    data-feedback-id="feedback.ticket_detail.delete"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Delete
+                  </Button>
+                </div>
+                <Textarea
+                  value={adminDraft}
+                  onChange={(e) => setAdminDraft(e.target.value)}
+                  placeholder="Reply as admin · this lands inside the chat and the LLM sees it on the next user turn"
+                  rows={2}
+                  maxLength={5000}
+                  disabled={adminAction.isPending}
+                  data-feedback-id="feedback.ticket_detail.admin_draft"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={onSendAdmin}
+                    disabled={adminAction.isPending || adminDraft.trim().length === 0}
+                    data-feedback-id="feedback.ticket_detail.admin_send"
+                  >
+                    <Send className="mr-1 h-3.5 w-3.5" />
+                    {adminAction.isPending
+                      ? t("feedback.comments.sending")
+                      : "Inject into chat"}
+                  </Button>
+                </div>
+              </div>
+            </details>
+          ) : null}
+
+          {/* ── Action-required banner (owner only) ──────────────── */}
+          {needsUserReply ? (
+            <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              <span className="text-base">⚠</span>
+              <span>
+                <span className="font-semibold">The team is waiting for your reply.</span>{" "}
+                Send a message below to continue the conversation.
+              </span>
+            </div>
+          ) : null}
+
+          {/* ── Conversation timeline (synthesis cards live inline) ─ */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <ChatTimeline
+              messages={stream.messages}
+              isThinking={stream.state === "bot_thinking"}
+              thinkingLabel="Thinking…"
+              onApproveSynthesis={isOwner ? onApproveSynthesis : undefined}
+              onEditSynthesis={isOwner ? onEditSynthesis : undefined}
+              synthesisBusy={synthesisBusy}
+            />
+            {stream.error ? (
+              <div className="mx-4 my-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {stream.error}
               </div>
             ) : null}
-          </section>
+          </div>
 
-          <section className="flex flex-1 min-h-0 flex-col gap-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-foreground">
-              {t("feedback.comments.thread_title")}
-            </h4>
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              {messages.length === 0 ? (
-                <p className="text-xs italic text-muted-foreground">
-                  {t("feedback.comments.empty")}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {messages.map((m, idx) => {
-                    const role: "user" | "admin" | "assistant" =
-                      m.role === "admin" ? "admin" : m.role === "assistant" ? "assistant" : "user";
-                    const caption =
-                      m.role === "admin"
-                        ? `${t("feedback.comments.admin_label")} · ${_formatTs(m.ts)}`
-                        : m.role === "assistant"
-                          ? `RL3 · ${_formatTs(m.ts)}`
-                          : undefined;
-                    return (
-                      <li key={`${m.role}-${m.ts}-${idx}`}>
-                        <ChatBubble role={role} text={m.text} caption={caption} />
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
+          {/* ── Attachment tray (screenshot + uploaded files) ──── */}
+          <AttachmentTray
+            sessionId={feedbackId}
+            screenshotBlob={null}
+            captureMode="page"
+            elementSelector={null}
+            canRemove={isOwner}
+          />
+
+          {/* ── Owner ZIP — always available so submitter can hand-off
+                 the ticket to a coding LLM (decision A — user-zip full
+                 bundle). Hits ``/mine/{id}/download`` which only the
+                 owner can call; admins have their own copy in the
+                 admin actions panel. */}
+          {isOwner ? (
+            <div className="flex items-center justify-end">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={onDownloadOwn}
+                data-feedback-id="feedback.ticket_detail.download_mine"
+              >
+                <Download className="h-3 w-3 mr-1" /> Download ZIP
+              </Button>
             </div>
-          </section>
+          ) : null}
 
-          {isAdmin ? (
-            <div className="space-y-1.5">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder={t("feedback.comments.placeholder")}
-                rows={2}
-                maxLength={5000}
-                disabled={adminAction.isPending}
-                data-feedback-id="feedback.ticket_detail.draft"
-              />
-              <div className="flex justify-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={onSend}
-                  disabled={adminAction.isPending || draft.trim().length === 0}
-                  data-feedback-id="feedback.ticket_detail.send"
-                >
-                  <Send className="mr-1 h-3.5 w-3.5" />
-                  {adminAction.isPending
-                    ? t("feedback.comments.sending")
-                    : t("feedback.comments.send")}
-                </Button>
-              </div>
+          {/* ── Owner reply composer — SAME pill as new-feedback ── */}
+          {isOwner && !isTerminal ? (
+            <Composer
+              onSend={onSendUser}
+              disabled={stream.state === "bot_thinking"}
+              placeholder={
+                needsUserReply
+                  ? "Reply to the team's question…"
+                  : "Continue the conversation…"
+              }
+              onAttachFiles={onAttachFiles}
+              attachDisabled={uploadAttachment.isPending}
+            />
+          ) : null}
+
+          {/* ── Owner footer (terminal — read-only label + delete) ── */}
+          {isOwner && isTerminal ? (
+            <div className="flex items-center justify-end gap-2 border-t border-input/40 pt-2">
+              <span className="text-[10px] italic text-muted-foreground">
+                Ticket is {detail.data.status} — closed for replies.
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10"
+                disabled={softDelete.isPending}
+                onClick={() => {
+                  if (confirm("Delete this ticket?")) {
+                    softDelete.mutate(
+                      { ticketId: feedbackId },
+                      { onSuccess: onBack },
+                    );
+                  }
+                }}
+                data-feedback-id="feedback.ticket_detail.delete_mine"
+              >
+                <Trash2 className="h-3 w-3 mr-1" /> Delete
+              </Button>
             </div>
           ) : null}
         </>

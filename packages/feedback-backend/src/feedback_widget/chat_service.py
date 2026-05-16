@@ -72,8 +72,29 @@ from feedback_widget.service import (
 from feedback_widget.settings import FeedbackSettings, get_settings
 from feedback_widget.storage import StorageBackend
 
-GREETING_CAPTURE = "Cuéntame qué tienes en mente."
-GREETING_REFINE = "Tienes este ticket. ¿Qué quieres ajustar?"
+GREETING_CAPTURE = "Tell me what's on your mind."
+GREETING_REFINE = "Here's your ticket. What would you like to adjust?"
+
+
+def _build_attachments_list(
+    screenshot: LLMAttachment | None,
+    extras: list[LLMAttachment] | None,
+) -> list[LLMAttachment]:
+    """Concat the per-turn screenshot + the persisted ticket
+    attachments into the single list every provider expects.
+
+    Helper exists to avoid sprinkling ``[screenshot] if screenshot
+    else []`` + extend logic across the retry / generate / stream
+    paths — keeping the same payload shape in all three keeps the
+    LLM seeing the same evidence regardless of which path serves the
+    turn.
+    """
+    out: list[LLMAttachment] = []
+    if screenshot is not None:
+        out.append(screenshot)
+    if extras:
+        out.extend(extras)
+    return out
 
 # UI cap for resume-prompt preview; matches D-014 "last message preview".
 _PREVIEW_MAX_LEN = 80
@@ -111,6 +132,33 @@ class ChatSessionNotFoundError(Exception):
 
 class ChatSessionMissingSynthesisError(Exception):
     """Confirm called on a session whose ``synthesis_json`` is NULL."""
+
+
+class SynthesisVersionNotFoundError(Exception):
+    """No synthesis message in ``messages`` matches the requested ts."""
+
+
+class SynthesisAlreadyConfirmedError(Exception):
+    """A different synthesis version is already confirmed in this chat."""
+
+
+# Editable fields when the user manually tweaks a synthesis card
+# (capture-side correction). The remaining synthesis keys (personas,
+# diagram, etc.) stay locked to keep the UX small and avoid round-trips
+# that grow the JSON payload past the 5KB cap. Lists arrive as
+# already-split `list[str]`; the route layer is responsible for
+# splitting newline-separated textareas before calling.
+_SYNTHESIS_EDITABLE_FIELDS: frozenset[str] = frozenset(
+    {"title", "summary", "user_story", "acceptance_criteria"}
+)
+# Per-field caps mirror the backing column widths in
+# ``feedback_widget.feedback`` so a synthesis edit can still confirm
+# without tripping the create-feedback validators downstream.
+_SYNTHESIS_FIELD_CAPS: dict[str, int] = {
+    "title": 200,
+    "summary": 4000,
+    "user_story": 4000,
+}
 
 
 class ChatService:
@@ -238,6 +286,7 @@ class ChatService:
         brand: str = "Feedback",
         forbidden_words: list[str] | None = None,
         screenshot: LLMAttachment | None = None,
+        extra_attachments: list[LLMAttachment] | None = None,
         max_turns: int = _DEFAULT_MAX_TURNS,
         coverage_threshold: float = _DEFAULT_COVERAGE_THRESHOLD,
     ) -> AsyncIterator[dict[str, Any]]:
@@ -427,7 +476,7 @@ class ChatService:
             async for chunk in provider.stream(
                 system_prompt=system_prompt,
                 user_prompt=user_payload_text,
-                attachments=[screenshot] if screenshot is not None else [],
+                attachments=_build_attachments_list(screenshot, extra_attachments),
                 timeout_seconds=_TURN_REQUEST_TIMEOUT_SECONDS,
                 max_output_tokens=_TURN_MAX_OUTPUT_TOKENS,
             ):
@@ -453,7 +502,7 @@ class ChatService:
             result = await provider.generate(
                 system_prompt=system_prompt,
                 user_prompt=user_payload_text + repair_hint,
-                attachments=[screenshot] if screenshot is not None else [],
+                attachments=_build_attachments_list(screenshot, extra_attachments),
                 timeout_seconds=_TURN_REQUEST_TIMEOUT_SECONDS,
                 max_output_tokens=_TURN_MAX_OUTPUT_TOKENS,
             )
@@ -517,6 +566,22 @@ class ChatService:
             }
         )
         is_synth = parsed_scrubbed["mode"] == "synthesize"
+        synthesis_ts: str | None = None
+        if is_synth and isinstance(parsed_scrubbed["synthesis"], dict):
+            # The synthesis becomes its own chat message so the timeline
+            # keeps every iteration as a bubble (user can compare versions
+            # and only one ends up confirmed). The legacy ``synthesis_json``
+            # column stores the latest emit; ``confirmed`` flag on the msg
+            # marks the winning version after explicit approve.
+            synthesis_ts = datetime.now(UTC).isoformat()
+            msgs.append(
+                {
+                    "role": "synthesis",
+                    "ts": synthesis_ts,
+                    "synthesis": parsed_scrubbed["synthesis"],
+                    "confirmed": False,
+                }
+            )
 
         def _persist() -> None:
             row.messages = msgs
@@ -811,6 +876,134 @@ class ChatService:
         chat_row.updated_at = now
         session.add(chat_row)
         session.flush()
+
+    # ── Synthesis card lifecycle (approve / edit) ─────────────────────
+
+    def approve_synthesis(
+        self,
+        *,
+        session: Session,
+        chat_session_id: uuid.UUID,
+        tenant_id: uuid.UUID | None,
+        user_id: uuid.UUID,
+        synthesis_ts: str,
+    ) -> dict[str, Any]:
+        """Mark one synthesis message as the confirmed version.
+
+        Side-effects:
+        - sets ``confirmed=true`` on the matching message
+        - sets ``confirmed=false`` on every other synthesis message in
+          the same chat (one-winner invariant)
+        - copies that synthesis dict into ``synthesis_json`` so the
+          confirm-session flow downstream picks the winning version
+
+        Raises:
+            ChatSessionNotFoundError — session missing or not owned.
+            SynthesisVersionNotFoundError — no synthesis msg with that ts.
+        """
+        chat_row = session.get(FeedbackChatSession, chat_session_id)
+        if (
+            chat_row is None
+            or chat_row.user_id != user_id
+            or chat_row.tenant_id != tenant_id
+        ):
+            raise ChatSessionNotFoundError(str(chat_session_id))
+
+        msgs = list(chat_row.messages or [])
+        winner: dict[str, Any] | None = None
+        for msg in msgs:
+            if not isinstance(msg, dict) or msg.get("role") != "synthesis":
+                continue
+            if str(msg.get("ts") or "") == synthesis_ts:
+                msg["confirmed"] = True
+                winner = msg
+            else:
+                msg["confirmed"] = False
+        if winner is None:
+            raise SynthesisVersionNotFoundError(synthesis_ts)
+
+        chat_row.messages = msgs
+        flag_modified(chat_row, "messages")
+        synthesis_payload = winner.get("synthesis")
+        if isinstance(synthesis_payload, dict):
+            chat_row.synthesis_json = synthesis_payload
+            flag_modified(chat_row, "synthesis_json")
+        chat_row.updated_at = datetime.now(UTC)
+        session.add(chat_row)
+        session.flush()
+        return winner
+
+    def edit_synthesis(
+        self,
+        *,
+        session: Session,
+        chat_session_id: uuid.UUID,
+        tenant_id: uuid.UUID | None,
+        user_id: uuid.UUID,
+        synthesis_ts: str,
+        patch: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Apply a manual edit to the synthesis dict on a specific msg.
+
+        Only ``_SYNTHESIS_EDITABLE_FIELDS`` are accepted; unknown keys
+        are silently dropped. The msg's ``confirmed`` flag is preserved
+        — editing does NOT auto-approve. Once any version in this chat
+        is confirmed, edits to OTHER versions are rejected because the
+        ticket already has a winner.
+
+        Raises:
+            ChatSessionNotFoundError, SynthesisVersionNotFoundError,
+            SynthesisAlreadyConfirmedError.
+        """
+        chat_row = session.get(FeedbackChatSession, chat_session_id)
+        if (
+            chat_row is None
+            or chat_row.user_id != user_id
+            or chat_row.tenant_id != tenant_id
+        ):
+            raise ChatSessionNotFoundError(str(chat_session_id))
+
+        msgs = list(chat_row.messages or [])
+        target: dict[str, Any] | None = None
+        already_confirmed_other = False
+        for msg in msgs:
+            if not isinstance(msg, dict) or msg.get("role") != "synthesis":
+                continue
+            if str(msg.get("ts") or "") == synthesis_ts:
+                target = msg
+            elif msg.get("confirmed") is True:
+                already_confirmed_other = True
+        if target is None:
+            raise SynthesisVersionNotFoundError(synthesis_ts)
+        if already_confirmed_other and target.get("confirmed") is not True:
+            raise SynthesisAlreadyConfirmedError(synthesis_ts)
+
+        synthesis = dict(target.get("synthesis") or {})
+        for key, value in patch.items():
+            if key not in _SYNTHESIS_EDITABLE_FIELDS:
+                continue
+            if key == "acceptance_criteria":
+                if isinstance(value, list):
+                    synthesis[key] = [str(item).strip() for item in value if str(item).strip()]
+            else:
+                cap = _SYNTHESIS_FIELD_CAPS.get(key)
+                text = str(value or "").strip()
+                if cap is not None:
+                    text = text[:cap]
+                synthesis[key] = text
+        target["synthesis"] = synthesis
+
+        chat_row.messages = msgs
+        flag_modified(chat_row, "messages")
+        if target.get("confirmed") is True:
+            # Edited the winning version — keep ``synthesis_json`` in sync
+            # so confirm-session downstream uses the edited copy.
+            chat_row.synthesis_json = synthesis
+            flag_modified(chat_row, "synthesis_json")
+        chat_row.updated_at = datetime.now(UTC)
+        session.add(chat_row)
+        session.flush()
+        return target
 
     @staticmethod
     def _extract_inferred(

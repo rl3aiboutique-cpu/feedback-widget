@@ -33,7 +33,10 @@ function formatBytes(size: number): string {
   return `${(size / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function _Lightbox({
+/** Exported so other components (AttachmentTray) reuse the same
+ *  ESC-to-close + backdrop-click lightbox without duplicating the
+ *  z-index hierarchy. */
+export function Lightbox({
   url,
   onClose,
 }: {
@@ -63,7 +66,7 @@ function _Lightbox({
       className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-black/80 backdrop-blur-sm p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Captura adjunta — vista ampliada"
+      aria-label="Attached capture — expanded view"
       onClick={onBackdropClick}
     >
       <button
@@ -76,7 +79,7 @@ function _Lightbox({
       </button>
       <img
         src={url}
-        alt="Captura adjunta — vista ampliada"
+        alt="Attached capture — expanded view"
         className="max-h-[90vh] max-w-[90vw] rounded-md border border-input/40 shadow-2xl"
       />
     </div>
@@ -109,54 +112,51 @@ export function CapturePreview({
   }
 
   const isElement = mode === "element" && selector;
-  const captionPrimary = isElement ? "Elemento capturado" : "Página completa";
+  const captionPrimary = isElement ? "Captured element" : "Full page";
 
+  // Minimalist redesign 2026-05-16 — was a ~80px card with a 64×96
+  // thumbnail + multi-line caption + clear button. Now a single
+  // inline chip: 24×24 thumb + one-line label + (X). Clicking the
+  // thumb still opens the lightbox.
   return (
     <>
-      <div className="mx-4 mt-2 mb-1 flex items-center gap-2 rounded-md border border-input/60 bg-muted/30 p-2">
+      <div className="mx-4 mt-1 mb-1 inline-flex items-center gap-2 rounded-full border border-input/60 bg-muted/30 px-2 py-1">
         <button
           type="button"
           onClick={() => setLightboxOpen(true)}
-          aria-label="Ampliar captura"
-          className="block shrink-0 overflow-hidden rounded border border-input transition hover:ring-2 hover:ring-primary/30"
+          aria-label="Expand capture"
+          className="block shrink-0 overflow-hidden rounded transition hover:ring-2 hover:ring-primary/30"
         >
           <img
             src={url}
-            alt="Captura adjunta"
-            className="h-16 w-24 object-cover"
+            alt="Attached capture"
+            className="h-6 w-6 object-cover"
           />
         </button>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-            <ImageIcon className="h-3 w-3" />
-            {captionPrimary}
-          </span>
-          <span className="truncate text-[10px] text-muted-foreground">
-            {isElement ? (
-              <code className="font-mono">{selector}</code>
-            ) : (
-              <>{formatBytes(blob.size)} · click para ampliar</>
-            )}
-          </span>
+        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-foreground">
+          <ImageIcon className="h-3 w-3" />
+          {captionPrimary}
+        </span>
+        <span className="text-[10px] text-muted-foreground">
           {isElement ? (
-            <span className="text-[10px] text-muted-foreground">
-              {formatBytes(blob.size)} · click para ampliar
-            </span>
-          ) : null}
-        </div>
+            <code className="font-mono">{selector}</code>
+          ) : (
+            <>{formatBytes(blob.size)}</>
+          )}
+        </span>
         {onClear ? (
           <button
             type="button"
             onClick={onClear}
-            aria-label="Quitar captura"
-            className="ml-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-destructive"
+            aria-label="Remove capture"
+            className="ml-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-destructive"
           >
-            <X className="h-3.5 w-3.5" />
+            <X className="h-3 w-3" />
           </button>
         ) : null}
       </div>
       {lightboxOpen ? (
-        <_Lightbox url={url} onClose={() => setLightboxOpen(false)} />
+        <Lightbox url={url} onClose={() => setLightboxOpen(false)} />
       ) : null}
     </>
   );

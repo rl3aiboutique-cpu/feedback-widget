@@ -33,7 +33,7 @@ export function FeedbackTabs({
         }`}
         data-feedback-id="feedback.tab.compose"
       >
-        ✎ Nuevo feedback
+        ✎ New feedback
       </button>
       <button
         type="button"
@@ -47,7 +47,7 @@ export function FeedbackTabs({
         }`}
         data-feedback-id="feedback.tab.mine"
       >
-        <span>📋 Mis feedbacks</span>
+        <span>📋 My tickets</span>
         {mineTotalCount > 0 ? (
           <span
             className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
@@ -57,8 +57,8 @@ export function FeedbackTabs({
             }`}
             title={
               unreadAdminRepliesCount > 0
-                ? `${unreadAdminRepliesCount} con respuesta del equipo`
-                : `${mineTotalCount} en total`
+                ? `${unreadAdminRepliesCount} with a reply from the team`
+                : `${mineTotalCount} total`
             }
           >
             {unreadAdminRepliesCount > 0 ? unreadAdminRepliesCount : mineTotalCount}

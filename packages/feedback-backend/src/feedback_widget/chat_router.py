@@ -53,13 +53,17 @@ from feedback_widget.chat_schemas import (
     ConfirmChatSessionResponse,
     CreateChatSessionRequest,
     CreateChatSessionResponse,
+    EditSynthesisRequest,
     InProgressSessionsResponse,
+    SynthesisCardResponse,
     VoiceTranscriptionResponse,
 )
 from feedback_widget.chat_service import (
     ChatService,
     ChatSessionMissingSynthesisError,
     ChatSessionNotFoundError,
+    SynthesisAlreadyConfirmedError,
+    SynthesisVersionNotFoundError,
 )
 from feedback_widget.email.render import build_feedback_email
 from feedback_widget.exceptions import FeedbackRateLimitExceededError
@@ -136,18 +140,94 @@ def _marshal_chat_event(ev: dict[str, Any]) -> bytes:
     return _format_sse_event(ev_type, payload)
 
 
+def _decode_inline_screenshot(
+    screenshot_b64: str | None, content_type: str | None
+) -> LLMAttachment | None:
+    """Build an LLMAttachment from a base64-encoded screenshot the
+    frontend ships in the turn payload (Strategy A — fresh on every
+    turn, no S3 round-trip).
+    """
+    if not screenshot_b64:
+        return None
+    try:
+        # Validate by decoding once; the actual bytes ride re-encoded.
+        base64.b64decode(screenshot_b64, validate=True)
+    except (TypeError, ValueError):
+        logger.warning("chat turn screenshot_b64 is not valid base64 — skipping")
+        return None
+    return LLMAttachment(
+        kind="image",
+        filename="page.png",
+        mime_type=content_type or "image/png",
+        bytes_b64=screenshot_b64,
+    )
+
+
+def _load_ticket_attachments(
+    *,
+    db: Session,
+    storage: StorageBackend,
+    chat_session: FeedbackChatSession,
+    cap: int = 6,
+) -> list[LLMAttachment]:
+    """Load every ``feedback_attachment`` row for the ticket and turn
+    them into multimodal :class:`LLMAttachment` objects (Strategy C —
+    paperclip uploads from S9 reach the LLM on every turn).
+
+    Failures per attachment are swallowed individually — the chat
+    stream MUST NOT break because one S3 object is unreachable.
+    Capped to ``cap`` to avoid blowing the context window when a user
+    uploaded the maximum 5 + the auto screenshot.
+    """
+    from sqlmodel import select as _select
+
+    rows = list(
+        db.exec(
+            _select(FeedbackAttachment)
+            .where(FeedbackAttachment.ticket_id == chat_session.id)
+            .order_by(FeedbackAttachment.created_at.asc())  # type: ignore[arg-type]
+        ).all()
+    )
+    out: list[LLMAttachment] = []
+    for row in rows[:cap]:
+        try:
+            blob = storage.download(row.object_key, bucket=row.bucket)
+        except Exception:
+            logger.warning(
+                "chat ticket attachment download failed: bucket=%s key=%s",
+                row.bucket,
+                row.object_key,
+            )
+            continue
+        ct = row.content_type or "application/octet-stream"
+        kind: str
+        if ct.startswith("image/"):
+            kind = "image"
+        elif ct == "application/pdf":
+            kind = "pdf"
+        else:
+            kind = "text"
+        out.append(
+            LLMAttachment(
+                kind=kind,  # type: ignore[arg-type]
+                filename=row.filename or f"{row.id}",
+                mime_type=ct,
+                bytes_b64=base64.b64encode(blob).decode("ascii"),
+            )
+        )
+    return out
+
+
 def _load_screenshot_attachment(
     *,
     db: Session,
     storage: StorageBackend,
     chat_session: FeedbackChatSession,
 ) -> LLMAttachment | None:
-    """Resolve the screenshot attachment from ``auto_context``, if any.
-
-    Failures (missing row, S3 down, bad bytes) are logged and swallowed —
-    the chat stream MUST NOT break because the screenshot is unreachable.
-    Per slice constraints: "Storage download failure for screenshot must
-    NOT block the stream — log and proceed without the image."
+    """Legacy single-screenshot loader kept for the confirm path —
+    new chat turns use ``_decode_inline_screenshot`` +
+    ``_load_ticket_attachments`` instead. Reads
+    ``auto_context.screenshot_attachment_id`` and downloads from S3.
     """
     auto = chat_session.auto_context or {}
     raw_id = auto.get("screenshot_attachment_id")
@@ -158,10 +238,8 @@ def _load_screenshot_attachment(
     except (TypeError, ValueError):
         logger.warning("chat screenshot id is not a valid UUID: %r", raw_id)
         return None
-
     row = db.get(FeedbackAttachment, att_id)
     if row is None:
-        logger.info("chat screenshot attachment %s not found; skipping", att_id)
         return None
     try:
         blob = storage.download(row.object_key, bucket=row.bucket)
@@ -370,9 +448,34 @@ def build_chat_router(
             for w in (settings.ITER_FORBIDDEN_WORDS or "").split(",")
             if w.strip()
         ]
-        screenshot = _load_screenshot_attachment(
-            db=db, storage=storage, chat_session=row
+        # Multimodal payload assembly (2026-05-16 fix). Strategy A:
+        # decode the inline screenshot the FE ships per turn (fresh
+        # snapshot of what the user is looking at right now). Strategy
+        # C: load every persisted ticket attachment (paperclip uploads
+        # from S9) so the LLM sees user-supplied evidence too. Both
+        # combine into a single attachments list passed to run_turn.
+        attachments: list[LLMAttachment] = []
+        inline_screenshot = _decode_inline_screenshot(
+            payload.screenshot_b64, payload.screenshot_content_type
         )
+        if inline_screenshot is not None:
+            attachments.append(inline_screenshot)
+        else:
+            # Fallback to whatever the auto_context carries — usually
+            # only after confirm; harmless during chat when None.
+            legacy_shot = _load_screenshot_attachment(
+                db=db, storage=storage, chat_session=row
+            )
+            if legacy_shot is not None:
+                attachments.append(legacy_shot)
+        attachments.extend(
+            _load_ticket_attachments(db=db, storage=storage, chat_session=row)
+        )
+        # Pass the first attachment as ``screenshot`` for back-compat
+        # with run_turn's signature; the rest ride along on a separate
+        # kwarg the service exposes (added in this fix).
+        screenshot = attachments[0] if attachments else None
+        extra_attachments = attachments[1:]
 
         captured_chunks: list[bytes] = []
 
@@ -387,6 +490,7 @@ def build_chat_router(
                     brand=brand,
                     forbidden_words=forbidden_words,
                     screenshot=screenshot,
+                    extra_attachments=extra_attachments,
                 ):
                     if await request.is_disconnected():
                         logger.info("chat SSE client disconnected mid-stream")
@@ -628,6 +732,109 @@ def build_chat_router(
         )
         return AbandonChatSessionResponse(ok=True)
 
+    # ── Synthesis card lifecycle (approve / edit) ────────────────────────
+
+    @router.post(
+        "/chat/sessions/{session_id}/synthesis/{synthesis_ts}/approve",
+        response_model=SynthesisCardResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    def approve_synthesis_version(
+        session_id: uuid.UUID,
+        synthesis_ts: str,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+    ) -> SynthesisCardResponse:
+        """Confirm one synthesis card as the winning version.
+
+        Only the owner can approve. Sets ``confirmed=true`` on the matching
+        message and ``false`` on every other synthesis msg in the same chat
+        — the one-winner invariant. Updates ``synthesis_json`` so a later
+        confirm-session call uses the approved spec.
+        """
+        try:
+            winner = service.approve_synthesis(
+                session=db,
+                chat_session_id=session_id,
+                tenant_id=user.tenant_id,
+                user_id=user.user_id,
+                synthesis_ts=synthesis_ts,
+            )
+        except ChatSessionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="chat session not found",
+            ) from exc
+        except SynthesisVersionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="synthesis version not found",
+            ) from exc
+
+        db.commit()
+        logger.info(
+            "synthesis approved: user=%s session=%s ts=%s",
+            user.user_id,
+            session_id,
+            synthesis_ts,
+        )
+        return SynthesisCardResponse(
+            ts=str(winner.get("ts")),
+            confirmed=bool(winner.get("confirmed")),
+            synthesis=dict(winner.get("synthesis") or {}),
+        )
+
+    @router.patch(
+        "/chat/sessions/{session_id}/synthesis/{synthesis_ts}",
+        response_model=SynthesisCardResponse,
+        status_code=status.HTTP_200_OK,
+    )
+    def edit_synthesis_version(
+        session_id: uuid.UUID,
+        synthesis_ts: str,
+        payload: EditSynthesisRequest,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+    ) -> SynthesisCardResponse:
+        """Apply a manual edit to one synthesis card.
+
+        Only allowed fields land. Editing does NOT auto-approve. Edits to
+        a non-confirmed version are rejected once a different version has
+        already been confirmed (the ticket has a winner — close it before
+        re-iterating).
+        """
+        try:
+            target = service.edit_synthesis(
+                session=db,
+                chat_session_id=session_id,
+                tenant_id=user.tenant_id,
+                user_id=user.user_id,
+                synthesis_ts=synthesis_ts,
+                patch=payload.model_dump(exclude_unset=True),
+            )
+        except ChatSessionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="chat session not found",
+            ) from exc
+        except SynthesisVersionNotFoundError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="synthesis version not found",
+            ) from exc
+        except SynthesisAlreadyConfirmedError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="another synthesis version is already confirmed",
+            ) from exc
+
+        db.commit()
+        return SynthesisCardResponse(
+            ts=str(target.get("ts")),
+            confirmed=bool(target.get("confirmed")),
+            synthesis=dict(target.get("synthesis") or {}),
+        )
+
     # ── S4: voice transcription (Whisper proxy) ──────────────────────────
 
     @router.post(
@@ -754,5 +961,133 @@ def build_chat_router(
             transcript=result.transcript,
             lang=result.lang,
         )
+
+    # ── S9: chat-session attachments (pre-confirm uploads) ──────────────
+    #
+    # The user can attach images / PDFs / text / log files DURING the
+    # chat — without waiting for the confirm step. Reuses the legacy
+    # validator (``helpers.read_attachments``) so the size cap, MIME
+    # allowlist, and magic-byte sniff are identical to the multipart
+    # path. One file per request keeps the UX granular (FE can show a
+    # progress bar per file and cancel cleanly).
+
+    @router.post("/chat/sessions/{session_id}/attachments")
+    async def upload_chat_attachment(
+        session_id: uuid.UUID,
+        file: UploadFile = File(...),
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+        storage_backend: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> dict[str, object]:
+        from sqlmodel import select as _select
+
+        from feedback_widget.helpers import MAX_USER_ATTACHMENTS, read_attachments
+        from feedback_widget.models import (
+            FeedbackAttachment,
+            FeedbackAttachmentKind,
+        )
+        from feedback_widget.service import upload_feedback_attachment
+
+        # 1. Resolve ticket + ownership check (404-shaped to avoid
+        #    leaking the existence of someone else's id).
+        ticket = db.get(FeedbackChatSession, session_id)
+        if ticket is None or ticket.user_id != user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
+            )
+        if ticket.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
+            )
+
+        # 2. Count enforcement BEFORE reading the upload — cheap fail.
+        existing_count = db.exec(
+            _select(FeedbackAttachment).where(
+                FeedbackAttachment.ticket_id == session_id,
+                FeedbackAttachment.kind == FeedbackAttachmentKind.USER_ATTACHMENT,
+            )
+        ).all()
+        if len(existing_count) >= MAX_USER_ATTACHMENTS:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"This ticket already has {MAX_USER_ATTACHMENTS} attachments — "
+                    "remove one before adding another."
+                ),
+            )
+
+        # 3. Reuse the legacy validator (size cap, MIME allowlist, magic
+        #    bytes, sanitized filename). It accepts a list; we pass one.
+        validated = await read_attachments([file], settings=cfg)
+        if not validated:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No file uploaded.",
+            )
+        upload = validated[0]
+
+        # 4. Upload to S3 + create the FeedbackAttachment row.
+        row = upload_feedback_attachment(
+            db,
+            storage_backend,
+            feedback_id=session_id,  # ticket_id under the unified schema
+            tenant_id=ticket.tenant_id,
+            content=upload.content,
+            content_type=upload.content_type,
+            filename=upload.filename,
+            kind=FeedbackAttachmentKind.USER_ATTACHMENT,
+            width=None,
+            height=None,
+            settings=cfg,
+        )
+        db.commit()
+        db.refresh(row)
+
+        return {
+            "id": str(row.id),
+            "ticket_id": str(row.ticket_id),
+            "kind": row.kind.value,
+            "filename": row.filename,
+            "content_type": row.content_type,
+            "byte_size": row.byte_size,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        }
+
+    @router.delete(
+        "/chat/sessions/{session_id}/attachments/{attachment_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    def delete_chat_attachment(
+        session_id: uuid.UUID,
+        attachment_id: uuid.UUID,
+        user: CurrentUserSnapshot = UserDep,
+        db: Session = SessionDep,
+        storage_backend: StorageBackend = StorageDep,
+    ) -> None:
+        from feedback_widget.models import FeedbackAttachment
+
+        ticket = db.get(FeedbackChatSession, session_id)
+        if ticket is None or ticket.user_id != user.user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
+            )
+        att = db.get(FeedbackAttachment, attachment_id)
+        if att is None or att.ticket_id != session_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="attachment not found"
+            )
+        # Best-effort S3 cleanup; DB row goes regardless.
+        try:
+            storage_backend.delete(att.object_key, bucket=att.bucket)
+        except Exception:  # noqa: BLE001
+            logger.warning(
+                "chat attachment S3 delete failed: bucket=%s key=%s",
+                att.bucket,
+                att.object_key,
+            )
+        db.delete(att)
+        db.commit()
+        return None
 
     return router

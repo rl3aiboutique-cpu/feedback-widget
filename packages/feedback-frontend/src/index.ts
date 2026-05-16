@@ -1,12 +1,19 @@
 /**
  * Public surface of @rl3/feedback-widget.
  *
+ * Patrón A (2026-05-16): hosts mount EXACTLY one component — the
+ * floating launcher — and the widget owns its entire UX inside the
+ * resizable sheet. Admin triage, ticket browsing, status changes,
+ * admin message injection, soft/hard delete and download all happen
+ * inside the sheet. The dedicated ``FeedbackTriagePage`` was removed
+ * because it forced hosts to add a route + sidebar entry + 3 auth
+ * gates, which broke the 100% decoupling promise.
+ *
  * Hosts import only from here:
  *
  *   import {
  *     FeedbackProvider,
  *     FeedbackButton,
- *     FeedbackTriagePage,
  *     type FeedbackHostBindings,
  *   } from "@rl3/feedback-widget"
  *   import "@rl3/feedback-widget/styles.css"
@@ -25,7 +32,6 @@ export { installConsoleWrap } from "./capture/consoleWrap";
 export { installNetworkWrap } from "./capture/networkWrap";
 export { installErrorWrap } from "./capture/errorWrap";
 
-export { FeedbackTriagePage } from "./admin/FeedbackTriagePage";
 export {
   default as FeedbackButtonDefault,
   FeedbackButton,

@@ -138,7 +138,7 @@ export function VoiceRecorder({
   return (
     <output
       aria-live="polite"
-      aria-label={isRecording ? "Grabando" : "Transcribiendo"}
+      aria-label={isRecording ? "Recording" : "Transcribing"}
       data-feedback-id="feedback.voice_recorder"
       className="flex items-center gap-2 border-t border-input bg-background px-3 py-3"
     >
@@ -148,7 +148,7 @@ export function VoiceRecorder({
         size="sm"
         onClick={onCancel}
         disabled={isWorking}
-        aria-label="Descartar grabación"
+        aria-label="Discard recording"
         data-feedback-id="feedback.voice_cancel"
         className="rounded-full"
       >
@@ -159,7 +159,7 @@ export function VoiceRecorder({
         {isWorking ? (
           <div className="flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Transcribiendo…</span>
+            <span>Transcribing…</span>
           </div>
         ) : (
           <>
@@ -179,7 +179,7 @@ export function VoiceRecorder({
         size="sm"
         onClick={onStop}
         disabled={isWorking}
-        aria-label="Detener y enviar"
+        aria-label="Stop and send"
         data-feedback-id="feedback.voice_stop"
         className="rounded-full"
       >

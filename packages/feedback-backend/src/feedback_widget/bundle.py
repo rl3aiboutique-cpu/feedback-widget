@@ -77,14 +77,19 @@ _STATUS_LABEL: dict[FeedbackStatus, str] = {
 }
 
 
-def _bundle_filename(ticket_code: str, created_at: datetime | None) -> str:
-    """Return ``<ticket_code>_<YYYY-MM-DD>.zip``."""
+def _bundle_filename(ticket_code: str | None, created_at: datetime | None) -> str:
+    """Return ``<ticket_code>_<YYYY-MM-DD>.zip``.
+
+    Accepts ``ticket_code=None`` (pre-confirm tickets that never got
+    a code assigned) — falls back to a generic ``feedback`` slug.
+    """
     if created_at is None:
         created_at = datetime.now(UTC)
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
     date = created_at.astimezone(UTC).date().isoformat()
-    safe_ticket = ticket_code.strip() or "feedback"
+    raw = (ticket_code or "").strip()
+    safe_ticket = raw or "feedback"
     return f"{safe_ticket}_{date}.zip"
 
 
@@ -136,13 +141,13 @@ def _render_readme(
         "",
         "## Quick summary",
         "",
-        f"- **Type**: {fb.type.value}",
+        f"- **Type**: {fb.type.value if fb.type else '(undetermined)'}",
         f"- **Severity**: {fb.severity.value if fb.severity else '(unset)'}",
-        f"- **Status**: {_STATUS_LABEL.get(fb.status, fb.status.value)}",
-        f"- **Title**: {fb.title}",
+        f"- **Status**: {(_STATUS_LABEL.get(fb.ticket_status, fb.ticket_status.value) if fb.ticket_status else '(unset)')}",
+        f"- **Title**: {fb.title or '(no title)'}",
         f"- **Submitter**: {submitter_email} ({submitter_role})",
         f"- **Created**: {_fmt_dt(fb.created_at)}",
-        f"- **URL captured**: {fb.url_captured}",
+        f"- **URL captured**: {fb.url_captured or '—'}",
         f"- **Route**: {fb.route_name or '—'}",
         f"- **Element**: {fb.element_selector or '(whole-page)'}",
         f"- **App version**: {fb.app_version or '—'}",
@@ -165,13 +170,21 @@ def _render_readme(
 
 
 def _render_ticket(fb: Feedback) -> str:
-    """Long-form markdown of the feedback row."""
+    """Long-form markdown of the feedback row.
+
+    Post-unification (2026-05-16) the ticket may exist without a
+    confirmed synthesis — title/type/severity may be ``None`` while
+    the chat is still in flight. Guard every accessor so the bundle
+    never blows up on an in-progress ticket.
+    """
+    type_label = fb.type.value if fb.type else "(undetermined)"
+    severity_label = fb.severity.value if fb.severity else "(unset)"
     lines: list[str] = [
-        f"# {fb.title}",
+        f"# {fb.title or fb.ticket_code or 'Untitled ticket'}",
         "",
-        f"- **Ticket**: `{fb.ticket_code}`",
-        f"- **Type**: {fb.type.value}",
-        f"- **Severity**: {fb.severity.value if fb.severity else '(unset)'}",
+        f"- **Ticket**: `{fb.ticket_code or '(no code yet)'}`",
+        f"- **Type**: {type_label}",
+        f"- **Severity**: {severity_label}",
         f"- **Created**: {_fmt_dt(fb.created_at)}",
         "",
         "## Description",
@@ -185,12 +198,21 @@ def _render_ticket(fb: Feedback) -> str:
 
 
 def _render_triage(fb: Feedback) -> str:
-    """Status + triage note markdown."""
+    """Status + triage note markdown.
+
+    Reads ``ticket_status`` (post-unification column) — the legacy
+    ``status`` field on the ORM is the chat-session phase, not the
+    ticket lifecycle label.
+    """
+    ticket_status = fb.ticket_status
+    status_value = ticket_status.value if ticket_status else "(unset)"
+    status_label = (
+        _STATUS_LABEL.get(ticket_status, status_value) if ticket_status else status_value
+    )
     lines: list[str] = [
         "# Triage",
         "",
-        f"- **Current status**: `{fb.status.value}` "
-        f"({_STATUS_LABEL.get(fb.status, fb.status.value)})",
+        f"- **Current status**: `{status_value}` ({status_label})",
         f"- **Triaged by**: {fb.triaged_by or '—'}",
         f"- **Triaged at**: {_fmt_dt(fb.triaged_at)}",
         "",
@@ -343,7 +365,7 @@ def _resolve_chat_artifacts(
         calls = list(
             db.exec(
                 select(FeedbackChatCall)
-                .where(FeedbackChatCall.chat_session_id == chat_session_id)
+                .where(FeedbackChatCall.ticket_id == chat_session_id)
                 .order_by(FeedbackChatCall.created_at)  # type: ignore[arg-type]
             ).all()
         )
@@ -389,8 +411,8 @@ def _serialise_feedback_row(fb: Feedback) -> str:
             "id": str(fb.id),
             "tenant_id": str(fb.tenant_id) if fb.tenant_id else None,
             "user_id": str(fb.user_id),
-            "type": fb.type.value,
-            "status": fb.status.value,
+            "type": fb.type.value if fb.type else None,
+            "status": fb.ticket_status.value if fb.ticket_status else None,
             "severity": fb.severity.value if fb.severity else None,
             "title": fb.title,
             "description": fb.description,
@@ -405,8 +427,8 @@ def _serialise_feedback_row(fb: Feedback) -> str:
             "git_commit_sha": fb.git_commit_sha,
             "user_agent": fb.user_agent,
             "ticket_code": fb.ticket_code,
-            "chat_session_id": str(fb.chat_session_id)
-            if fb.chat_session_id
+            "chat_session_id": str(fb.id)
+            if fb.messages
             else None,
             "synthesis_json": fb.synthesis_json,
             "created_at": _fmt_dt(fb.created_at),
@@ -496,8 +518,11 @@ def build_feedback_bundle(
         # Chat-first artefacts (Sprint C). Only when the feedback row
         # links to a chat session AND the caller passed a db handle.
         has_chat = False
-        if fb.chat_session_id is not None and db is not None:
-            chat_files = _resolve_chat_artifacts(db, fb.chat_session_id)
+        # Post-unification (2026-05-16): the ticket IS the chat. We
+        # always resolve chat artefacts from ``fb.id`` itself when a
+        # db handle is available — the row carries both header + chat.
+        if db is not None and (fb.messages or fb.synthesis_json):
+            chat_files = _resolve_chat_artifacts(db, fb.id)
             if chat_files:
                 has_chat = True
                 for relpath, body in chat_files.items():

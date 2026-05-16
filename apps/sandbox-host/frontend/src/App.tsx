@@ -1,31 +1,15 @@
-import { FeedbackButton, FeedbackProvider, FeedbackTriagePage } from "@rl3/feedback-widget";
-import { useEffect, useState } from "react";
+import { FeedbackButton, FeedbackProvider } from "@rl3/feedback-widget";
+import { useState } from "react";
 
 import { type SandboxRole, getSandboxRole, sandboxBindings, setSandboxRole } from "./bindings";
 
-type View = "home" | "admin";
-
-function _routeFromUrl(): View {
-  if (typeof window === "undefined") return "home";
-  const path = window.location.pathname;
-  if (path.startsWith("/admin/feedback")) return "admin";
-  return "home";
-}
+// Patrón A (2026-05-16) — the dedicated admin triage route is gone.
+// Admins access the same UX as users via the floating launcher; the
+// scope chip "Mine / All" inside the sheet flips the ticket list
+// between own and tenant-wide.
 
 export function App() {
-  const [view, setView] = useState<View>(_routeFromUrl());
   const [role, setRole] = useState<SandboxRole>(getSandboxRole());
-
-  useEffect(() => {
-    const onPop = () => setView(_routeFromUrl());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const navigate = (path: string, nextView: View) => {
-    window.history.pushState({}, "", path);
-    setView(nextView);
-  };
 
   const switchRole = (next: SandboxRole) => {
     setSandboxRole(next);
@@ -35,16 +19,11 @@ export function App() {
   return (
     <FeedbackProvider bindings={sandboxBindings}>
       <div className="flex min-h-screen bg-zinc-950 text-zinc-100">
-        <Sidebar view={view} navigate={navigate} role={role} switchRole={switchRole} />
+        <Sidebar role={role} switchRole={switchRole} />
         <div className="flex flex-1 flex-col">
           <Topbar role={role} />
           <main className="flex-1 overflow-y-auto bg-zinc-950 px-8 py-8">
-            {view === "home" && <Dashboard />}
-            {view === "admin" && (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-                <FeedbackTriagePage />
-              </div>
-            )}
+            <Dashboard />
           </main>
         </div>
         <FeedbackButton />
@@ -54,19 +33,15 @@ export function App() {
 }
 
 interface SidebarProps {
-  view: View;
-  navigate: (path: string, view: View) => void;
   role: SandboxRole;
   switchRole: (role: SandboxRole) => void;
 }
 
-function Sidebar({ view, navigate, role, switchRole }: SidebarProps) {
-  const navItem = (label: string, path: string, target: View, icon: string) => {
-    const active = view === target;
+function Sidebar({ role, switchRole }: SidebarProps) {
+  const navItem = (label: string, icon: string, active: boolean) => {
     return (
       <button
         type="button"
-        onClick={() => navigate(path, target)}
         className={[
           "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
           active
@@ -98,8 +73,7 @@ function Sidebar({ view, navigate, role, switchRole }: SidebarProps) {
         <p className="px-3 pb-2 text-[10px] uppercase tracking-wider text-zinc-500">
           Overview
         </p>
-        {navItem("Dashboard", "/", "home", "▦")}
-        {navItem("Admin triage", "/admin/feedback", "admin", "⚙")}
+        {navItem("Dashboard", "▦", true)}
       </nav>
 
       <div className="mt-auto flex flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-900 p-4 text-xs">

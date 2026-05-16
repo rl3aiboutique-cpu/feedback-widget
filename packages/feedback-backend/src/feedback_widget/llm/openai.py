@@ -38,6 +38,42 @@ from .protocol import (
 # Prices verified 2026-05-15 against pricepertoken.com (mirror of the
 # official OpenAI pricing page). Update when models are added or when
 # OpenAI publishes price cuts.
+
+
+# GPT-5 family + o-series reasoners share a tightened API surface:
+# they only accept the new ``max_completion_tokens`` key and they
+# refuse non-default sampling parameters (temperature / top_p).
+# Older chat models keep the legacy contract.
+_NEW_API_PREFIXES = ("gpt-5", "o1", "o3")
+
+
+def _is_new_api_model(model: str) -> bool:
+    return any(model.startswith(p) for p in _NEW_API_PREFIXES)
+
+
+def _max_tokens_kwarg(model: str, value: int) -> dict[str, int]:
+    """Pick the right output-cap parameter for the active model.
+
+    For the gpt-5 / o-series surface the cap INCLUDES the (invisible)
+    reasoning tokens, so the caller's value — sized for the visible
+    JSON response of a chat turn — has to be expanded or the model
+    burns the whole budget on reasoning and returns an empty body.
+    The 4× headroom is conservative: medium reasoning on nano
+    typically eats 500-1500 tokens before emitting the JSON.
+    """
+
+    if _is_new_api_model(model):
+        return {"max_completion_tokens": max(value * 4, 4000)}
+    return {"max_tokens": value}
+
+
+def _sampling_kwargs(model: str) -> dict[str, float]:
+    """Sampling knobs the model accepts. Empty dict for the gpt-5 /
+    o-series surface, which rejects anything other than defaults."""
+
+    if _is_new_api_model(model):
+        return {}
+    return {"temperature": 0.2, "top_p": 0.95}
 _OPENAI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
     "gpt-5-nano": (0.05, 0.40),
     "gpt-5-mini": (0.25, 2.00),
@@ -183,9 +219,8 @@ class OpenAIProvider:
         kwargs: dict[str, object] = {
             "model": self._model,
             "messages": _build_messages(system_prompt, user_prompt, attachments),
-            "max_tokens": max_output_tokens,
-            "temperature": 0.2,
-            "top_p": 0.95,
+            **_max_tokens_kwarg(self._model, max_output_tokens),
+            **_sampling_kwargs(self._model),
             "response_format": {"type": "json_object"},
         }
         if self._reasoning_effort is not None:
@@ -227,9 +262,8 @@ class OpenAIProvider:
         kwargs: dict[str, object] = {
             "model": self._model,
             "messages": _build_messages(system_prompt, user_prompt, attachments),
-            "max_tokens": max_output_tokens,
-            "temperature": 0.2,
-            "top_p": 0.95,
+            **_max_tokens_kwarg(self._model, max_output_tokens),
+            **_sampling_kwargs(self._model),
             "response_format": {"type": "json_object"},
             "stream": True,
             # Required so the final chunk carries usage metadata; the

@@ -28,7 +28,15 @@ export interface ChatRunStreamResult {
   partial_text: string;
   synthesis: Synthesis | null;
   error: string | null;
-  sendMessage: (content: string, via?: "text" | "voice") => Promise<void>;
+  sendMessage: (
+    content: string,
+    via?: "text" | "voice",
+    /** Optional fresh page snapshot the FE re-captures per turn so
+     *  the multimodal LLM sees what the user is looking at right now.
+     *  Encoded as base64 (no `data:` prefix). */
+    screenshotB64?: string | null,
+    screenshotContentType?: string | null,
+  ) => Promise<void>;
   reset: () => void;
   /** Seed the timeline with the initial assistant greeting. */
   pushAssistantGreeting: (text: string) => void;
@@ -49,6 +57,12 @@ export interface ChatRunStreamResult {
     synthesis?: Synthesis | null;
     nextState?: ChatState;
   }) => void;
+  /** Patch a synthesis message in-place (by ts) so the UI reflects an
+   *  approve / edit roundtrip without waiting for a server refetch. */
+  updateSynthesisMsg: (
+    ts: string,
+    patch: { confirmed?: boolean; synthesis?: Synthesis },
+  ) => void;
 }
 
 interface UseChatRunStreamArgs {
@@ -144,6 +158,39 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
     setSynthesis(null);
   }, []);
 
+  const updateSynthesisMsg = useCallback(
+    (ts: string, patch: { confirmed?: boolean; synthesis?: Synthesis }) => {
+      setMessages((prev) => {
+        let winnerJustSet = false;
+        const next = prev.map((m) => {
+          if (m.role !== "synthesis" || String(m.ts) !== ts) return m;
+          const updated: ChatMessage = { ...m };
+          if (typeof patch.confirmed === "boolean") {
+            updated.confirmed = patch.confirmed;
+            if (patch.confirmed) winnerJustSet = true;
+          }
+          if (patch.synthesis) {
+            updated.synthesis = patch.synthesis;
+          }
+          return updated;
+        });
+        if (winnerJustSet) {
+          // Enforce the one-winner invariant client-side too — every
+          // other synthesis msg loses its confirmed flag so the locked
+          // UI lights up immediately.
+          return next.map((m) =>
+            m.role === "synthesis" && String(m.ts) !== ts
+              ? { ...m, confirmed: false }
+              : m,
+          );
+        }
+        return next;
+      });
+      if (patch.synthesis) setSynthesis(patch.synthesis);
+    },
+    [],
+  );
+
   const seedConversation = useCallback(
     (args: {
       messages: ChatMessage[];
@@ -162,7 +209,12 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
   );
 
   const sendMessage = useCallback(
-    async (content: string, via: "text" | "voice" = "text") => {
+    async (
+      content: string,
+      via: "text" | "voice" = "text",
+      screenshotB64?: string | null,
+      screenshotContentType?: string | null,
+    ) => {
       if (!sessionId) {
         setError("session not initialised");
         setState("error");
@@ -195,7 +247,12 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
             "Idempotency-Key": newIdempotencyKey(),
             ...(await _authHeaders(bindings)),
           },
-          body: JSON.stringify({ content: trimmed, via }),
+          body: JSON.stringify({
+            content: trimmed,
+            via,
+            screenshot_b64: screenshotB64 ?? null,
+            screenshot_content_type: screenshotContentType ?? null,
+          }),
         });
         if (!resp.ok) {
           const detail = await resp.text().catch(() => "");
@@ -254,6 +311,22 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
               } else if (frame.event === "synthesis") {
                 const data = (frame.data as { data?: Synthesis })?.data;
                 if (data) {
+                  // Append the synthesis as a chat msg so the timeline
+                  // keeps every iteration. The legacy ``synthesis``
+                  // state stays in sync pointing at the latest emit
+                  // (used by callers that haven't migrated to reading
+                  // from the messages array yet).
+                  const synthTs = new Date().toISOString();
+                  setMessages((prev) => [
+                    ...prev,
+                    {
+                      role: "synthesis",
+                      text: "",
+                      ts: synthTs,
+                      synthesis: data,
+                      confirmed: false,
+                    },
+                  ]);
                   setSynthesis(data);
                   setState("confirming");
                 }
@@ -290,5 +363,6 @@ export function useChatRunStream(args: UseChatRunStreamArgs): ChatRunStreamResul
     setStateExternal,
     clearSynthesis,
     seedConversation,
+    updateSynthesisMsg,
   };
 }

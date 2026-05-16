@@ -13,20 +13,6 @@ declare function installNetworkWrap(capacity?: number): void;
 declare function installErrorWrap(capacity?: number): void;
 
 /**
- * Admin triage page — lives INSIDE the widget folder so the host's
- * route file is a thin wrapper. When the widget is extracted to
- * another web app, this page comes along.
- *
- * Permissions: this component currently checks ``user.role ===
- * "MASTER_ADMIN"`` via the adapter. If a host wants a different gate,
- * they wrap or replace the adapter's ``useCurrentUser``.
- *
- * Data fetching goes through the adapter hooks so the SDK is not
- * imported directly here.
- */
-declare function FeedbackTriagePage(): React.ReactElement;
-
-/**
  * Internal widget types.
  *
  * The widget intentionally re-declares (rather than re-exports) the
@@ -159,8 +145,12 @@ interface CapturePickerProps {
     onModeChange: (mode: CaptureMode) => void;
     /** When `true`, the picker is in read-only "badge" mode (after the chat has started). */
     readOnly?: boolean;
+    /** When `true`, render as icon-only buttons (28×28) so the picker
+     *  fits inline next to the tabs in a single header row. Tooltips
+     *  preserve the discoverability of each mode. */
+    compact?: boolean;
 }
-declare function CapturePicker({ mode, locked, onActivatePicker, onClearLocked, onModeChange, readOnly, }: CapturePickerProps): ReactElement;
+declare function CapturePicker({ mode, locked, onActivatePicker, onClearLocked, onModeChange, readOnly, compact, }: CapturePickerProps): ReactElement;
 
 /**
  * Chat-first feedback sheet — v1.0.0 shell-hybrid (S3F).
@@ -247,30 +237,43 @@ interface Synthesis {
 type ChatState = "idle" | "opening" | "awaiting_user" | "user_typing" | "bot_thinking" | "synthesizing" | "confirming" | "finalizing" | "done" | "error";
 
 /**
- * Final synthesis card for the chat-first feedback flow (D-015, D-012,
- * Sprint B / capture_v3).
+ * Synthesis card for the chat-first feedback flow.
  *
- * Rendered once the backend emits the `synthesis` SSE event. Surfaces
- * the base shape (title / summary / user_story / acceptance criteria /
- * open questions) plus the Sprint B enrichment that recovers the
- * legacy iter-module output: personas, additional user_stories,
- * assumptions and an optional Mermaid diagram block.
+ * Lives INSIDE the chat timeline as one bubble per spec emission so the
+ * user can compare iterations. Each card has its own Approve button;
+ * only one version per chat can be confirmed (one-winner invariant —
+ * server-enforced). Click the card to enter edit mode and tweak title /
+ * summary / user_story / acceptance_criteria manually; press Confirm to
+ * persist the edit (does NOT auto-approve).
  *
- * Type + severity are deliberately NOT rendered (D-008: admin-only).
- *
- * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet
- * footer via `<FooterActions>` per S3F shell-hybrid — this card is
- * content-only.
- *
- * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts
- * inherit that. Locale-aware copy lands later if a non-es host
- * appears.
+ * Read-only mode renders the full enriched payload (personas, diagram,
+ * etc.). Edit mode shows only the four user-editable fields — the rest
+ * stays LLM-owned to keep the surface small.
  */
 
 interface SynthesisCardProps {
     synthesis: Synthesis;
+    /** Whether THIS card is the approved winner. Drives the green badge
+     *  + disables further Approve / Edit. */
+    confirmed?: boolean;
+    /** True when ANY OTHER card in the same chat is already confirmed.
+     *  Locks Approve + Edit on this one (the ticket has a winner). */
+    lockedByOtherWinner?: boolean;
+    /** Async approve handler — called when user presses Approve.
+     *  Omit to render the card read-only (e.g. the legacy detail view). */
+    onApprove?: () => void | Promise<void>;
+    /** Async edit handler — called with the patched fields when the user
+     *  presses Confirm in edit mode. Omit to render read-only. */
+    onEdit?: (patch: {
+        title?: string;
+        summary?: string;
+        user_story?: string;
+        acceptance_criteria?: string[];
+    }) => void | Promise<void>;
+    /** Disables both buttons while a mutation is in-flight. */
+    busy?: boolean;
 }
-declare function SynthesisCard({ synthesis }: SynthesisCardProps): ReactElement;
+declare function SynthesisCard({ synthesis, confirmed, lockedByOtherWinner, onApprove, onEdit, busy, }: SynthesisCardProps): ReactElement;
 
 type FeedbackTab = "compose" | "mine";
 interface FeedbackTabsProps {
@@ -290,9 +293,28 @@ interface FooterActionsProps {
 }
 declare function FooterActions({ state, onConfirm, onAdjust, onRetry, }: FooterActionsProps): ReactElement | null;
 
+/**
+ * "Tickets" tab — unified ticket browser (Patrón A, 2026-05-16).
+ *
+ * Owns the management surface for both audiences:
+ *
+ *   - Submitter: scope = "mine" only. Sees their own tickets with
+ *     search + status filter (no pagination — the user list is
+ *     bounded to the most-recent 50).
+ *   - Admin (``useCanTriageFeedback() === true``): scope toggle
+ *     between "Mine" and "All". The "All" scope hits the admin
+ *     endpoint and supports search + status + type filters with
+ *     real pagination (page / page_size).
+ *
+ * Filter and pagination state lives in this component; switching
+ * scope or tabs preserves it via the surrounding ChatSheet stays
+ * mounted. Querystring sync is intentionally NOT done — the sheet
+ * is an overlay, not a route.
+ */
+
 interface MineFeedTabProps {
-    /** Called when user clicks a row. S3E opens the inline TicketDetail
-     * view; before S3E this no-op'd back to the compose tab. */
+    /** Called when the user clicks a row. The sheet swaps to the
+     *  inline TicketDetail view. */
     onSelectFeedback?: (feedbackId: string) => void;
 }
 declare function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElement;
@@ -315,31 +337,20 @@ interface StatusPillProps {
 declare function StatusPill({ status }: StatusPillProps): ReactElement;
 
 /**
- * Submitter-facing ticket detail view — opens when the user clicks a
- * row in Mis feedbacks (S3E).
+ * TicketDetail — full conversational workspace for one ticket.
  *
- * Layout:
+ * Mirrors the EXACT chat experience of the "New feedback" tab:
+ * ChatTimeline + AttachmentTray + Composer (paperclip + mic + send
+ * pill). The header carries status/code/meta; the admin actions
+ * panel sits AT THE TOP right under the header so reviewers see
+ * controls before they scroll the conversation; the synthesis card
+ * renders when the ticket has been confirmed; attachments are
+ * clickable thumbnails (open in lightbox / native browser).
  *
- *   ┌─ ← Volver  | ticket_code | <StatusPill> ─────────┐
- *   │ Title                                              │
- *   │ ┌─ Summary card (description) ──────────────────┐ │
- *   │ ┌─ Conversation (admin ↔ submitter bubbles) ────┐ │
- *   │ ┌─ Reply composer (textarea + send) ────────────┐ │
- *   └────────────────────────────────────────────────────┘
- *
- * Bubble routing from the submitter's perspective:
- *   - own comments  → role="user"  (right, primary tint)
- *   - admin comments → role="admin" (left, violet tint + "Equipo" badge)
- *
- * Polling is delegated to `useFeedbackCommentsQuery` (30s refresh) so
- * admin replies surface near-live without an explicit refresh.
- *
- * NOTE on synthesis: ``FeedbackRead`` does not currently expose
- * ``synthesis_json`` — the backend stores it on
- * ``feedback_chat_session`` and never serializes it on the feedback
- * row. For S3E we render ``title`` + ``description`` (always present)
- * as the read-only summary. Wiring the structured synthesis is a
- * follow-up (needs the FeedbackRead schema to gain ``synthesis_json``).
+ * The conversation is hydrated from the detail query and then driven
+ * by the same ``useChatRunStream`` hook the new-feedback flow uses,
+ * so streaming deltas, retries, and synthesis events all behave
+ * identically across both entry points.
  */
 
 interface TicketDetailProps {
@@ -690,4 +701,4 @@ declare function useFeedbackBindings(): FeedbackHostBindings;
  */
 declare function newIdempotencyKey(): string;
 
-export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, FeedbackTriagePage, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, installConsoleWrap, installErrorWrap, installNetworkWrap, newIdempotencyKey, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };
+export { type CaptureMode, CapturePicker, type CapturePickerProps, type CurrentUserSnapshot, type FeedbackAdapter, type FeedbackAttachmentRead, FeedbackButton, FeedbackButton as FeedbackButtonDefault, FeedbackChatSheet, type FeedbackChatSheetProps, type FeedbackConfig, type FeedbackHostBindings, type FeedbackListResponse, type FeedbackPosition, FeedbackProvider, type FeedbackRead, type FeedbackReadShape, type FeedbackStatus, type FeedbackStatusKey, type FeedbackStatusUpdate, type FeedbackTab, FeedbackTabs, type FeedbackTabsProps, type FeedbackType, type FeedbackTypeKey, FooterActions, type FooterActionsProps, type IterAssumptionRead, type IterAssumptionStatus, type IterPackageRead, type IterSessionRead, type IterSessionStatus, type IterVersionRead, type LockedElementInfo, MineFeedTab, type MineFeedTabProps, StatusPill, type StatusPillProps, SubmitFeedbackError, type Synthesis, SynthesisCard, type SynthesisCardProps, TicketDetail, type TicketDetailProps, type ToastApi, type ToastOptions, type Translator, VERSION, createAdapter, installConsoleWrap, installErrorWrap, installNetworkWrap, newIdempotencyKey, useCanTriageFeedback, useFeedbackAdapter, useFeedbackBindings, useFeedbackConfig };

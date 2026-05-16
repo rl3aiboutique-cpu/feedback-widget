@@ -1,51 +1,28 @@
 import {
-  Button,
   CapturePicker,
-  FeedbackApiError,
   FeedbackChatSheet,
   FeedbackProvider,
   FeedbackTabs,
   FooterActions,
   MineFeedTab,
   Rl3Mark,
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
   StatusPill,
   SubmitFeedbackError,
   SynthesisCard,
-  Textarea,
   TicketDetail,
-  cn,
   createAdapter,
   describeElement,
   newIdempotencyKey,
   redactString,
-  useDeleteFeedbackMutation,
+  useCanTriageFeedback,
   useFeedbackAdapter,
   useFeedbackBindings,
   useFeedbackConfig,
-  useFeedbackDetailQuery,
-  useFeedbackListQuery,
-  useMyFeedbackQuery,
-  usePostFeedbackAdminActionMutation,
-  useUpdateFeedbackStatusMutation
-} from "./chunk-UOU67JP7.js";
+  useMyPendingActionCount
+} from "./chunk-JK4Z3IN7.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
-
-// src/hooks/useCanTriageFeedback.ts
-function useCanTriageFeedback() {
-  const adapter = useFeedbackAdapter();
-  const bindings = useFeedbackBindings();
-  const user = adapter.useCurrentUser();
-  if (!user) return false;
-  const allowed = (bindings.triageRoles && bindings.triageRoles.length > 0 ? bindings.triageRoles : ["MASTER_ADMIN"]).map((r) => r.toUpperCase());
-  return allowed.includes(user.role.toUpperCase());
-}
 
 // src/capture/consoleWrap.ts
 var DEFAULT_CAPACITY = 50;
@@ -235,887 +212,12 @@ function installErrorWrap(capacity = DEFAULT_CAPACITY3) {
   });
 }
 
-// src/admin/FeedbackTriagePage.tsx
-import { Download } from "lucide-react";
-import { useMemo, useState as useState2 } from "react";
-
-// src/ui/badge.tsx
-import { Slot } from "@radix-ui/react-slot";
-import { cva } from "class-variance-authority";
-import { jsx } from "react/jsx-runtime";
-var badgeVariants = cva(
-  "inline-flex items-center justify-center rounded-full border px-2 py-0.5 text-xs font-medium w-fit whitespace-nowrap shrink-0 [&>svg]:size-3 gap-1 [&>svg]:pointer-events-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive transition-[color,box-shadow] overflow-hidden",
-  {
-    variants: {
-      variant: {
-        default: "border-transparent bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary: "border-transparent bg-secondary text-secondary-foreground [a&]:hover:bg-secondary/90",
-        destructive: "border-transparent bg-destructive text-white [a&]:hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60",
-        outline: "text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground"
-      }
-    },
-    defaultVariants: {
-      variant: "default"
-    }
-  }
-);
-function Badge({
-  className,
-  variant,
-  asChild = false,
-  ...props
-}) {
-  const Comp = asChild ? Slot : "span";
-  return /* @__PURE__ */ jsx(Comp, { "data-slot": "badge", className: cn(badgeVariants({ variant }), className), ...props });
-}
-
-// src/ui/input.tsx
-import { jsx as jsx2 } from "react/jsx-runtime";
-function Input({ className, type, ...props }) {
-  return /* @__PURE__ */ jsx2(
-    "input",
-    {
-      type,
-      "data-slot": "input",
-      className: cn(
-        "file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
-        "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
-        "aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
-        className
-      ),
-      ...props
-    }
-  );
-}
-
-// src/ui/select.tsx
-import * as SelectPrimitive from "@radix-ui/react-select";
-import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react";
-import { jsx as jsx3, jsxs } from "react/jsx-runtime";
-function Select({ ...props }) {
-  return /* @__PURE__ */ jsx3(SelectPrimitive.Root, { "data-slot": "select", ...props });
-}
-function SelectValue({ ...props }) {
-  return /* @__PURE__ */ jsx3(SelectPrimitive.Value, { "data-slot": "select-value", ...props });
-}
-function SelectTrigger({
-  className,
-  size = "default",
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxs(
-    SelectPrimitive.Trigger,
-    {
-      "data-slot": "select-trigger",
-      "data-size": size,
-      className: cn(
-        "border-input data-[placeholder]:text-muted-foreground [&_svg:not([class*='text-'])]:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 flex w-fit items-center justify-between gap-2 rounded-md border bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-9 data-[size=sm]:h-8 *:data-[slot=select-value]:line-clamp-1 *:data-[slot=select-value]:flex *:data-[slot=select-value]:items-center *:data-[slot=select-value]:gap-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-        className
-      ),
-      ...props,
-      children: [
-        children,
-        /* @__PURE__ */ jsx3(SelectPrimitive.Icon, { asChild: true, children: /* @__PURE__ */ jsx3(ChevronDownIcon, { className: "size-4 opacity-50" }) })
-      ]
-    }
-  );
-}
-function SelectContent({
-  className,
-  children,
-  position = "popper",
-  align = "center",
-  ...props
-}) {
-  return /* @__PURE__ */ jsx3(SelectPrimitive.Portal, { children: /* @__PURE__ */ jsxs(
-    SelectPrimitive.Content,
-    {
-      "data-slot": "select-content",
-      className: cn(
-        "bg-popover text-popover-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--radix-select-content-available-height) min-w-[8rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
-        position === "popper" && "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
-        className
-      ),
-      position,
-      align,
-      ...props,
-      children: [
-        /* @__PURE__ */ jsx3(SelectScrollUpButton, {}),
-        /* @__PURE__ */ jsx3(
-          SelectPrimitive.Viewport,
-          {
-            className: cn(
-              "p-1",
-              position === "popper" && "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
-            ),
-            children
-          }
-        ),
-        /* @__PURE__ */ jsx3(SelectScrollDownButton, {})
-      ]
-    }
-  ) });
-}
-function SelectItem({
-  className,
-  children,
-  ...props
-}) {
-  return /* @__PURE__ */ jsxs(
-    SelectPrimitive.Item,
-    {
-      "data-slot": "select-item",
-      className: cn(
-        "focus:bg-accent focus:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-sm outline-hidden select-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 *:[span]:last:flex *:[span]:last:items-center *:[span]:last:gap-2",
-        className
-      ),
-      ...props,
-      children: [
-        /* @__PURE__ */ jsx3("span", { className: "absolute right-2 flex size-3.5 items-center justify-center", children: /* @__PURE__ */ jsx3(SelectPrimitive.ItemIndicator, { children: /* @__PURE__ */ jsx3(CheckIcon, { className: "size-4" }) }) }),
-        /* @__PURE__ */ jsx3(SelectPrimitive.ItemText, { children })
-      ]
-    }
-  );
-}
-function SelectScrollUpButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx3(
-    SelectPrimitive.ScrollUpButton,
-    {
-      "data-slot": "select-scroll-up-button",
-      className: cn("flex cursor-default items-center justify-center py-1", className),
-      ...props,
-      children: /* @__PURE__ */ jsx3(ChevronUpIcon, { className: "size-4" })
-    }
-  );
-}
-function SelectScrollDownButton({
-  className,
-  ...props
-}) {
-  return /* @__PURE__ */ jsx3(
-    SelectPrimitive.ScrollDownButton,
-    {
-      "data-slot": "select-scroll-down-button",
-      className: cn("flex cursor-default items-center justify-center py-1", className),
-      ...props,
-      children: /* @__PURE__ */ jsx3(ChevronDownIcon, { className: "size-4" })
-    }
-  );
-}
-
-// src/ui/table.tsx
-import { jsx as jsx4 } from "react/jsx-runtime";
-function Table({ className, ...props }) {
-  return /* @__PURE__ */ jsx4("div", { "data-slot": "table-container", className: "relative w-full overflow-x-auto rounded-lg border", children: /* @__PURE__ */ jsx4(
-    "table",
-    {
-      "data-slot": "table",
-      className: cn("w-full caption-bottom text-sm", className),
-      ...props
-    }
-  ) });
-}
-function TableHeader({ className, ...props }) {
-  return /* @__PURE__ */ jsx4(
-    "thead",
-    {
-      "data-slot": "table-header",
-      className: cn("bg-muted/50 [&_tr]:border-b", className),
-      ...props
-    }
-  );
-}
-function TableBody({ className, ...props }) {
-  return /* @__PURE__ */ jsx4(
-    "tbody",
-    {
-      "data-slot": "table-body",
-      className: cn("[&_tr:last-child]:border-0", className),
-      ...props
-    }
-  );
-}
-function TableRow({ className, ...props }) {
-  return /* @__PURE__ */ jsx4(
-    "tr",
-    {
-      "data-slot": "table-row",
-      className: cn(
-        "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function TableHead({ className, ...props }) {
-  return /* @__PURE__ */ jsx4(
-    "th",
-    {
-      "data-slot": "table-head",
-      className: cn(
-        "text-muted-foreground h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wider whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
-        className
-      ),
-      ...props
-    }
-  );
-}
-function TableCell({ className, ...props }) {
-  return /* @__PURE__ */ jsx4(
-    "td",
-    {
-      "data-slot": "table-cell",
-      className: cn(
-        "px-4 py-3 align-middle whitespace-nowrap [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
-        className
-      ),
-      ...props
-    }
-  );
-}
-
-// src/admin/ChatSessionViewer.tsx
-import { useQuery } from "@tanstack/react-query";
-import { jsx as jsx5, jsxs as jsxs2 } from "react/jsx-runtime";
-async function fetchChatSession(bindings, feedbackId) {
-  const base = bindings.apiBaseUrl.replace(/\/$/, "");
-  const prefix = bindings.apiPathPrefix ?? "/api/v1/feedback";
-  const url = `${base}${prefix}/${feedbackId}/chat`;
-  const headers = {};
-  try {
-    const csrf = await bindings.getCsrfToken();
-    if (csrf) headers["X-CSRF-Token"] = csrf;
-  } catch {
-  }
-  if (bindings.authHeader) {
-    try {
-      const auth = await bindings.authHeader();
-      if (auth) headers.Authorization = auth;
-    } catch {
-    }
-  }
-  const resp = await fetch(url, { credentials: "include", headers });
-  if (resp.status === 404) {
-    return null;
-  }
-  if (!resp.ok) {
-    throw new Error(`chat session fetch failed: ${resp.status}`);
-  }
-  return await resp.json();
-}
-function SynthesisBlock({
-  synthesis
-}) {
-  return /* @__PURE__ */ jsxs2("div", { className: "flex flex-col gap-2 rounded-md border bg-muted/30 p-3", children: [
-    /* @__PURE__ */ jsx5("h4", { className: "text-sm font-medium text-foreground", children: synthesis.title ?? "(synthesis sin t\xEDtulo)" }),
-    synthesis.summary ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-muted-foreground", children: synthesis.summary }) : null,
-    synthesis.user_story ? /* @__PURE__ */ jsx5("blockquote", { className: "border-l-2 border-primary pl-2 text-xs italic text-foreground", children: synthesis.user_story }) : null,
-    synthesis.personas && synthesis.personas.length > 0 ? /* @__PURE__ */ jsxs2("div", { className: "flex flex-col gap-1", children: [
-      /* @__PURE__ */ jsx5("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Personas" }),
-      /* @__PURE__ */ jsx5("ul", { className: "space-y-1 text-xs text-foreground", children: synthesis.personas.map((p, i) => /* @__PURE__ */ jsxs2("li", { className: "rounded border border-input/60 px-2 py-1", children: [
-        /* @__PURE__ */ jsx5("span", { className: "font-medium", children: p.name }),
-        p.goal ? /* @__PURE__ */ jsxs2("span", { className: "text-muted-foreground", children: [
-          " \u2014 ",
-          p.goal
-        ] }) : null
-      ] }, `persona-${i}`)) })
-    ] }) : null,
-    synthesis.acceptance_criteria && synthesis.acceptance_criteria.length > 0 ? /* @__PURE__ */ jsxs2("div", { children: [
-      /* @__PURE__ */ jsx5("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Criterios de aceptaci\xF3n" }),
-      /* @__PURE__ */ jsx5("ul", { className: "list-disc space-y-0.5 pl-4 text-xs text-foreground", children: synthesis.acceptance_criteria.map((c, i) => /* @__PURE__ */ jsx5("li", { children: c }, `ac-${i}`)) })
-    ] }) : null,
-    synthesis.assumptions && synthesis.assumptions.length > 0 ? /* @__PURE__ */ jsxs2("div", { children: [
-      /* @__PURE__ */ jsx5("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Supuestos" }),
-      /* @__PURE__ */ jsx5("ul", { className: "list-disc space-y-0.5 pl-4 text-xs text-muted-foreground", children: synthesis.assumptions.map((a, i) => /* @__PURE__ */ jsx5("li", { children: a }, `asm-${i}`)) })
-    ] }) : null,
-    synthesis.diagram ? /* @__PURE__ */ jsxs2("div", { children: [
-      /* @__PURE__ */ jsx5("p", { className: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", children: "Diagrama" }),
-      /* @__PURE__ */ jsx5("pre", { className: "overflow-x-auto rounded border border-input/60 bg-muted/40 p-2 text-[10px] text-foreground", children: /* @__PURE__ */ jsx5("code", { children: synthesis.diagram }) })
-    ] }) : null
-  ] });
-}
-function TranscriptBlock({ messages }) {
-  if (messages.length === 0) {
-    return /* @__PURE__ */ jsx5("p", { className: "text-xs text-muted-foreground", children: "(sin mensajes)" });
-  }
-  return /* @__PURE__ */ jsx5("ul", { className: "flex flex-col gap-2", children: messages.map((m, idx) => /* @__PURE__ */ jsxs2(
-    "li",
-    {
-      className: "rounded border bg-card p-2 text-xs",
-      children: [
-        /* @__PURE__ */ jsxs2("div", { className: "flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-muted-foreground", children: [
-          /* @__PURE__ */ jsx5("span", { className: "font-semibold text-foreground", children: m.role }),
-          /* @__PURE__ */ jsx5("span", { children: m.ts ?? "" })
-        ] }),
-        /* @__PURE__ */ jsx5("p", { className: "mt-1 whitespace-pre-wrap text-foreground", children: m.text }),
-        m.role === "assistant" && m.mode ? /* @__PURE__ */ jsxs2("p", { className: "mt-1 text-[10px] text-muted-foreground", children: [
-          "mode=",
-          m.mode,
-          m.active_branch ? ` \xB7 branch=${m.active_branch}` : "",
-          m.inferred?.type ? ` \xB7 inferred.type=${m.inferred.type}` : "",
-          m.inferred?.severity ? ` \xB7 severity=${m.inferred.severity}` : ""
-        ] }) : null
-      ]
-    },
-    `msg-${idx}-${m.ts ?? ""}`
-  )) });
-}
-function CallsBlock({ calls }) {
-  if (calls.length === 0) {
-    return /* @__PURE__ */ jsx5("p", { className: "text-xs text-muted-foreground", children: "(sin llamadas LLM)" });
-  }
-  return /* @__PURE__ */ jsx5("div", { className: "overflow-x-auto", children: /* @__PURE__ */ jsxs2("table", { className: "w-full text-[10px]", children: [
-    /* @__PURE__ */ jsx5("thead", { className: "text-muted-foreground", children: /* @__PURE__ */ jsxs2("tr", { children: [
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-left", children: "turn" }),
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-left", children: "model" }),
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-left", children: "status" }),
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-right", children: "latency" }),
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-right", children: "attempt" }),
-      /* @__PURE__ */ jsx5("th", { className: "px-1 text-left", children: "prompt v." })
-    ] }) }),
-    /* @__PURE__ */ jsx5("tbody", { children: calls.map((c) => /* @__PURE__ */ jsxs2("tr", { className: "border-t", children: [
-      /* @__PURE__ */ jsx5("td", { className: "px-1", children: c.turn_index }),
-      /* @__PURE__ */ jsxs2("td", { className: "px-1 font-mono", children: [
-        c.model_provider,
-        "/",
-        c.model_id
-      ] }),
-      /* @__PURE__ */ jsx5("td", { className: "px-1", children: /* @__PURE__ */ jsx5(
-        "span",
-        {
-          className: c.status === "success" ? "text-emerald-600" : "text-destructive",
-          children: c.status
-        }
-      ) }),
-      /* @__PURE__ */ jsxs2("td", { className: "px-1 text-right", children: [
-        c.latency_ms,
-        " ms"
-      ] }),
-      /* @__PURE__ */ jsx5("td", { className: "px-1 text-right", children: c.attempt_number }),
-      /* @__PURE__ */ jsx5("td", { className: "px-1", children: c.prompt_version ?? "\u2014" })
-    ] }, c.id)) })
-  ] }) });
-}
-function ChatSessionViewer({
-  feedbackId
-}) {
-  const bindings = useFeedbackBindings();
-  const query = useQuery({
-    queryKey: ["feedback-chat-session", feedbackId],
-    queryFn: () => fetchChatSession(bindings, feedbackId),
-    staleTime: 3e4
-  });
-  if (query.isSuccess && query.data === null) {
-    return null;
-  }
-  return /* @__PURE__ */ jsxs2("section", { className: "rounded-md border p-3 space-y-3", children: [
-    /* @__PURE__ */ jsx5("h3", { className: "text-sm font-medium", children: "Chat session" }),
-    query.isLoading ? /* @__PURE__ */ jsx5("p", { className: "text-xs text-muted-foreground", children: "Cargando\u2026" }) : null,
-    query.isError ? /* @__PURE__ */ jsxs2("p", { className: "text-xs text-destructive", children: [
-      "No pudimos cargar la conversaci\xF3n: ",
-      String(query.error)
-    ] }) : null,
-    query.isSuccess && query.data ? /* @__PURE__ */ jsxs2("div", { className: "flex flex-col gap-3", children: [
-      /* @__PURE__ */ jsxs2("div", { className: "flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground", children: [
-        /* @__PURE__ */ jsxs2("span", { children: [
-          "mode=",
-          query.data.mode
-        ] }),
-        /* @__PURE__ */ jsxs2("span", { children: [
-          "status=",
-          query.data.status
-        ] }),
-        query.data.detected_language ? /* @__PURE__ */ jsxs2("span", { children: [
-          "lang=",
-          query.data.detected_language
-        ] }) : null,
-        /* @__PURE__ */ jsxs2("span", { children: [
-          "turns=",
-          query.data.calls.length
-        ] })
-      ] }),
-      query.data.synthesis_json ? /* @__PURE__ */ jsxs2("details", { children: [
-        /* @__PURE__ */ jsx5("summary", { className: "cursor-pointer text-xs font-semibold text-foreground", children: "Synthesis" }),
-        /* @__PURE__ */ jsx5("div", { className: "mt-2", children: /* @__PURE__ */ jsx5(SynthesisBlock, { synthesis: query.data.synthesis_json }) })
-      ] }) : null,
-      /* @__PURE__ */ jsxs2("details", { children: [
-        /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold text-foreground", children: [
-          "Transcript (",
-          query.data.messages.length,
-          " mensajes)"
-        ] }),
-        /* @__PURE__ */ jsx5("div", { className: "mt-2", children: /* @__PURE__ */ jsx5(TranscriptBlock, { messages: query.data.messages }) })
-      ] }),
-      /* @__PURE__ */ jsxs2("details", { children: [
-        /* @__PURE__ */ jsxs2("summary", { className: "cursor-pointer text-xs font-semibold text-foreground", children: [
-          "LLM call audit (",
-          query.data.calls.length,
-          ")"
-        ] }),
-        /* @__PURE__ */ jsx5("div", { className: "mt-2", children: /* @__PURE__ */ jsx5(CallsBlock, { calls: query.data.calls }) })
-      ] })
-    ] }) : null
-  ] });
-}
-
-// src/comments/CommentThread.tsx
-import { Send } from "lucide-react";
-import { useState } from "react";
-import { jsx as jsx6, jsxs as jsxs3 } from "react/jsx-runtime";
-function _fmt(dt) {
-  if (!dt) return "\u2014";
-  return dt.slice(0, 16).replace("T", " ");
-}
-function CommentThread({ feedbackId }) {
-  const adapter = useFeedbackAdapter();
-  const t = adapter.useTranslation();
-  const currentUser = adapter.useCurrentUser();
-  const ticketQuery = useFeedbackDetailQuery(feedbackId);
-  const adminAction = usePostFeedbackAdminActionMutation();
-  const [draft, setDraft] = useState("");
-  const messages = ticketQuery.data?.messages ?? [];
-  const isAdmin = ticketQuery.data?.user_id !== currentUser?.id;
-  const onSend = () => {
-    const body = draft.trim();
-    if (!body) return;
-    adminAction.mutate(
-      { feedbackId, payload: { message_text: body } },
-      {
-        onSuccess: () => {
-          setDraft("");
-        },
-        onError: (err) => {
-          if (err instanceof FeedbackApiError) {
-            if (err.status === 429) {
-              const seconds = err.retryAfter ?? "?";
-              adapter.toast.error(t("feedback.toast_error_429", { seconds: String(seconds) }));
-              return;
-            }
-            if (err.status === 401 || err.status === 403) {
-              adapter.toast.error(t("feedback.comments.send_unauthorized"));
-              return;
-            }
-          }
-          adapter.toast.error(t("feedback.comments.send_error"));
-        }
-      }
-    );
-  };
-  return /* @__PURE__ */ jsxs3("section", { className: "space-y-2", children: [
-    /* @__PURE__ */ jsx6("h4", { className: "text-xs font-semibold uppercase tracking-wide text-foreground", children: t("feedback.comments.thread_title") }),
-    ticketQuery.isLoading ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-muted-foreground", children: t("feedback.comments.loading") }) : ticketQuery.isError ? /* @__PURE__ */ jsx6("p", { className: "text-xs text-destructive", children: t("feedback.comments.error") }) : messages.length === 0 ? /* @__PURE__ */ jsx6("p", { className: "text-xs italic text-muted-foreground", children: t("feedback.comments.empty") }) : /* @__PURE__ */ jsx6("ul", { className: "space-y-2", children: messages.map((m, idx) => {
-      const isMine = m.role === "user";
-      const label = m.role === "admin" ? t("feedback.comments.admin_label") : m.role === "assistant" ? "RL3" : isMine ? t("feedback.comments.you_label") : t("feedback.comments.submitter_label");
-      const bubbleClass = m.role === "admin" ? "border-primary/40 bg-primary/5" : m.role === "assistant" ? "border-input bg-muted/40" : "border-input bg-background";
-      const badgeVariant = m.role === "admin" ? "default" : m.role === "assistant" ? "secondary" : "outline";
-      return /* @__PURE__ */ jsxs3(
-        "li",
-        {
-          className: `rounded-md border p-2 text-xs ${bubbleClass}`,
-          children: [
-            /* @__PURE__ */ jsxs3("div", { className: "flex items-center gap-2 mb-1", children: [
-              /* @__PURE__ */ jsx6(Badge, { variant: badgeVariant, className: "text-[10px]", children: label }),
-              /* @__PURE__ */ jsx6("span", { className: "text-[10px] text-muted-foreground", children: _fmt(m.ts) })
-            ] }),
-            /* @__PURE__ */ jsx6("p", { className: "whitespace-pre-wrap", children: m.text })
-          ]
-        },
-        `${m.role}-${m.ts}-${idx}`
-      );
-    }) }),
-    isAdmin ? /* @__PURE__ */ jsxs3("div", { className: "space-y-1.5", children: [
-      /* @__PURE__ */ jsx6(
-        Textarea,
-        {
-          value: draft,
-          onChange: (e) => setDraft(e.target.value),
-          placeholder: t("feedback.comments.placeholder"),
-          rows: 2,
-          maxLength: 5e3,
-          disabled: adminAction.isPending,
-          "data-feedback-id": "feedback.comments.draft"
-        }
-      ),
-      /* @__PURE__ */ jsx6("div", { className: "flex justify-end", children: /* @__PURE__ */ jsxs3(
-        Button,
-        {
-          type: "button",
-          size: "sm",
-          onClick: onSend,
-          disabled: adminAction.isPending || draft.trim().length === 0,
-          "data-feedback-id": "feedback.comments.send",
-          children: [
-            /* @__PURE__ */ jsx6(Send, { className: "mr-1 h-3.5 w-3.5" }),
-            adminAction.isPending ? t("feedback.comments.sending") : t("feedback.comments.send")
-          ]
-        }
-      ) })
-    ] }) : null
-  ] });
-}
-
-// src/admin/FeedbackTriagePage.tsx
-import { jsx as jsx7, jsxs as jsxs4 } from "react/jsx-runtime";
-var TYPE_VALUES = [
-  "bug",
-  "ui",
-  "performance",
-  "new_feature",
-  "extend_feature",
-  "other"
-];
-var STATUS_VALUES = [
-  "open",
-  "in_review",
-  "in_progress",
-  "waiting_for_user",
-  "resolved",
-  "wont_fix",
-  "closed"
-];
-function statusVariant(s) {
-  if (s === "open") return "default";
-  if (s === "in_review" || s === "in_progress" || s === "waiting_for_user") return "secondary";
-  if (s === "wont_fix") return "destructive";
-  return "outline";
-}
-function FeedbackTriagePage() {
-  const isAdmin = useCanTriageFeedback();
-  const adapter = useFeedbackAdapter();
-  const [typeFilter, setTypeFilter] = useState2("all");
-  const [statusFilter, setStatusFilter] = useState2("all");
-  const [q, setQ] = useState2("");
-  const [openId, setOpenId] = useState2(null);
-  const list = useFeedbackListQuery({
-    type: typeFilter === "all" ? null : typeFilter,
-    status: statusFilter === "all" ? null : statusFilter,
-    q,
-    page: 1,
-    pageSize: 50
-  });
-  const detail = useFeedbackDetailQuery(openId);
-  const patchStatus = useUpdateFeedbackStatusMutation();
-  const remove = useDeleteFeedbackMutation();
-  const rows = useMemo(() => list.data?.data ?? [], [list.data]);
-  if (!isAdmin) {
-    return /* @__PURE__ */ jsxs4("div", { className: "space-y-4", children: [
-      /* @__PURE__ */ jsx7("h1", { className: "text-2xl font-semibold", children: "Feedback" }),
-      /* @__PURE__ */ jsxs4("p", { className: "text-muted-foreground", children: [
-        "Your role is not authorised to triage feedback. Configure",
-        /* @__PURE__ */ jsx7("code", { className: "mx-1", children: "VITE_FEEDBACK_TRIAGE_ROLES" }),
-        "(or the host's ",
-        /* @__PURE__ */ jsx7("code", { children: "bindings.triageRoles" }),
-        ") to include your role."
-      ] })
-    ] });
-  }
-  return /* @__PURE__ */ jsxs4("div", { className: "space-y-4", children: [
-    /* @__PURE__ */ jsx7("div", { className: "flex items-center justify-between gap-4", children: /* @__PURE__ */ jsxs4("div", { children: [
-      /* @__PURE__ */ jsxs4("h1", { className: "flex items-center gap-3 text-2xl font-semibold", children: [
-        /* @__PURE__ */ jsx7(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
-        /* @__PURE__ */ jsx7("span", { children: "RL3 Feedback \u2014 triage" })
-      ] }),
-      /* @__PURE__ */ jsxs4("p", { className: "text-sm text-muted-foreground", children: [
-        list.data?.count ?? 0,
-        " total \xB7 Filter by type, status, or title."
-      ] })
-    ] }) }),
-    /* @__PURE__ */ jsxs4("div", { className: "flex flex-wrap items-end gap-3 rounded-md border p-3", children: [
-      /* @__PURE__ */ jsxs4("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx7("label", { htmlFor: "triage-type-filter", className: "block text-xs text-muted-foreground mb-1", children: "Type" }),
-        /* @__PURE__ */ jsxs4(
-          Select,
-          {
-            value: typeFilter,
-            onValueChange: (v) => setTypeFilter(v),
-            children: [
-              /* @__PURE__ */ jsx7(SelectTrigger, { id: "triage-type-filter", children: /* @__PURE__ */ jsx7(SelectValue, {}) }),
-              /* @__PURE__ */ jsxs4(SelectContent, { children: [
-                /* @__PURE__ */ jsx7(SelectItem, { value: "all", children: "All" }),
-                TYPE_VALUES.map((t) => /* @__PURE__ */ jsx7(SelectItem, { value: t, children: t }, t))
-              ] })
-            ]
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs4("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx7(
-          "label",
-          {
-            htmlFor: "triage-status-filter",
-            className: "block text-xs text-muted-foreground mb-1",
-            children: "Status"
-          }
-        ),
-        /* @__PURE__ */ jsxs4(
-          Select,
-          {
-            value: statusFilter,
-            onValueChange: (v) => setStatusFilter(v),
-            children: [
-              /* @__PURE__ */ jsx7(SelectTrigger, { id: "triage-status-filter", children: /* @__PURE__ */ jsx7(SelectValue, {}) }),
-              /* @__PURE__ */ jsxs4(SelectContent, { children: [
-                /* @__PURE__ */ jsx7(SelectItem, { value: "all", children: "All" }),
-                STATUS_VALUES.map((s) => /* @__PURE__ */ jsx7(SelectItem, { value: s, children: s }, s))
-              ] })
-            ]
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs4("div", { className: "flex-1 min-w-48", children: [
-        /* @__PURE__ */ jsx7("label", { htmlFor: "triage-search", className: "block text-xs text-muted-foreground mb-1", children: "Search title" }),
-        /* @__PURE__ */ jsx7(
-          Input,
-          {
-            id: "triage-search",
-            value: q,
-            onChange: (e) => setQ(e.target.value),
-            placeholder: "\u2026"
-          }
-        )
-      ] })
-    ] }),
-    /* @__PURE__ */ jsx7("div", { className: "rounded-md border", children: /* @__PURE__ */ jsxs4(Table, { children: [
-      /* @__PURE__ */ jsx7(TableHeader, { children: /* @__PURE__ */ jsxs4(TableRow, { children: [
-        /* @__PURE__ */ jsx7(TableHead, { className: "w-32", children: "Ticket" }),
-        /* @__PURE__ */ jsx7(TableHead, { className: "w-32", children: "Date" }),
-        /* @__PURE__ */ jsx7(TableHead, { className: "w-32", children: "Type" }),
-        /* @__PURE__ */ jsx7(TableHead, { className: "w-32", children: "Status" }),
-        /* @__PURE__ */ jsx7(TableHead, { children: "Title" }),
-        /* @__PURE__ */ jsx7(TableHead, { className: "w-48", children: "Route" })
-      ] }) }),
-      /* @__PURE__ */ jsx7(TableBody, { children: list.isLoading ? /* @__PURE__ */ jsx7(TableRow, { children: /* @__PURE__ */ jsx7(TableCell, { colSpan: 6, className: "text-center text-muted-foreground py-6", children: "Loading\u2026" }) }) : rows.length === 0 ? /* @__PURE__ */ jsx7(TableRow, { children: /* @__PURE__ */ jsx7(TableCell, { colSpan: 6, className: "text-center text-muted-foreground py-6", children: "No matching feedback." }) }) : rows.map((row) => /* @__PURE__ */ jsxs4(
-        TableRow,
-        {
-          className: "cursor-pointer hover:bg-accent",
-          onClick: () => setOpenId(row.id),
-          children: [
-            /* @__PURE__ */ jsx7(TableCell, { className: "font-mono text-xs", children: row.ticket_code || "\u2014" }),
-            /* @__PURE__ */ jsx7(TableCell, { className: "text-xs text-muted-foreground", children: row.created_at?.slice(0, 16) ?? "" }),
-            /* @__PURE__ */ jsx7(TableCell, { children: /* @__PURE__ */ jsx7(Badge, { variant: "outline", children: row.type }) }),
-            /* @__PURE__ */ jsx7(TableCell, { children: /* @__PURE__ */ jsx7(Badge, { variant: statusVariant(row.status), children: row.status }) }),
-            /* @__PURE__ */ jsx7(TableCell, { className: "font-medium", children: row.title }),
-            /* @__PURE__ */ jsx7(TableCell, { className: "text-xs text-muted-foreground truncate max-w-48", children: row.route_name ?? "\u2014" })
-          ]
-        },
-        row.id
-      )) })
-    ] }) }),
-    /* @__PURE__ */ jsx7(
-      Sheet,
-      {
-        open: !!openId,
-        onOpenChange: (open) => {
-          if (!open) setOpenId(null);
-        },
-        children: /* @__PURE__ */ jsxs4(SheetContent, { side: "right", className: "w-full sm:max-w-2xl overflow-y-auto", children: [
-          /* @__PURE__ */ jsxs4(SheetHeader, { children: [
-            /* @__PURE__ */ jsxs4(SheetTitle, { className: "flex items-center gap-2", children: [
-              detail.data?.ticket_code ? /* @__PURE__ */ jsx7("span", { className: "font-mono text-xs px-1.5 py-0.5 rounded bg-muted shrink-0", children: detail.data.ticket_code }) : null,
-              /* @__PURE__ */ jsx7("span", { className: "truncate", children: detail.data?.title ?? "" })
-            ] }),
-            /* @__PURE__ */ jsx7(SheetDescription, { children: detail.data ? /* @__PURE__ */ jsx7("span", { className: "text-xs space-y-0.5 block", children: /* @__PURE__ */ jsxs4("span", { children: [
-              detail.data.type,
-              " \xB7 ",
-              detail.data.created_at?.slice(0, 16),
-              " \xB7",
-              " ",
-              detail.data.url_captured
-            ] }) }) : "Loading\u2026" })
-          ] }),
-          detail.data ? /* @__PURE__ */ jsx7(
-            DetailBody,
-            {
-              data: detail.data,
-              onChangeStatus: (status, note) => {
-                patchStatus.mutate(
-                  { id: detail.data?.id ?? "", status, triage_note: note },
-                  {
-                    onSuccess: () => adapter.toast.success("Status updated"),
-                    onError: (err) => adapter.toast.error(`Could not update: ${String(err)}`)
-                  }
-                );
-              },
-              onDelete: () => {
-                remove.mutate(detail.data?.id ?? "", {
-                  onSuccess: () => {
-                    adapter.toast.success("Feedback deleted");
-                    setOpenId(null);
-                  },
-                  onError: (err) => adapter.toast.error(`Could not delete: ${String(err)}`)
-                });
-              },
-              busy: patchStatus.isPending || remove.isPending
-            }
-          ) : null
-        ] })
-      }
-    )
-  ] });
-}
-function DetailBody({
-  data,
-  onChangeStatus,
-  onDelete,
-  busy
-}) {
-  const adapter = useFeedbackAdapter();
-  const [status, setStatus] = useState2(data.status);
-  const [note, setNote] = useState2(data.triage_note ?? "");
-  const screenshot = data.attachments?.find(
-    (a) => a.kind === "screenshot"
-  )?.presigned_url;
-  const userAttachments = data.attachments?.filter((a) => a.kind === "user_attachment") ?? [];
-  return /* @__PURE__ */ jsxs4("div", { className: "px-4 mt-4 space-y-5", children: [
-    /* @__PURE__ */ jsxs4("section", { children: [
-      /* @__PURE__ */ jsx7("h3", { className: "text-sm font-medium mb-1", children: "What's happening?" }),
-      /* @__PURE__ */ jsx7("pre", { className: "whitespace-pre-wrap text-sm rounded-md bg-muted/50 p-3 border", children: data.description })
-    ] }),
-    data.expected_outcome ? /* @__PURE__ */ jsxs4("section", { children: [
-      /* @__PURE__ */ jsx7("h3", { className: "text-sm font-medium mb-1", children: "How should it work?" }),
-      /* @__PURE__ */ jsx7("pre", { className: "whitespace-pre-wrap text-sm rounded-md bg-muted/50 p-3 border", children: data.expected_outcome })
-    ] }) : null,
-    screenshot ? /* @__PURE__ */ jsxs4("section", { children: [
-      /* @__PURE__ */ jsx7("h3", { className: "text-sm font-medium mb-1", children: "Screenshot" }),
-      /* @__PURE__ */ jsx7("a", { href: screenshot, target: "_blank", rel: "noreferrer", children: /* @__PURE__ */ jsx7(
-        "img",
-        {
-          src: screenshot,
-          alt: "Screenshot",
-          className: "w-full rounded-md border",
-          loading: "lazy"
-        }
-      ) })
-    ] }) : null,
-    userAttachments.length > 0 ? /* @__PURE__ */ jsxs4("section", { children: [
-      /* @__PURE__ */ jsxs4("h3", { className: "text-sm font-medium mb-1", children: [
-        "Attachments (",
-        userAttachments.length,
-        ")"
-      ] }),
-      /* @__PURE__ */ jsx7("ul", { className: "space-y-1.5", children: userAttachments.map((a) => /* @__PURE__ */ jsxs4(
-        "li",
-        {
-          className: "flex items-center justify-between gap-2 rounded-md border p-2 text-xs",
-          children: [
-            /* @__PURE__ */ jsx7("span", { className: "truncate font-mono", children: a.filename ?? a.object_key }),
-            /* @__PURE__ */ jsxs4("span", { className: "text-muted-foreground shrink-0", children: [
-              (a.byte_size / 1024).toFixed(1),
-              " KB \xB7 ",
-              a.content_type
-            ] }),
-            a.presigned_url ? /* @__PURE__ */ jsx7(
-              "a",
-              {
-                href: a.presigned_url,
-                target: "_blank",
-                rel: "noreferrer",
-                className: "shrink-0 text-primary hover:underline",
-                children: "Open"
-              }
-            ) : null
-          ]
-        },
-        a.id
-      )) })
-    ] }) : null,
-    /* @__PURE__ */ jsx7(ChatSessionViewer, { feedbackId: data.id }),
-    /* @__PURE__ */ jsx7(CommentThread, { feedbackId: data.id }),
-    /* @__PURE__ */ jsxs4("details", { className: "text-xs", children: [
-      /* @__PURE__ */ jsx7("summary", { className: "cursor-pointer font-medium text-foreground", children: "Technical metadata (redacted)" }),
-      /* @__PURE__ */ jsx7("pre", { className: "whitespace-pre-wrap rounded-md bg-muted/50 p-3 border mt-2 max-h-96 overflow-auto", children: JSON.stringify(data.metadata_bundle, null, 2) })
-    ] }),
-    /* @__PURE__ */ jsxs4("section", { className: "rounded-md border p-3 space-y-3", children: [
-      /* @__PURE__ */ jsx7("h3", { className: "text-sm font-medium", children: "Triage" }),
-      /* @__PURE__ */ jsxs4("div", { className: "flex items-center gap-2", children: [
-        /* @__PURE__ */ jsx7("span", { className: "text-xs text-muted-foreground w-28", children: "Status" }),
-        /* @__PURE__ */ jsxs4(Select, { value: status, onValueChange: (v) => setStatus(v), children: [
-          /* @__PURE__ */ jsx7(SelectTrigger, { className: "flex-1", children: /* @__PURE__ */ jsx7(SelectValue, {}) }),
-          /* @__PURE__ */ jsx7(SelectContent, { children: STATUS_VALUES.map((s) => /* @__PURE__ */ jsx7(SelectItem, { value: s, children: s }, s)) })
-        ] })
-      ] }),
-      /* @__PURE__ */ jsxs4("div", { children: [
-        /* @__PURE__ */ jsx7("span", { className: "block text-xs text-muted-foreground mb-1", children: "Triage note" }),
-        /* @__PURE__ */ jsx7(
-          Textarea,
-          {
-            rows: 3,
-            value: note,
-            onChange: (e) => setNote(e.target.value),
-            placeholder: "Why this status, what was done\u2026"
-          }
-        )
-      ] }),
-      /* @__PURE__ */ jsxs4("div", { className: "flex flex-wrap items-center justify-between gap-2", children: [
-        /* @__PURE__ */ jsx7(
-          Button,
-          {
-            type: "button",
-            onClick: () => onChangeStatus(status, note || void 0),
-            disabled: busy,
-            children: "Save status"
-          }
-        ),
-        /* @__PURE__ */ jsxs4(
-          Button,
-          {
-            type: "button",
-            variant: "outline",
-            size: "sm",
-            "data-feedback-id": "feedback.triage.download",
-            onClick: async () => {
-              try {
-                const { blob, filename } = await adapter.downloadFeedbackBundle(data.id);
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = filename;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                URL.revokeObjectURL(url);
-                adapter.toast.success(`Downloaded ${filename}`);
-              } catch (err) {
-                adapter.toast.error(`Could not download: ${String(err)}`);
-              }
-            },
-            disabled: busy,
-            children: [
-              /* @__PURE__ */ jsx7(Download, { className: "mr-1 h-3.5 w-3.5" }),
-              "Download .zip"
-            ]
-          }
-        ),
-        /* @__PURE__ */ jsx7(
-          Button,
-          {
-            type: "button",
-            variant: "destructive",
-            onClick: () => {
-              if (window.confirm("Delete this feedback? This removes the row + attachments.")) {
-                onDelete();
-              }
-            },
-            disabled: busy,
-            children: "Delete"
-          }
-        )
-      ] })
-    ] })
-  ] });
-}
-
 // src/FeedbackButton.tsx
-import { Suspense, lazy, useCallback, useState as useState4 } from "react";
+import { Suspense, lazy, useCallback, useState as useState2 } from "react";
 
 // src/ElementSelector.tsx
-import { useEffect, useRef, useState as useState3 } from "react";
-import { Fragment, jsx as jsx8, jsxs as jsxs5 } from "react/jsx-runtime";
+import { useEffect, useRef, useState } from "react";
+import { Fragment, jsx, jsxs } from "react/jsx-runtime";
 var MIN_HIGHLIGHT_SIZE = 8;
 function _isInsideWidget(el) {
   return Boolean(el.closest('[data-feedback-widget-root="true"]'));
@@ -1131,7 +233,7 @@ function _accessibleName(el) {
   return el.tagName.toLowerCase();
 }
 function ElementSelector({ onLock, onCancel }) {
-  const [rect, setRect] = useState3(null);
+  const [rect, setRect] = useState(null);
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
   const currentRef = useRef(null);
@@ -1188,7 +290,7 @@ function ElementSelector({ onLock, onCancel }) {
     // Not role="dialog" on purpose: this layer is pointer-events:none and
     // does NOT trap focus — a real dialog would. The aria-live="polite"
     // banner communicates the picker mode.
-    /* @__PURE__ */ jsxs5(
+    /* @__PURE__ */ jsxs(
       "div",
       {
         "data-feedback-widget-root": "true",
@@ -1201,7 +303,7 @@ function ElementSelector({ onLock, onCancel }) {
           pointerEvents: "none"
         },
         children: [
-          /* @__PURE__ */ jsx8(
+          /* @__PURE__ */ jsx(
             "div",
             {
               style: {
@@ -1220,8 +322,8 @@ function ElementSelector({ onLock, onCancel }) {
               children: t("feedback.element_selector_hint")
             }
           ),
-          rect ? /* @__PURE__ */ jsxs5(Fragment, { children: [
-            /* @__PURE__ */ jsx8(
+          rect ? /* @__PURE__ */ jsxs(Fragment, { children: [
+            /* @__PURE__ */ jsx(
               "div",
               {
                 style: {
@@ -1237,7 +339,7 @@ function ElementSelector({ onLock, onCancel }) {
                 }
               }
             ),
-            /* @__PURE__ */ jsx8(
+            /* @__PURE__ */ jsx(
               "div",
               {
                 style: {
@@ -1265,16 +367,10 @@ function ElementSelector({ onLock, onCancel }) {
   );
 }
 
-// src/hooks/useMyPendingActionCount.ts
-function useMyPendingActionCount() {
-  const query = useMyFeedbackQuery(25);
-  return (query.data ?? []).filter((r) => r.status === "done").length;
-}
-
 // src/FeedbackButton.tsx
-import { jsx as jsx9, jsxs as jsxs6 } from "react/jsx-runtime";
+import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-HFTAGQ6G.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-BT5ZRIA4.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -1286,9 +382,9 @@ function FeedbackButton() {
   const config = useFeedbackConfig();
   const adapter = useFeedbackAdapter();
   const t = adapter.useTranslation();
-  const [open, setOpen] = useState4(false);
-  const [pickerActive, setPickerActive] = useState4(false);
-  const [locked, setLocked] = useState4(null);
+  const [open, setOpen] = useState2(false);
+  const [pickerActive, setPickerActive] = useState2(false);
+  const [locked, setLocked] = useState2(null);
   const handlePickerLock = useCallback((el) => {
     setLocked({ el, info: describeElement(el) });
     setPickerActive(false);
@@ -1311,8 +407,8 @@ function FeedbackButton() {
   const accentStyle = config.brandPrimaryHex ? { "--feedback-brand": config.brandPrimaryHex } : void 0;
   const sheetActuallyOpen = open && !pickerActive;
   const launcherHidden = sheetActuallyOpen;
-  return /* @__PURE__ */ jsxs6("div", { "data-feedback-widget-root": "true", children: [
-    launcherHidden ? null : /* @__PURE__ */ jsxs6(
+  return /* @__PURE__ */ jsxs2("div", { "data-feedback-widget-root": "true", children: [
+    launcherHidden ? null : /* @__PURE__ */ jsxs2(
       "button",
       {
         type: "button",
@@ -1329,9 +425,9 @@ function FeedbackButton() {
                     ${cornerClass}`,
         style: accentStyle,
         children: [
-          /* @__PURE__ */ jsxs6("span", { className: "relative", children: [
-            /* @__PURE__ */ jsx9(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
-            pendingCount > 0 ? /* @__PURE__ */ jsx9(
+          /* @__PURE__ */ jsxs2("span", { className: "relative", children: [
+            /* @__PURE__ */ jsx2(Rl3Mark, { className: "h-7 w-7 shrink-0" }),
+            pendingCount > 0 ? /* @__PURE__ */ jsx2(
               "span",
               {
                 "aria-hidden": "true",
@@ -1340,11 +436,11 @@ function FeedbackButton() {
               }
             ) : null
           ] }),
-          /* @__PURE__ */ jsx9("span", { className: "text-sm font-semibold", children: t("feedback.button_label") })
+          /* @__PURE__ */ jsx2("span", { className: "text-sm font-semibold", children: t("feedback.button_label") })
         ]
       }
     ),
-    open || pickerActive ? /* @__PURE__ */ jsx9(Suspense, { fallback: null, children: /* @__PURE__ */ jsx9(
+    open || pickerActive ? /* @__PURE__ */ jsx2(Suspense, { fallback: null, children: /* @__PURE__ */ jsx2(
       FeedbackChatSheetLazy,
       {
         open: open && !pickerActive,
@@ -1354,7 +450,7 @@ function FeedbackButton() {
         onClearLocked: handleClearLocked
       }
     ) }) : null,
-    pickerActive ? /* @__PURE__ */ jsx9(ElementSelector, { onLock: handlePickerLock, onCancel: handlePickerCancel }) : null
+    pickerActive ? /* @__PURE__ */ jsx2(ElementSelector, { onLock: handlePickerLock, onCancel: handlePickerCancel }) : null
   ] });
 }
 var FeedbackButton_default = FeedbackButton;
@@ -1365,7 +461,6 @@ export {
   FeedbackChatSheet,
   FeedbackProvider,
   FeedbackTabs,
-  FeedbackTriagePage,
   FooterActions,
   MineFeedTab,
   StatusPill,

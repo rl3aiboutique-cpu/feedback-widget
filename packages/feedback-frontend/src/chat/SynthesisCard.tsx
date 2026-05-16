@@ -1,30 +1,47 @@
 /**
- * Final synthesis card for the chat-first feedback flow (D-015, D-012,
- * Sprint B / capture_v3).
+ * Synthesis card for the chat-first feedback flow.
  *
- * Rendered once the backend emits the `synthesis` SSE event. Surfaces
- * the base shape (title / summary / user_story / acceptance criteria /
- * open questions) plus the Sprint B enrichment that recovers the
- * legacy iter-module output: personas, additional user_stories,
- * assumptions and an optional Mermaid diagram block.
+ * Lives INSIDE the chat timeline as one bubble per spec emission so the
+ * user can compare iterations. Each card has its own Approve button;
+ * only one version per chat can be confirmed (one-winner invariant —
+ * server-enforced). Click the card to enter edit mode and tweak title /
+ * summary / user_story / acceptance_criteria manually; press Confirm to
+ * persist the edit (does NOT auto-approve).
  *
- * Type + severity are deliberately NOT rendered (D-008: admin-only).
- *
- * Bottom buttons (Confirmar / Sigamos iterando) live in the Sheet
- * footer via `<FooterActions>` per S3F shell-hybrid — this card is
- * content-only.
- *
- * Spanish copy is fixed — the sandbox runs in `es` and v1 hosts
- * inherit that. Locale-aware copy lands later if a non-es host
- * appears.
+ * Read-only mode renders the full enriched payload (personas, diagram,
+ * etc.). Edit mode shows only the four user-editable fields — the rest
+ * stays LLM-owned to keep the surface small.
  */
 
-import type { ReactElement } from "react";
+import { Check, Pencil, X } from "lucide-react";
+import { type ReactElement, useState } from "react";
 
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 import type { Synthesis, SynthesisPersona } from "./types";
 
 export interface SynthesisCardProps {
   synthesis: Synthesis;
+  /** Whether THIS card is the approved winner. Drives the green badge
+   *  + disables further Approve / Edit. */
+  confirmed?: boolean;
+  /** True when ANY OTHER card in the same chat is already confirmed.
+   *  Locks Approve + Edit on this one (the ticket has a winner). */
+  lockedByOtherWinner?: boolean;
+  /** Async approve handler — called when user presses Approve.
+   *  Omit to render the card read-only (e.g. the legacy detail view). */
+  onApprove?: () => void | Promise<void>;
+  /** Async edit handler — called with the patched fields when the user
+   *  presses Confirm in edit mode. Omit to render read-only. */
+  onEdit?: (patch: {
+    title?: string;
+    summary?: string;
+    user_story?: string;
+    acceptance_criteria?: string[];
+  }) => void | Promise<void>;
+  /** Disables both buttons while a mutation is in-flight. */
+  busy?: boolean;
 }
 
 function SectionTitle({ label }: { label: string }): ReactElement {
@@ -46,9 +63,7 @@ function PersonasBlock({ personas }: { personas: SynthesisPersona[] }): ReactEle
             className="rounded border border-input/60 bg-muted/30 px-2 py-1"
           >
             <p className="font-medium">{p.name}</p>
-            <p className="text-xs text-muted-foreground">
-              Objetivo: {p.goal}
-            </p>
+            <p className="text-xs text-muted-foreground">Objetivo: {p.goal}</p>
             <p className="text-xs text-muted-foreground">
               Fricción: {p.frustration}
             </p>
@@ -83,10 +98,6 @@ function BulletList({
 }
 
 function DiagramBlock({ source }: { source: string }): ReactElement {
-  // Host may not have a mermaid runtime; render the source verbatim
-  // inside a code block so the user (and any admin reviewer) can
-  // still see the structure. Hosts that DO have mermaid can intercept
-  // the data attribute and replace the block at runtime.
   return (
     <div className="flex flex-col gap-1">
       <SectionTitle label="Diagrama" />
@@ -100,51 +111,216 @@ function DiagramBlock({ source }: { source: string }): ReactElement {
   );
 }
 
-export function SynthesisCard({ synthesis }: SynthesisCardProps): ReactElement {
+export function SynthesisCard({
+  synthesis,
+  confirmed = false,
+  lockedByOtherWinner = false,
+  onApprove,
+  onEdit,
+  busy = false,
+}: SynthesisCardProps): ReactElement {
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(synthesis.title);
+  const [draftSummary, setDraftSummary] = useState(synthesis.summary);
+  const [draftStory, setDraftStory] = useState(synthesis.user_story);
+  const [draftCriteria, setDraftCriteria] = useState(
+    synthesis.acceptance_criteria.join("\n"),
+  );
+
+  const editable = Boolean(onEdit) && !confirmed && !lockedByOtherWinner;
+  const approvable = Boolean(onApprove) && !confirmed && !lockedByOtherWinner;
+
+  const enterEdit = () => {
+    if (!editable || busy) return;
+    setDraftTitle(synthesis.title);
+    setDraftSummary(synthesis.summary);
+    setDraftStory(synthesis.user_story);
+    setDraftCriteria(synthesis.acceptance_criteria.join("\n"));
+    setEditing(true);
+  };
+
+  const cancelEdit = () => setEditing(false);
+
+  const submitEdit = async () => {
+    if (!onEdit) return;
+    const patch = {
+      title: draftTitle.trim(),
+      summary: draftSummary.trim(),
+      user_story: draftStory.trim(),
+      acceptance_criteria: draftCriteria
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+    };
+    await onEdit(patch);
+    setEditing(false);
+  };
+
+  const headerBadge = confirmed ? (
+    <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-600">
+      <Check className="h-3 w-3" /> Confirmed
+    </span>
+  ) : lockedByOtherWinner ? (
+    <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+      Superseded
+    </span>
+  ) : null;
+
   const extraStories = (synthesis.user_stories ?? []).filter(
     (s) => s && s !== synthesis.user_story,
   );
+
   return (
     <div
-      className="mx-4 my-3 flex flex-col gap-3 rounded-lg border border-input bg-card p-4 shadow-sm"
+      className={[
+        "flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm",
+        confirmed ? "border-emerald-500/50 bg-emerald-500/5" : "border-input",
+        editable && !editing ? "cursor-pointer hover:border-primary/40" : "",
+      ].join(" ")}
       data-feedback-id="feedback.chat_synthesis_card"
+      onClick={editing ? undefined : enterEdit}
     >
-      <h3 className="text-base font-bold text-foreground">{synthesis.title}</h3>
+      {/* Header — always visible */}
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+          Spec card
+        </span>
+        {headerBadge}
+      </div>
 
-      <p className="text-sm text-muted-foreground">{synthesis.summary}</p>
+      {editing ? (
+        <div
+          className="flex flex-col gap-3"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">Title</span>
+            <Input
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              maxLength={200}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">Summary</span>
+            <Textarea
+              value={draftSummary}
+              onChange={(e) => setDraftSummary(e.target.value)}
+              rows={3}
+              maxLength={4000}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">User story</span>
+            <Textarea
+              value={draftStory}
+              onChange={(e) => setDraftStory(e.target.value)}
+              rows={3}
+              maxLength={4000}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs">
+            <span className="text-muted-foreground">
+              Acceptance criteria · one per line
+            </span>
+            <Textarea
+              value={draftCriteria}
+              onChange={(e) => setDraftCriteria(e.target.value)}
+              rows={4}
+            />
+          </label>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={cancelEdit}
+              disabled={busy}
+            >
+              <X className="mr-1 h-3.5 w-3.5" /> Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={submitEdit}
+              disabled={busy}
+              data-feedback-id="feedback.chat_synthesis_confirm_edit"
+            >
+              <Check className="mr-1 h-3.5 w-3.5" /> Confirm edit
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <h3 className="text-base font-bold text-foreground">{synthesis.title}</h3>
 
-      <blockquote className="border-l-2 border-primary pl-3 text-sm italic text-foreground">
-        {synthesis.user_story}
-      </blockquote>
+          <p className="text-sm text-muted-foreground">{synthesis.summary}</p>
 
-      {extraStories.length > 0 ? (
-        <BulletList label="Historias de usuario adicionales" items={extraStories} />
-      ) : null}
+          <blockquote className="border-l-2 border-primary pl-3 text-sm italic text-foreground">
+            {synthesis.user_story}
+          </blockquote>
 
-      {synthesis.personas && synthesis.personas.length > 0 ? (
-        <PersonasBlock personas={synthesis.personas} />
-      ) : null}
+          {extraStories.length > 0 ? (
+            <BulletList label="Historias de usuario adicionales" items={extraStories} />
+          ) : null}
 
-      {synthesis.acceptance_criteria.length > 0 ? (
-        <BulletList
-          label="Criterios de aceptación"
-          items={synthesis.acceptance_criteria}
-        />
-      ) : null}
+          {synthesis.personas && synthesis.personas.length > 0 ? (
+            <PersonasBlock personas={synthesis.personas} />
+          ) : null}
 
-      {synthesis.assumptions && synthesis.assumptions.length > 0 ? (
-        <BulletList label="Supuestos" items={synthesis.assumptions} muted />
-      ) : null}
+          {synthesis.acceptance_criteria.length > 0 ? (
+            <BulletList
+              label="Criterios de aceptación"
+              items={synthesis.acceptance_criteria}
+            />
+          ) : null}
 
-      {synthesis.diagram ? <DiagramBlock source={synthesis.diagram} /> : null}
+          {synthesis.assumptions && synthesis.assumptions.length > 0 ? (
+            <BulletList label="Supuestos" items={synthesis.assumptions} muted />
+          ) : null}
 
-      {synthesis.open_questions.length > 0 ? (
-        <BulletList
-          label="Preguntas abiertas"
-          items={synthesis.open_questions}
-          muted
-        />
-      ) : null}
+          {synthesis.diagram ? <DiagramBlock source={synthesis.diagram} /> : null}
+
+          {synthesis.open_questions.length > 0 ? (
+            <BulletList
+              label="Preguntas abiertas"
+              items={synthesis.open_questions}
+              muted
+            />
+          ) : null}
+
+          {(approvable || editable) && (
+            <div
+              className="flex items-center justify-end gap-2 pt-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {editable ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={enterEdit}
+                  disabled={busy}
+                  data-feedback-id="feedback.chat_synthesis_edit"
+                >
+                  <Pencil className="mr-1 h-3.5 w-3.5" /> Edit
+                </Button>
+              ) : null}
+              {approvable ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={onApprove}
+                  disabled={busy}
+                  data-feedback-id="feedback.chat_synthesis_approve"
+                >
+                  <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

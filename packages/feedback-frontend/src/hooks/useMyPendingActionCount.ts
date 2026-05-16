@@ -1,17 +1,21 @@
 /**
- * Counts feedback rows in DONE status (recently resolved) for the
- * current user. Drives the red badge on the floating launcher: gives
- * the user a cue that there is something to acknowledge in the
- * "Mías" feed.
- *
- * Lifted out of the legacy ``MyTicketsPanel`` shim during the
- * v1.0.0 chat-first cleanup (S7) — the panel component itself is
- * gone; only this hook survived.
+ * Counts tickets where the user has to take an action. Post-unification
+ * (2026-05-16) this reads ``user_action_required`` directly from the
+ * ticket row — the backend flips that flag when an admin injects a
+ * message via /admin-action and clears it when the user replies. The
+ * red badge on the floating launcher and the count chip on the
+ * "My tickets" tab both render from this value, so admin pings reach
+ * the user even when the sheet is closed.
  */
 
 import { useMyFeedbackQuery } from "../adapter";
 
 export function useMyPendingActionCount(): number {
   const query = useMyFeedbackQuery(25);
-  return (query.data ?? []).filter((r) => r.status === "done").length;
+  return (query.data ?? []).filter((r) => r.user_action_required).length;
+}
+
+export function useMyTicketsTotalCount(): number {
+  const query = useMyFeedbackQuery(25);
+  return (query.data ?? []).length;
 }

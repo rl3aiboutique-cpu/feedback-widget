@@ -21,20 +21,34 @@ export function getSandboxRole(): SandboxRole {
 export function setSandboxRole(role: SandboxRole): void {
   if (typeof window !== "undefined") {
     window.localStorage.setItem(_ROLE_KEY, role);
-    if (!window.localStorage.getItem(_UID_KEY)) {
-      window.localStorage.setItem(_UID_KEY, crypto.randomUUID());
-    }
+    // The legacy per-browser uid stays unused under the role-stable
+    // uid map (see ``_ROLE_UIDS`` above) — kept here so a debugger
+    // can still inspect what was previously generated.
   }
 }
 
+// Stable per-role UUIDs so switching the sandbox role from the
+// sidebar selector ALSO swaps the user identity. Without this every
+// role shared one auto-generated uid stored in localStorage, which
+// made the TicketRow render "You" for every row regardless of the
+// active role — there was no way to simulate multiple users in the
+// same browser tab.
+//
+// Real hosts (CBP, sapphira) bind identity from JWT or session
+// cookie; the sandbox emulates that by mapping each role to a stable
+// fake uid here. Tests + DB seeds reference these literals.
+const _ROLE_UIDS: Record<SandboxRole, string> = {
+  staff: "11111111-1111-1111-1111-111111111111",
+  manager: "22222222-2222-2222-2222-222222222222",
+  admin: "33333333-3333-3333-3333-333333333333",
+};
+
 function getSandboxUid(): string {
-  if (typeof window === "undefined") return "11111111-1111-1111-1111-111111111111";
-  let v = window.localStorage.getItem(_UID_KEY);
-  if (!v) {
-    v = crypto.randomUUID();
-    window.localStorage.setItem(_UID_KEY, v);
-  }
-  return v;
+  if (typeof window === "undefined") return _ROLE_UIDS.staff;
+  // Legacy callers may have an old per-browser uid in localStorage;
+  // we ignore it in favour of the role-stable map so the sidebar
+  // role selector also flips identity.
+  return _ROLE_UIDS[getSandboxRole()];
 }
 
 const _origFetch = typeof fetch !== "undefined" ? fetch : undefined;
@@ -72,4 +86,10 @@ export const sandboxBindings: FeedbackHostBindings = {
   apiPathPrefix: "/api/v1/feedback",
   getDeepLinkBase: () =>
     typeof window !== "undefined" ? window.location.origin : "http://localhost:9201",
+  // The sandbox uses the literal "admin" role string (matches
+  // ``SandboxAuth.is_master_admin`` on the backend). Without this the
+  // ``useCanTriageFeedback`` hook falls back to "MASTER_ADMIN" and the
+  // admin triage UI stays gated even after the user picks "admin"
+  // from the sidebar selector.
+  triageRoles: ["admin"],
 };

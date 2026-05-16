@@ -12,10 +12,10 @@
  * 1-2 preguntas para entender qué buscas".
  */
 
-import { Sparkles } from "lucide-react";
-import { type ReactElement, useEffect, useRef } from "react";
+import { type ReactElement, useEffect, useMemo, useRef } from "react";
 
 import { ChatBubble } from "./ChatBubble";
+import { SynthesisCard } from "./SynthesisCard";
 import type { ChatMessage } from "./types";
 
 export interface ChatTimelineProps {
@@ -24,46 +24,83 @@ export interface ChatTimelineProps {
   isThinking?: boolean;
   /** Optional label rendered with the thinking indicator (e.g. "Sintetizando…"). */
   thinkingLabel?: string;
+  /** Approve a synthesis card by its ts. Omit to render synthesis cards
+   *  read-only (e.g. terminal status). */
+  onApproveSynthesis?: (ts: string) => void | Promise<void>;
+  /** Edit a synthesis card by its ts. Omit to disable manual edit. */
+  onEditSynthesis?: (
+    ts: string,
+    patch: {
+      title?: string;
+      summary?: string;
+      user_story?: string;
+      acceptance_criteria?: string[];
+    },
+  ) => void | Promise<void>;
+  /** Disables synthesis-card buttons while a mutation is in-flight. */
+  synthesisBusy?: boolean;
 }
 
 export function ChatTimeline({
   messages,
   isThinking = false,
   thinkingLabel,
+  onApproveSynthesis,
+  onEditSynthesis,
+  synthesisBusy = false,
 }: ChatTimelineProps): ReactElement {
   const endRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll on new messages or thinking-state changes. Deps are
-  // used as triggers, not values — same pattern as iter's CopilotChatPanel.
   // biome-ignore lint/correctness/useExhaustiveDependencies: deps drive scroll-to-bottom on change, the effect body itself only reads the ref
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length, isThinking]);
 
-  const isEmpty = messages.length === 0 && !isThinking;
-  const hasOnlyGreeting =
-    messages.length === 1 && messages[0]?.role === "assistant" && !isThinking;
+  // Detect whether ANY synthesis msg has been confirmed — that locks
+  // Approve / Edit on every other version (one-winner invariant).
+  const hasWinner = useMemo(
+    () =>
+      messages.some(
+        (m) => m.role === "synthesis" && m.confirmed === true,
+      ),
+    [messages],
+  );
 
   return (
     <div className="flex flex-col gap-3 px-4 py-3">
-      {messages.map((m, idx) => (
-        <ChatBubble key={`${m.role}-${m.ts}-${idx}`} role={m.role} text={m.text} />
-      ))}
+      {messages.map((m, idx) => {
+        if (m.role === "synthesis" && m.synthesis) {
+          const tsKey = String(m.ts);
+          return (
+            <SynthesisCard
+              key={`synthesis-${tsKey}-${idx}`}
+              synthesis={m.synthesis}
+              confirmed={m.confirmed === true}
+              lockedByOtherWinner={hasWinner && m.confirmed !== true}
+              onApprove={
+                onApproveSynthesis
+                  ? () => onApproveSynthesis(tsKey)
+                  : undefined
+              }
+              onEdit={
+                onEditSynthesis
+                  ? (patch) => onEditSynthesis(tsKey, patch)
+                  : undefined
+              }
+              busy={synthesisBusy}
+            />
+          );
+        }
+        return (
+          <ChatBubble
+            key={`${m.role}-${m.ts}-${idx}`}
+            role={m.role as "user" | "assistant" | "admin"}
+            text={m.text}
+          />
+        );
+      })}
       {isThinking ? <_ThinkingIndicator label={thinkingLabel} /> : null}
-      {(isEmpty || hasOnlyGreeting) ? <_HelperHint /> : null}
       <div ref={endRef} aria-hidden="true" />
-    </div>
-  );
-}
-
-function _HelperHint(): ReactElement {
-  return (
-    <div className="mx-auto mt-2 flex max-w-[85%] flex-col items-center gap-1 rounded-xl border border-dashed border-input/50 bg-muted/20 px-4 py-3 text-center">
-      <Sparkles className="h-4 w-4 text-primary/70" aria-hidden="true" />
-      <p className="text-xs text-muted-foreground">
-        Te haré 1-2 preguntas cortas para entender qué buscas. Empieza
-        contándome qué pasó.
-      </p>
     </div>
   );
 }

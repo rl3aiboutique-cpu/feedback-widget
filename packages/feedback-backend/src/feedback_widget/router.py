@@ -282,28 +282,43 @@ def build_router(
             ) from exc
 
     # ────────────────────────────────────────────────────────────────
-    # GET /{id} — detail (MASTER_ADMIN)
+    # GET /{id} — detail (owner OR MASTER_ADMIN)
     # ────────────────────────────────────────────────────────────────
+    #
+    # Patrón A unification (2026-05-16): the TicketDetail view inside
+    # the sheet renders for both audiences, so the detail endpoint
+    # must accept the owner too. Admins see any ticket; users only
+    # their own. 404 (not 403) on cross-user access avoids leaking
+    # the existence of someone else's id.
 
     @router.get("/{feedback_id}", response_model=FeedbackRead)
     def get_feedback(
         feedback_id: uuid.UUID,
         session: Session = SessionDep,
         s3: StorageBackend = StorageDep,
-        admin: CurrentUserSnapshot = AdminDep,
+        current_user: CurrentUserSnapshot = UserDep,
         cfg: FeedbackSettings = SettingsDep,
     ) -> FeedbackRead:
         try:
+            is_admin = deps.auth.is_master_admin(current_user)
             service = FeedbackService(
                 session=session,
                 storage=s3,
-                tenant_id=admin.tenant_id,
+                tenant_id=current_user.tenant_id,
                 settings=cfg,
             )
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+                ) from exc
+            if not is_admin and feedback.user_id != current_user.user_id:
+                # Owner-or-admin policy. Mask cross-user access as 404.
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="feedback not found",
+                )
             return service.to_read(feedback, sign_urls=True)
         except HTTPException:
             raise
@@ -357,24 +372,16 @@ def build_router(
                     status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
                 ) from exc
 
-            chat_session_id = feedback_row.chat_session_id
-            if chat_session_id is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="feedback has no chat session",
-                )
-
-            chat_row = session.get(FeedbackChatSession, chat_session_id)
-            if chat_row is None:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="chat session not found",
-                )
+            # Post-unification (2026-05-16): feedback row IS the chat
+            # session. The ticket id is both the feedback id and the
+            # chat session id; no separate join needed.
+            chat_row = feedback_row
+            chat_session_id = chat_row.id
 
             calls = list(
                 session.exec(
                     _select(FeedbackChatCall)
-                    .where(FeedbackChatCall.chat_session_id == chat_session_id)
+                    .where(FeedbackChatCall.ticket_id == chat_session_id)
                     .order_by(FeedbackChatCall.created_at)  # type: ignore[arg-type]
                 ).all()
             )
@@ -697,6 +704,55 @@ def build_router(
             raise
         except Exception as exc:
             logger.exception("restore_feedback failed (id=%s)", feedback_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Internal server error.",
+            ) from exc
+
+    # ────────────────────────────────────────────────────────────────
+    # POST /{id}/soft-delete — admin soft-delete (MASTER_ADMIN)
+    # ────────────────────────────────────────────────────────────────
+
+    @router.post(
+        "/{feedback_id}/soft-delete",
+        status_code=status.HTTP_204_NO_CONTENT,
+    )
+    def admin_soft_delete_feedback(
+        feedback_id: uuid.UUID,
+        session: Session = SessionDep,
+        current_user: CurrentUserSnapshot = AdminDep,
+        s3: StorageBackend = StorageDep,
+        cfg: FeedbackSettings = SettingsDep,
+    ) -> None:
+        """Admin soft-delete: sets ``deleted_at`` + ``deleted_by_role=ADMIN``
+        and records a forensic ``feedback_admin_action`` row. Reversible
+        via POST /{id}/restore. Use DELETE /{id} for permanent removal."""
+        from feedback_widget.models import DeletedByRole
+
+        try:
+            service = FeedbackService(
+                session=session,
+                storage=s3,
+                tenant_id=current_user.tenant_id,
+                settings=cfg,
+            )
+            try:
+                service.soft_delete(
+                    feedback_id=feedback_id,
+                    current_user_id=current_user.user_id,
+                    role=DeletedByRole.ADMIN,
+                )
+            except FeedbackNotFoundError as exc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+                ) from exc
+            session.commit()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.exception(
+                "admin_soft_delete_feedback failed (id=%s)", feedback_id
+            )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",

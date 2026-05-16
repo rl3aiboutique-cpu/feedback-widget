@@ -25,31 +25,31 @@ interface PillStyle {
 
 const _STATUS_STYLES: Record<FeedbackStatusKey, PillStyle> = {
   open: {
-    label: "Recibido",
+    label: "Open",
     classes: "border-muted-foreground/30 bg-muted text-muted-foreground",
   },
   in_review: {
-    label: "En revisión",
+    label: "In review",
     classes: "border-yellow-500/30 bg-yellow-500/10 text-yellow-700",
   },
   in_progress: {
-    label: "En curso",
+    label: "In progress",
     classes: "border-blue-500/30 bg-blue-500/10 text-blue-700",
   },
   waiting_for_user: {
-    label: "Esperándote",
+    label: "Waiting for you",
     classes: "border-amber-500/40 bg-amber-500/10 text-amber-700",
   },
   resolved: {
-    label: "Resuelto",
+    label: "Resolved",
     classes: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
   },
   wont_fix: {
-    label: "No se hará",
+    label: "Won't fix",
     classes: "border-destructive/30 bg-destructive/10 text-destructive",
   },
   closed: {
-    label: "Cerrado",
+    label: "Closed",
     classes: "border-muted-foreground/40 bg-muted text-muted-foreground",
   },
 };
