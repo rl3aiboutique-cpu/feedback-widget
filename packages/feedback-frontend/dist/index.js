@@ -20,7 +20,7 @@ import {
   useFeedbackBindings,
   useFeedbackConfig,
   useMyPendingActionCount
-} from "./chunk-KJ4YA3IQ.js";
+} from "./chunk-7F564TUC.js";
 
 // src/version.ts
 var VERSION = "1.0.0";
@@ -371,7 +371,7 @@ function ElementSelector({ onLock, onCancel }) {
 // src/FeedbackButton.tsx
 import { jsx as jsx2, jsxs as jsxs2 } from "react/jsx-runtime";
 var FeedbackChatSheetLazy = lazy(
-  () => import("./FeedbackChatSheet-AFFWWHRD.js").then((m) => ({ default: m.FeedbackChatSheet }))
+  () => import("./FeedbackChatSheet-XPDFZ7V3.js").then((m) => ({ default: m.FeedbackChatSheet }))
 );
 var POSITION_CLASSES = {
   bottom_right: "bottom-24 right-6",
@@ -425,7 +425,7 @@ function FeedbackButton() {
   const accentStyle = config.brandPrimaryHex ? { "--feedback-brand": config.brandPrimaryHex } : void 0;
   const sheetActuallyOpen = open && !pickerActive;
   const launcherHidden = sheetActuallyOpen;
-  return /* @__PURE__ */ jsxs2("div", { "data-feedback-widget-root": "true", children: [
+  return /* @__PURE__ */ jsxs2("div", { "data-feedback-widget-root": "true", className: "rl3-feedback-scope", children: [
     launcherHidden ? null : /* @__PURE__ */ jsxs2(
       "button",
       {

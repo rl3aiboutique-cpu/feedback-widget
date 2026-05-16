@@ -123,7 +123,7 @@ export function FeedbackButton(): React.ReactElement | null {
   const launcherHidden = sheetActuallyOpen;
 
   return (
-    <div data-feedback-widget-root="true">
+    <div data-feedback-widget-root="true" className="rl3-feedback-scope">
       {launcherHidden ? null : (
       <button
         type="button"

@@ -4533,7 +4533,7 @@ function FeedbackChatSheet({
       widthPx: resize.width,
       isDragging: resize.isDragging,
       onResizeStart: resize.isMobile ? void 0 : resize.startResize,
-      className: "flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0",
+      className: "rl3-feedback-scope flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0",
       "data-feedback-widget-root": "true",
       children: [
         /* @__PURE__ */ jsxs16(SheetHeader, { className: "border-b border-input/60 px-4 pt-4 pb-3", children: [
@@ -4670,4 +4670,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-KJ4YA3IQ.js.map
+//# sourceMappingURL=chunk-7F564TUC.js.map
