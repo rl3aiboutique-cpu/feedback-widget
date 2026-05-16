@@ -81,6 +81,25 @@ function SheetContent({
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        // The widget mounts its own modals (lightbox, hard-delete
+        // confirm) via createPortal at document.body. Radix Dialog
+        // listens for pointer events outside its content and would
+        // otherwise close the sheet whenever the user clicks inside
+        // those modals. Veto the close when the originating element
+        // sits inside any node carrying our scope class — that means
+        // the click came from another widget surface, not the host.
+        onPointerDownOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest?.(".rl3-feedback-scope")) {
+            event.preventDefault();
+          }
+        }}
+        onInteractOutside={(event) => {
+          const target = event.target as HTMLElement | null;
+          if (target?.closest?.(".rl3-feedback-scope")) {
+            event.preventDefault();
+          }
+        }}
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&

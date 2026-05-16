@@ -72,19 +72,22 @@ export function Lightbox({
       onClick={onClose}
       onPointerDown={(e: MouseEvent<HTMLDivElement>) => e.stopPropagation()}
     >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Cerrar vista ampliada"
-        className="absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
-      >
-        <X className="h-6 w-6" strokeWidth={2.5} />
-      </button>
       <img
         src={url}
         alt="Attached capture — expanded view"
         className="max-h-[90vh] max-w-[90vw] rounded-md shadow-2xl"
       />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        aria-label="Cerrar vista ampliada"
+        className="absolute top-5 right-5 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
+      >
+        <X className="h-5 w-5" strokeWidth={2.5} />
+      </button>
     </div>,
     document.body,
   );

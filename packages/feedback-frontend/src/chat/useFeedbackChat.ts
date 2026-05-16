@@ -486,15 +486,19 @@ export function useFeedbackChat(): UseFeedbackChatResult {
       composerFromVoiceRef.current = false;
       setComposerValue("");
 
+      // Flip to ``bot_thinking`` IMMEDIATELY so the user sees the
+      // thinking dots even during the lazy-session ensure roundtrip
+      // (which adds ~200-500ms before stream.sendMessage runs). Without
+      // this, first-turn UX has a silent gap between send-click and the
+      // first delta — users perceive the app as frozen.
+      stream.setStateExternal("bot_thinking");
+
       // Lazy session creation: first user message triggers the
       // ``POST /chat/sessions`` call. ``stream.sendMessage`` reads
       // ``sessionId`` from its closure — we need the session to land
       // BEFORE the hook re-renders with the new id, so we create the
       // session here and let the stream hook pick it up on the next
-      // tick. The simplest way is to also POST the first message
-      // directly here when sessionId is null, then return — the next
-      // re-render with sessionId set will hand control back to the
-      // streaming path for subsequent turns.
+      // tick.
       let activeSid = sessionId;
       if (!activeSid) {
         try {

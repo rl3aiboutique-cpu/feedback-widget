@@ -252,11 +252,14 @@ function _ThumbDetailModal({
     >
       <button
         type="button"
-        onClick={onClose}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
         aria-label="Close"
-        className="absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
+        className="absolute top-5 right-5 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground"
       >
-        <X className="h-6 w-6" strokeWidth={2.5} />
+        <X className="h-5 w-5" strokeWidth={2.5} />
       </button>
       <div
         className="flex max-w-sm flex-col gap-2 rounded-md bg-card p-4 shadow-2xl"

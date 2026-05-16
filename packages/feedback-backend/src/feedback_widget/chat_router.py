@@ -425,6 +425,62 @@ def build_chat_router(
                 detail=f"LLM provider unavailable: {exc}",
             ) from exc
 
+        # Persist the auto-captured screenshot as a SCREENSHOT
+        # attachment on first turn so the ticket detail view + admin
+        # tray always have visual context — without this, screenshots
+        # only landed at approve_synthesis time, leaving every
+        # awaiting-confirm or abandoned ticket visually blank in the
+        # admin panel. Idempotent: skipped when one already exists.
+        if payload.screenshot_b64:
+            try:
+                from sqlmodel import select as _select_screenshot
+
+                from feedback_widget.models import (
+                    FeedbackAttachment,
+                    FeedbackAttachmentKind,
+                )
+                from feedback_widget.service import upload_feedback_attachment
+
+                existing = db.exec(
+                    _select_screenshot(FeedbackAttachment)
+                    .where(FeedbackAttachment.ticket_id == session_id)
+                    .where(
+                        FeedbackAttachment.kind
+                        == FeedbackAttachmentKind.SCREENSHOT
+                    )
+                    .limit(1)
+                ).first()
+                if existing is None:
+                    import base64 as _b64
+
+                    raw_bytes = _b64.b64decode(
+                        payload.screenshot_b64, validate=True
+                    )
+                    cap = settings.MAX_SCREENSHOT_BYTES
+                    if 0 < len(raw_bytes) <= cap:
+                        upload_feedback_attachment(
+                            db,
+                            storage,
+                            feedback_id=session_id,
+                            tenant_id=row.tenant_id,
+                            content=raw_bytes,
+                            content_type=payload.screenshot_content_type
+                            or "image/png",
+                            filename=None,
+                            kind=FeedbackAttachmentKind.SCREENSHOT,
+                            width=None,
+                            height=None,
+                            settings=settings,
+                        )
+                        db.commit()
+            except Exception:  # noqa: BLE001
+                # Never let a screenshot-persist failure tank the
+                # chat turn — the user still gets to send the message.
+                logger.exception(
+                    "chat turn: screenshot persist failed (session=%s)",
+                    session_id,
+                )
+
         # Glossary resolution order (Sprint B / capture_v3):
         #   1. session.glossary_snapshot — the dict captured when the
         #      session was created, frozen so mid-session env changes

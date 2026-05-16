@@ -889,6 +889,18 @@ function SheetContent({
       SheetPrimitive.Content,
       {
         "data-slot": "sheet-content",
+        onPointerDownOutside: (event) => {
+          const target = event.target;
+          if (target?.closest?.(".rl3-feedback-scope")) {
+            event.preventDefault();
+          }
+        },
+        onInteractOutside: (event) => {
+          const target = event.target;
+          if (target?.closest?.(".rl3-feedback-scope")) {
+            event.preventDefault();
+          }
+        },
         className: cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" && !hasCustomWidth && "data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
@@ -1138,21 +1150,24 @@ function Lightbox({
         onPointerDown: (e) => e.stopPropagation(),
         children: [
           /* @__PURE__ */ jsx5(
-            "button",
-            {
-              type: "button",
-              onClick: onClose,
-              "aria-label": "Cerrar vista ampliada",
-              className: "absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
-              children: /* @__PURE__ */ jsx5(X, { className: "h-6 w-6", strokeWidth: 2.5 })
-            }
-          ),
-          /* @__PURE__ */ jsx5(
             "img",
             {
               src: url,
               alt: "Attached capture \u2014 expanded view",
               className: "max-h-[90vh] max-w-[90vw] rounded-md shadow-2xl"
+            }
+          ),
+          /* @__PURE__ */ jsx5(
+            "button",
+            {
+              type: "button",
+              onClick: (e) => {
+                e.stopPropagation();
+                onClose();
+              },
+              "aria-label": "Cerrar vista ampliada",
+              className: "absolute top-5 right-5 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
+              children: /* @__PURE__ */ jsx5(X, { className: "h-5 w-5", strokeWidth: 2.5 })
             }
           )
         ]
@@ -1317,10 +1332,13 @@ function _ThumbDetailModal({
             "button",
             {
               type: "button",
-              onClick: onClose,
+              onClick: (e) => {
+                e.stopPropagation();
+                onClose();
+              },
               "aria-label": "Close",
-              className: "absolute top-5 right-5 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
-              children: /* @__PURE__ */ jsx6(X2, { className: "h-6 w-6", strokeWidth: 2.5 })
+              className: "absolute top-5 right-5 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border-2 border-foreground/80 bg-background/40 text-foreground backdrop-blur-md shadow-lg transition hover:bg-background/70 hover:border-foreground",
+              children: /* @__PURE__ */ jsx6(X2, { className: "h-5 w-5", strokeWidth: 2.5 })
             }
           ),
           /* @__PURE__ */ jsxs5(
@@ -1389,7 +1407,7 @@ function ChatBubble({ role, text, caption }) {
 }
 
 // src/chat/SynthesisCard.tsx
-import { Check, Pencil, X as X3 } from "lucide-react";
+import { Check, Loader2, Pencil, X as X3 } from "lucide-react";
 import { useState as useState4 } from "react";
 
 // src/ui/button.tsx
@@ -1727,12 +1745,13 @@ function SynthesisCard({
                   {
                     type: "button",
                     size: "sm",
-                    onClick: onApprove,
-                    disabled: busy,
+                    onClick: confirmed ? void 0 : onApprove,
+                    disabled: busy || confirmed,
                     "data-feedback-id": "feedback.chat_synthesis_approve",
+                    className: confirmed ? "bg-emerald-500/20 text-emerald-400 cursor-default hover:bg-emerald-500/20" : "",
                     children: [
-                      /* @__PURE__ */ jsx11(Check, { className: "mr-1 h-3.5 w-3.5" }),
-                      " Approve"
+                      busy && !confirmed ? /* @__PURE__ */ jsx11(Loader2, { className: "mr-1 h-3.5 w-3.5 animate-spin" }) : /* @__PURE__ */ jsx11(Check, { className: "mr-1 h-3.5 w-3.5" }),
+                      confirmed ? "Approved" : busy ? "Approving\u2026" : "Approve"
                     ]
                   }
                 ) : null
@@ -2353,7 +2372,7 @@ function FeedbackTabs({
 }
 
 // src/chat/FooterActions.tsx
-import { Check as Check2, Loader2, RotateCcw } from "lucide-react";
+import { Check as Check2, Loader2 as Loader22, RotateCcw } from "lucide-react";
 import { jsx as jsx15, jsxs as jsxs11 } from "react/jsx-runtime";
 function FooterActions({
   state,
@@ -2377,7 +2396,7 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.adjust",
           children: [
-            state === "synthesizing" ? /* @__PURE__ */ jsx15(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx15(RotateCcw, { className: "h-4 w-4 mr-1" }),
+            state === "synthesizing" ? /* @__PURE__ */ jsx15(Loader22, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx15(RotateCcw, { className: "h-4 w-4 mr-1" }),
             "Keep iterating"
           ]
         }
@@ -2392,7 +2411,7 @@ function FooterActions({
           className: "flex-1",
           "data-feedback-id": "feedback.footer.confirm",
           children: [
-            state === "finalizing" ? /* @__PURE__ */ jsx15(Loader2, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx15(Check2, { className: "h-4 w-4 mr-1" }),
+            state === "finalizing" ? /* @__PURE__ */ jsx15(Loader22, { className: "h-4 w-4 animate-spin" }) : /* @__PURE__ */ jsx15(Check2, { className: "h-4 w-4 mr-1" }),
             "Confirm"
           ]
         }
@@ -2777,7 +2796,7 @@ import { useEffect as useEffect8, useRef as useRef6, useState as useState10 } fr
 import { createPortal as createPortal3 } from "react-dom";
 
 // src/chat/VoiceRecorder.tsx
-import { Check as Check3, Loader2 as Loader22, X as X4 } from "lucide-react";
+import { Check as Check3, Loader2 as Loader23, X as X4 } from "lucide-react";
 import { useEffect as useEffect7, useRef as useRef4 } from "react";
 import { Fragment as Fragment5, jsx as jsx19, jsxs as jsxs14 } from "react/jsx-runtime";
 var _MAX_DURATION_MS2 = 6e4;
@@ -2874,7 +2893,7 @@ function VoiceRecorder({
           }
         ),
         /* @__PURE__ */ jsx19("div", { className: "flex-1 flex items-center gap-2 rounded-full bg-muted/40 px-2 py-1", children: isWorking ? /* @__PURE__ */ jsxs14("div", { className: "flex flex-1 items-center justify-center gap-2 h-8 text-xs text-muted-foreground", children: [
-          /* @__PURE__ */ jsx19(Loader22, { className: "h-4 w-4 animate-spin" }),
+          /* @__PURE__ */ jsx19(Loader23, { className: "h-4 w-4 animate-spin" }),
           /* @__PURE__ */ jsx19("span", { children: "Transcribing\u2026" })
         ] }) : /* @__PURE__ */ jsxs14(Fragment5, { children: [
           /* @__PURE__ */ jsx19(_Waveform, { active: isRecording, getAudioLevels }),
@@ -4346,6 +4365,7 @@ function useFeedbackChat() {
       const via = composerFromVoiceRef.current ? "voice" : "text";
       composerFromVoiceRef.current = false;
       setComposerValue("");
+      stream.setStateExternal("bot_thinking");
       let activeSid = sessionId;
       if (!activeSid) {
         try {
@@ -5090,4 +5110,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-6LWEUCO6.js.map
+//# sourceMappingURL=chunk-Z6MIRRA2.js.map

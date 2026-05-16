@@ -13,7 +13,7 @@
  * stays LLM-owned to keep the surface small.
  */
 
-import { Check, Pencil, X } from "lucide-react";
+import { Check, Loader2, Pencil, X } from "lucide-react";
 import { type ReactElement, useState } from "react";
 
 import { Button } from "../ui/button";
@@ -314,11 +314,21 @@ export function SynthesisCard({
                 <Button
                   type="button"
                   size="sm"
-                  onClick={onApprove}
-                  disabled={busy}
+                  onClick={confirmed ? undefined : onApprove}
+                  disabled={busy || confirmed}
                   data-feedback-id="feedback.chat_synthesis_approve"
+                  className={
+                    confirmed
+                      ? "bg-emerald-500/20 text-emerald-400 cursor-default hover:bg-emerald-500/20"
+                      : ""
+                  }
                 >
-                  <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                  {busy && !confirmed ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Check className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {confirmed ? "Approved" : busy ? "Approving…" : "Approve"}
                 </Button>
               ) : null}
             </div>
