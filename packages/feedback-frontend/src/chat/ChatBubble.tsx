@@ -29,7 +29,7 @@ export interface ChatBubbleProps {
 function AssistantAvatar(): ReactElement {
   return (
     <div
-      className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-primary/90 to-primary/60 text-[10px] font-bold text-primary-foreground shadow-sm"
+      className="flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-card border border-primary/50 text-[10px] font-bold text-primary shadow-sm"
       aria-hidden="true"
     >
       RL3
@@ -42,14 +42,18 @@ export function ChatBubble({ role, text, caption }: ChatBubbleProps): ReactEleme
   const isAdmin = role === "admin";
   const isAssistant = role === "assistant";
 
-  // Surface styling per role. Assistant uses an elevated muted surface
-  // with a softened top-left corner so it visually anchors next to the
-  // avatar. User mirrors with top-right. Admin keeps its violet tint.
+  // Surface styling per role on pure-black RL3 background:
+  //  - Assistant: elevated card surface with subtle border so the
+  //    bubble pops against the void; soft top-left corner anchors it
+  //    next to the avatar.
+  //  - User: beige tint at 25% so the brand colour is recognisable
+  //    without overpowering long messages; soft top-right corner.
+  //  - Admin: violet stays for cross-role differentiation.
   const bubbleClass = isUser
-    ? "rounded-2xl rounded-tr-md border-primary/30 bg-primary/10 text-foreground"
+    ? "rounded-2xl rounded-tr-md border-primary/40 bg-primary/20 text-foreground"
     : isAdmin
-      ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/10 text-foreground"
-      : "rounded-2xl rounded-tl-md border-input/60 bg-muted/60 text-foreground shadow-sm";
+      ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/15 text-foreground"
+      : "rounded-2xl rounded-tl-md border-input bg-card text-foreground shadow-sm";
 
   return (
     <div className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>

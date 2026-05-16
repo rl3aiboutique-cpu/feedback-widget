@@ -1353,7 +1353,7 @@ function AssistantAvatar() {
   return /* @__PURE__ */ jsx7(
     "div",
     {
-      className: "flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-primary/90 to-primary/60 text-[10px] font-bold text-primary-foreground shadow-sm",
+      className: "flex h-7 w-7 shrink-0 select-none items-center justify-center rounded-full bg-card border border-primary/50 text-[10px] font-bold text-primary shadow-sm",
       "aria-hidden": "true",
       children: "RL3"
     }
@@ -1363,7 +1363,7 @@ function ChatBubble({ role, text, caption }) {
   const isUser = role === "user";
   const isAdmin = role === "admin";
   const isAssistant = role === "assistant";
-  const bubbleClass = isUser ? "rounded-2xl rounded-tr-md border-primary/30 bg-primary/10 text-foreground" : isAdmin ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/10 text-foreground" : "rounded-2xl rounded-tl-md border-input/60 bg-muted/60 text-foreground shadow-sm";
+  const bubbleClass = isUser ? "rounded-2xl rounded-tr-md border-primary/40 bg-primary/20 text-foreground" : isAdmin ? "rounded-2xl rounded-tl-md border-violet-500/40 bg-violet-500/15 text-foreground" : "rounded-2xl rounded-tl-md border-input bg-card text-foreground shadow-sm";
   return /* @__PURE__ */ jsxs6("div", { className: `flex w-full ${isUser ? "justify-end" : "justify-start"}`, children: [
     isAssistant || isAdmin ? /* @__PURE__ */ jsx7("div", { className: "mr-2 mt-0.5", children: /* @__PURE__ */ jsx7(AssistantAvatar, {}) }) : null,
     /* @__PURE__ */ jsxs6("div", { className: `flex max-w-[78%] flex-col gap-1 ${isUser ? "items-end" : "items-start"}`, children: [
@@ -2207,39 +2207,10 @@ function Composer({
     "div",
     {
       className: [
-        "flex items-center gap-1 rounded-full border bg-muted/30 px-3 py-1.5 transition",
-        focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/50"
+        "flex flex-col rounded-2xl border bg-card/60 transition shadow-sm",
+        focused ? "border-primary/50 ring-2 ring-primary/20" : "border-input/60"
       ].join(" "),
       children: [
-        showAttach ? /* @__PURE__ */ jsxs9(Fragment4, { children: [
-          /* @__PURE__ */ jsx13(
-            "input",
-            {
-              ref: fileInputRef,
-              type: "file",
-              multiple: true,
-              accept: _ACCEPT_ATTRIBUTE,
-              onChange: onPickFiles,
-              hidden: true,
-              "data-feedback-id": "feedback.chat_attach_input"
-            }
-          ),
-          /* @__PURE__ */ jsx13(
-            Button,
-            {
-              type: "button",
-              variant: "ghost",
-              size: "icon",
-              onClick: () => fileInputRef.current?.click(),
-              disabled: disabled || attachDisabled,
-              "aria-label": "Attach files",
-              title: attachDisabled ? "Attachment limit reached (5 max)" : "Attach files",
-              "data-feedback-id": "feedback.chat_attach",
-              className: "h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
-              children: /* @__PURE__ */ jsx13(Paperclip, { className: "h-4 w-4" })
-            }
-          )
-        ] }) : null,
         /* @__PURE__ */ jsx13(
           "textarea",
           {
@@ -2252,41 +2223,76 @@ function Composer({
             disabled,
             placeholder: placeholder ?? DEFAULT_PLACEHOLDER,
             rows: 1,
-            className: "flex-1 resize-none border-0 bg-transparent text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50",
+            className: "resize-none border-0 bg-transparent px-4 pt-3 pb-2 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus-visible:outline-none disabled:opacity-50",
             style: { minHeight: `${MIN_TEXTAREA_HEIGHT}px`, maxHeight: `${MAX_TEXTAREA_HEIGHT}px` },
             "data-feedback-id": "feedback.chat_composer"
           }
         ),
-        showVoice ? /* @__PURE__ */ jsx13(
-          Button,
-          {
-            type: "button",
-            variant: "ghost",
-            size: "icon",
-            onClick: onVoiceToggle,
-            disabled,
-            "aria-label": "Record voice message",
-            "data-feedback-id": "feedback.chat_mic",
-            className: "h-8 w-8 shrink-0 rounded-full text-muted-foreground hover:text-foreground",
-            children: /* @__PURE__ */ jsx13(Mic, { className: "h-4 w-4" })
-          }
-        ) : null,
-        /* @__PURE__ */ jsx13(
-          Button,
-          {
-            type: "button",
-            size: "icon",
-            onClick: () => void submit(),
-            disabled: disabled || !hasText,
-            "aria-label": "Enviar",
-            "data-feedback-id": "feedback.chat_send",
-            className: [
-              "h-8 w-8 shrink-0 rounded-full transition",
-              hasText ? "bg-gradient-to-br from-primary to-primary/70 shadow-sm hover:shadow-md" : "bg-muted text-muted-foreground"
-            ].join(" "),
-            children: /* @__PURE__ */ jsx13(SendHorizontal, { className: "h-4 w-4" })
-          }
-        )
+        /* @__PURE__ */ jsxs9("div", { className: "flex items-center justify-between gap-2 border-t border-input/30 px-2 py-1.5", children: [
+          /* @__PURE__ */ jsxs9("div", { className: "flex items-center gap-1", children: [
+            showAttach ? /* @__PURE__ */ jsxs9(Fragment4, { children: [
+              /* @__PURE__ */ jsx13(
+                "input",
+                {
+                  ref: fileInputRef,
+                  type: "file",
+                  multiple: true,
+                  accept: _ACCEPT_ATTRIBUTE,
+                  onChange: onPickFiles,
+                  hidden: true,
+                  "data-feedback-id": "feedback.chat_attach_input"
+                }
+              ),
+              /* @__PURE__ */ jsx13(
+                Button,
+                {
+                  type: "button",
+                  variant: "ghost",
+                  size: "icon",
+                  onClick: () => fileInputRef.current?.click(),
+                  disabled: disabled || attachDisabled,
+                  "aria-label": "Attach files",
+                  title: attachDisabled ? "Attachment limit reached (5 max)" : "Attach files",
+                  "data-feedback-id": "feedback.chat_attach",
+                  className: "h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  children: /* @__PURE__ */ jsx13(Paperclip, { className: "h-4 w-4" })
+                }
+              )
+            ] }) : null,
+            showVoice ? /* @__PURE__ */ jsx13(
+              Button,
+              {
+                type: "button",
+                variant: "ghost",
+                size: "icon",
+                onClick: onVoiceToggle,
+                disabled,
+                "aria-label": "Record voice message",
+                "data-feedback-id": "feedback.chat_mic",
+                className: "h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground",
+                children: /* @__PURE__ */ jsx13(Mic, { className: "h-4 w-4" })
+              }
+            ) : null
+          ] }),
+          /* @__PURE__ */ jsxs9(
+            Button,
+            {
+              type: "button",
+              onClick: () => void submit(),
+              disabled: disabled || !hasText,
+              "aria-label": "Send",
+              "data-feedback-id": "feedback.chat_send",
+              className: [
+                "h-8 shrink-0 rounded-md px-3 text-xs font-medium transition flex items-center gap-1.5",
+                hasText ? "bg-primary text-primary-foreground shadow-sm hover:opacity-90" : "bg-secondary text-muted-foreground cursor-not-allowed"
+              ].join(" "),
+              children: [
+                /* @__PURE__ */ jsx13(SendHorizontal, { className: "h-3.5 w-3.5" }),
+                /* @__PURE__ */ jsx13("span", { children: "Send" })
+              ]
+            }
+          )
+        ] })
       ]
     }
   ) });
@@ -2401,7 +2407,7 @@ function FooterActions({
 }
 
 // src/chat/MineFeedTab.tsx
-import { ChevronLeft as ChevronLeft2, ChevronRight as ChevronRight2, Search } from "lucide-react";
+import { ChevronLeft as ChevronLeft2, ChevronRight as ChevronRight2, Inbox as Inbox2, Search } from "lucide-react";
 import { useState as useState7 } from "react";
 
 // src/hooks/useCanTriageFeedback.ts
@@ -2706,7 +2712,16 @@ function MineFeedTab({ onSelectFeedback }) {
         }
       ) : null
     ] }),
-    /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-hidden", children: isLoading ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") }) : isError ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") }) : rows.length === 0 ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.empty") }) : /* @__PURE__ */ jsx18("ul", { className: "space-y-1", children: rows.map((r) => /* @__PURE__ */ jsx18("li", { children: /* @__PURE__ */ jsx18(
+    /* @__PURE__ */ jsx18("div", { className: "flex-1 min-h-0 overflow-hidden", children: isLoading ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-muted-foreground p-4", children: t("feedback.mine.loading") }) : isError ? /* @__PURE__ */ jsx18("p", { className: "text-sm text-destructive p-4", children: t("feedback.mine.error") }) : rows.length === 0 ? /* @__PURE__ */ jsxs13("div", { className: "flex flex-col items-center justify-center gap-3 px-4 py-12 text-center", children: [
+      /* @__PURE__ */ jsx18("div", { className: "flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground", children: /* @__PURE__ */ jsx18(Inbox2, { className: "h-6 w-6" }) }),
+      /* @__PURE__ */ jsx18("p", { className: "text-sm font-medium text-foreground", children: "No tickets yet" }),
+      /* @__PURE__ */ jsxs13("p", { className: "max-w-[280px] text-xs text-muted-foreground", children: [
+        "Switch to the ",
+        /* @__PURE__ */ jsx18("span", { className: "text-foreground", children: "New feedback" }),
+        " ",
+        "tab to file your first one \u2014 every ticket lands here."
+      ] })
+    ] }) : /* @__PURE__ */ jsx18("ul", { className: "space-y-1", children: rows.map((r) => /* @__PURE__ */ jsx18("li", { children: /* @__PURE__ */ jsx18(
       TicketRow,
       {
         row: r,
@@ -4765,7 +4780,7 @@ function FeedbackChatSheet({
       widthPx: resize.width,
       isDragging: resize.isDragging,
       onResizeStart: resize.isMobile ? void 0 : resize.startResize,
-      className: "rl3-feedback-scope dark flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0",
+      className: "rl3-feedback-scope dark flex h-full flex-col gap-0 border-l border-input/50 bg-background/95 backdrop-blur-xl p-0 shadow-2xl",
       "data-feedback-widget-root": "true",
       children: [
         /* @__PURE__ */ jsxs16(SheetHeader, { className: "border-b border-input/60 px-4 pt-4 pb-3", children: [
@@ -4902,4 +4917,4 @@ export {
   TicketDetail,
   FeedbackChatSheet
 };
-//# sourceMappingURL=chunk-46W4HTJM.js.map
+//# sourceMappingURL=chunk-Q47BSZRO.js.map

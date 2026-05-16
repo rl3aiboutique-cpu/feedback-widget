@@ -286,7 +286,7 @@ export function FeedbackChatSheet({
         widthPx={resize.width}
         isDragging={resize.isDragging}
         onResizeStart={resize.isMobile ? undefined : resize.startResize}
-        className="rl3-feedback-scope dark flex h-full flex-col gap-0 bg-gradient-to-b from-background via-background to-muted/10 p-0"
+        className="rl3-feedback-scope dark flex h-full flex-col gap-0 border-l border-input/50 bg-background/95 backdrop-blur-xl p-0 shadow-2xl"
         data-feedback-widget-root="true"
       >
         <SheetHeader className="border-b border-input/60 px-4 pt-4 pb-3">

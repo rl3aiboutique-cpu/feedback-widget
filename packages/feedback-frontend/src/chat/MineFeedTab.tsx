@@ -17,7 +17,7 @@
  * is an overlay, not a route.
  */
 
-import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Inbox, Search } from "lucide-react";
 import { type ReactElement, useState } from "react";
 
 import { useFeedbackAdapter } from "../FeedbackProvider";
@@ -239,9 +239,18 @@ export function MineFeedTab({ onSelectFeedback }: MineFeedTabProps): ReactElemen
         ) : isError ? (
           <p className="text-sm text-destructive p-4">{t("feedback.mine.error")}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground p-4">
-            {t("feedback.mine.empty")}
-          </p>
+          <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+              <Inbox className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-medium text-foreground">
+              No tickets yet
+            </p>
+            <p className="max-w-[280px] text-xs text-muted-foreground">
+              Switch to the <span className="text-foreground">New feedback</span>{" "}
+              tab to file your first one — every ticket lands here.
+            </p>
+          </div>
         ) : (
           <ul className="space-y-1">
             {rows.map((r) => (
