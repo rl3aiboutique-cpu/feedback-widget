@@ -1,7 +1,7 @@
 [project]
 name = "rl3-feedback-widget"
-version = "1.0.0"
-description = "RL3 in-app feedback widget — FastAPI router + SQLModel tables + Alembic migrations + S3/SMTP + multi-file attachments + Iterate-with-AI module."
+version = "1.1.0"
+description = "RL3 in-app feedback widget — FastAPI router + SQLModel tables + Alembic migrations + S3/SMTP + multi-file attachments + chat-first capture flow."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "UNLICENSED" }
