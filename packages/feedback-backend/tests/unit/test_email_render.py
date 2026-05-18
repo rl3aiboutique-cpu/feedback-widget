@@ -22,7 +22,7 @@ def _row(**overrides: object) -> Feedback:
         "tenant_id": uuid.uuid4(),
         "user_id": uuid.uuid4(),
         "type": FeedbackType.BUG,
-        "status": FeedbackStatus.NEW,
+        "status": FeedbackStatus.OPEN,
         "title": "Login fails",
         "description": "Steps to reproduce: open /login, ...",
         "expected_outcome": "Login should succeed for valid credentials.",
@@ -79,9 +79,9 @@ def test_notification_email_renders_for_every_type(
 @pytest.mark.parametrize(
     "status",
     [
-        FeedbackStatus.TRIAGED,
+        FeedbackStatus.IN_REVIEW,
         FeedbackStatus.IN_PROGRESS,
-        FeedbackStatus.DONE,
+        FeedbackStatus.RESOLVED,
         FeedbackStatus.WONT_FIX,
     ],
 )
