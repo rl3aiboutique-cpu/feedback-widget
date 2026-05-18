@@ -34,6 +34,11 @@ ignore = [
     # FastAPI dependency injection idiom — local Dep handles are PascalCase
     # by convention so the route signature reads `param = SessionDep`.
     "N806",
+    # We intentionally use `×` (U+00D7 MULTIPLICATION SIGN) in docstrings
+    # and comments for mathematical notation (e.g. "admin × user × LLM",
+    # "4× headroom"). Replacing with ASCII `x` loses semantic clarity.
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]

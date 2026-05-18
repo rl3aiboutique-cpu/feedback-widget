@@ -190,9 +190,7 @@ class FeedbackTicket(SQLModel, table=True):
     ticket_code: str | None = Field(default=None, max_length=24)
     title: str | None = Field(default=None, max_length=200)
     description: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    expected_outcome: str | None = Field(
-        default=None, sa_column=Column(Text, nullable=True)
-    )
+    expected_outcome: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
     type: FeedbackType | None = Field(
         default=None,
         sa_column=Column(
@@ -266,9 +264,7 @@ class FeedbackTicket(SQLModel, table=True):
     synthesis_json: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSONB, nullable=True)
     )
-    auto_context: dict[str, Any] = Field(
-        sa_column=Column(JSONB, nullable=False)
-    )
+    auto_context: dict[str, Any] = Field(sa_column=Column(JSONB, nullable=False))
     glossary_snapshot: dict[str, Any] | None = Field(
         default=None, sa_column=Column(JSONB, nullable=True)
     )
@@ -497,12 +493,8 @@ class FeedbackAdminAction(SQLModel, table=True):
     )
     from_status: str | None = Field(default=None, max_length=30)
     to_status: str | None = Field(default=None, max_length=30)
-    message_text: str | None = Field(
-        default=None, sa_column=Column(Text, nullable=True)
-    )
-    payload: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSONB, nullable=True)
-    )
+    message_text: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    payload: dict[str, Any] | None = Field(default=None, sa_column=Column(JSONB, nullable=True))
     created_at: datetime = Field(
         default_factory=_utc_now,
         sa_column=Column(DateTime(timezone=True), nullable=False),

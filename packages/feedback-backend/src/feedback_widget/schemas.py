@@ -95,9 +95,7 @@ class FeedbackRead(BaseModel):
     tenant_id: uuid.UUID | None = None
     user_id: uuid.UUID
     type: FeedbackType | None = None
-    status: FeedbackStatus = Field(
-        default=FeedbackStatus.OPEN, validation_alias="ticket_status"
-    )
+    status: FeedbackStatus = Field(default=FeedbackStatus.OPEN, validation_alias="ticket_status")
     title: str | None = None
     description: str | None = None
     expected_outcome: str | None = None

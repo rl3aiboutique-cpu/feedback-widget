@@ -222,14 +222,10 @@ class ClaudeProvider:
                     usage = getattr(final, "usage", None)
                     if usage is not None:
                         self._last_stream_usage = LLMUsage(
-                            input_tokens=int(
-                                getattr(usage, "input_tokens", 0) or 0
-                            ),
-                            output_tokens=int(
-                                getattr(usage, "output_tokens", 0) or 0
-                            ),
+                            input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+                            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
                         )
-                except Exception:  # noqa: BLE001
+                except Exception:
                     # Token harvest is best-effort — never break the
                     # stream because the totals call failed.
                     pass

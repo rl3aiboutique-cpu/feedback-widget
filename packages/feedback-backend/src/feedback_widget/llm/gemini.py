@@ -290,9 +290,7 @@ class GeminiProvider:
             return None
         nxt = self._chain[idx + 1]
         # User-friendly Spanish reason — surfaced in the SSE banner.
-        readable_reason = reason or (
-            f"Saturación temporal en {after}; cambiando a {nxt}."
-        )
+        readable_reason = reason or (f"Saturación temporal en {after}; cambiando a {nxt}.")
         self._fallback_queue.append((after, nxt, readable_reason))
         self._model = nxt
         return nxt
@@ -514,12 +512,8 @@ class GeminiProvider:
                     # the cache always up-to-date.
                     usage_meta = getattr(chunk, "usage_metadata", None)
                     if usage_meta is not None:
-                        prompt_tokens = int(
-                            getattr(usage_meta, "prompt_token_count", 0) or 0
-                        )
-                        out_tokens = int(
-                            getattr(usage_meta, "candidates_token_count", 0) or 0
-                        )
+                        prompt_tokens = int(getattr(usage_meta, "prompt_token_count", 0) or 0)
+                        out_tokens = int(getattr(usage_meta, "candidates_token_count", 0) or 0)
                         if prompt_tokens or out_tokens:
                             self._last_stream_usage = LLMUsage(
                                 input_tokens=prompt_tokens,

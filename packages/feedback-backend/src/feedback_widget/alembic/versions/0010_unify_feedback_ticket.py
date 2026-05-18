@@ -88,12 +88,8 @@ def _extend_feedback_status_enum() -> None:
     """Add ``waiting_for_user`` and ``closed`` to feedback_status."""
 
     with op.get_context().autocommit_block():
-        op.execute(
-            "ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'waiting_for_user'"
-        )
-        op.execute(
-            "ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'closed'"
-        )
+        op.execute("ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'waiting_for_user'")
+        op.execute("ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'closed'")
         # Inject the renamed values so the rename step below has targets.
         op.execute("ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'open'")
         op.execute("ALTER TYPE feedback_status ADD VALUE IF NOT EXISTS 'in_review'")
@@ -105,9 +101,7 @@ def _rename_feedback_status_values() -> None:
     target labels. Postgres 10+ supports this in-place."""
 
     op.execute("UPDATE feedback SET status = 'open' WHERE status = 'new'")
-    op.execute(
-        "UPDATE feedback SET status = 'in_review' WHERE status = 'triaged'"
-    )
+    op.execute("UPDATE feedback SET status = 'in_review' WHERE status = 'triaged'")
     op.execute("UPDATE feedback SET status = 'resolved' WHERE status = 'done'")
     # Note: we do NOT remove the legacy values from the enum yet — that
     # would require a full type rewrite. The Python model only knows
@@ -332,21 +326,15 @@ def upgrade() -> None:
     )
     op.add_column(
         "feedback_ticket",
-        sa.Column(
-            "deleted_by_role", sa.String(length=20), nullable=True
-        ),
+        sa.Column("deleted_by_role", sa.String(length=20), nullable=True),
     )
     op.add_column(
         "feedback_ticket",
-        sa.Column(
-            "model_id_pinned", sa.String(length=200), nullable=True
-        ),
+        sa.Column("model_id_pinned", sa.String(length=200), nullable=True),
     )
     op.add_column(
         "feedback_ticket",
-        sa.Column(
-            "model_provider", sa.String(length=50), nullable=True
-        ),
+        sa.Column("model_provider", sa.String(length=50), nullable=True),
     )
     op.add_column(
         "feedback_ticket",
@@ -387,9 +375,7 @@ def upgrade() -> None:
         "feedback_ticket",
         ["tenant_id", "user_id"],
         unique=False,
-        postgresql_where=sa.text(
-            "user_action_required = true AND deleted_at IS NULL"
-        ),
+        postgresql_where=sa.text("user_action_required = true AND deleted_at IS NULL"),
     )
     op.create_index(
         "ix_feedback_ticket_code_tenant",
@@ -600,9 +586,7 @@ def upgrade() -> None:
     )
 
     op.drop_table("feedback_comment")
-    sa.Enum(name="feedback_comment_author_role").drop(
-        op.get_bind(), checkfirst=True
-    )
+    sa.Enum(name="feedback_comment_author_role").drop(op.get_bind(), checkfirst=True)
 
     # ── Step 8: drop the legacy feedback table ───────────────────────
     # Remove the back-reference column first so the table drop is clean.
@@ -624,9 +608,7 @@ def upgrade() -> None:
             nullable=False,
             index=True,
         ),
-        sa.Column(
-            "tenant_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
+        sa.Column("tenant_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column(
             "admin_user_id",
             postgresql.UUID(as_uuid=True),
@@ -673,9 +655,7 @@ def downgrade() -> None:
     op.drop_table("feedback_admin_action")
 
     # Recreate the comment author-role enum + table shell.
-    op.execute(
-        "CREATE TYPE feedback_comment_author_role AS ENUM ('submitter', 'admin')"
-    )
+    op.execute("CREATE TYPE feedback_comment_author_role AS ENUM ('submitter', 'admin')")
     op.create_table(
         "feedback_comment",
         sa.Column(
@@ -689,9 +669,7 @@ def downgrade() -> None:
             nullable=False,
             index=True,
         ),
-        sa.Column(
-            "tenant_id", postgresql.UUID(as_uuid=True), nullable=True
-        ),
+        sa.Column("tenant_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column(
             "author_user_id",
             postgresql.UUID(as_uuid=True),
@@ -700,9 +678,7 @@ def downgrade() -> None:
         ),
         sa.Column(
             "author_role",
-            postgresql.ENUM(
-                name="feedback_comment_author_role", create_type=False
-            ),
+            postgresql.ENUM(name="feedback_comment_author_role", create_type=False),
             nullable=False,
         ),
         sa.Column("body", sa.Text(), nullable=False),
@@ -734,16 +710,12 @@ def downgrade() -> None:
         ),
         sa.Column(
             "type",
-            postgresql.ENUM(
-                name="feedback_type", create_type=False
-            ),
+            postgresql.ENUM(name="feedback_type", create_type=False),
             nullable=False,
         ),
         sa.Column(
             "status",
-            postgresql.ENUM(
-                name="feedback_status", create_type=False
-            ),
+            postgresql.ENUM(name="feedback_status", create_type=False),
             nullable=False,
             server_default="new",
         ),
@@ -794,9 +766,7 @@ def downgrade() -> None:
         ),
         sa.Column(
             "severity",
-            postgresql.ENUM(
-                name="feedback_severity", create_type=False
-            ),
+            postgresql.ENUM(name="feedback_severity", create_type=False),
             nullable=True,
         ),
     )
@@ -848,12 +818,8 @@ def downgrade() -> None:
         ondelete="CASCADE",
     )
 
-    op.drop_index(
-        "ix_feedback_ticket_code_tenant", table_name="feedback_ticket"
-    )
-    op.drop_index(
-        "ix_feedback_ticket_user_action", table_name="feedback_ticket"
-    )
+    op.drop_index("ix_feedback_ticket_code_tenant", table_name="feedback_ticket")
+    op.drop_index("ix_feedback_ticket_user_action", table_name="feedback_ticket")
     op.drop_index("ix_feedback_ticket_open", table_name="feedback_ticket")
     op.drop_index("ix_feedback_ticket_active", table_name="feedback_ticket")
 

@@ -33,33 +33,21 @@ from fastapi import (
     Response,
     status,
 )
-from pydantic import ValidationError
 from sqlmodel import Session
-from starlette.datastructures import FormData
-from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.bundle import _bundle_filename, build_feedback_bundle
 from feedback_widget.deps import WidgetDependencies
 from feedback_widget.email.render import (
-    build_feedback_email,
     build_status_transition_email,
 )
 from feedback_widget.exceptions import (
     FeedbackError,
     FeedbackNotFoundError,
-    FeedbackRateLimitExceededError,
-)
-from feedback_widget.helpers import (
-    enqueue_notification,
-    parse_feedback_form,
-    read_attachments,
-    read_screenshot,
 )
 from feedback_widget.models import DeletedByRole, FeedbackStatus, FeedbackType
 from feedback_widget.schemas import (
     FeedbackAdminActionPayload,
-    FeedbackCreatePayload,
     FeedbackListResponse,
     FeedbackRead,
     FeedbackStatusUpdate,
@@ -310,9 +298,7 @@ def build_router(
             try:
                 feedback = service.get(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             if not is_admin and feedback.user_id != current_user.user_id:
                 # Owner-or-admin policy. Mask cross-user access as 404.
                 raise HTTPException(
@@ -355,7 +341,6 @@ def build_router(
 
         from feedback_widget.chat_models import (
             FeedbackChatCall,
-            FeedbackChatSession,
         )
 
         try:
@@ -368,9 +353,7 @@ def build_router(
             try:
                 feedback_row = service.get(feedback_id)
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
             # Post-unification (2026-05-16): feedback row IS the chat
             # session. The ticket id is both the feedback id and the
@@ -395,9 +378,7 @@ def build_router(
                 "synthesis_json": chat_row.synthesis_json,
                 "auto_context": chat_row.auto_context or {},
                 "detected_language": chat_row.detected_language,
-                "created_at": chat_row.created_at.isoformat()
-                if chat_row.created_at
-                else None,
+                "created_at": chat_row.created_at.isoformat() if chat_row.created_at else None,
                 "confirmed_at": chat_row.confirmed_at.isoformat()
                 if chat_row.confirmed_at
                 else None,
@@ -419,9 +400,7 @@ def build_router(
                         "error_message": c.error_message,
                         "prompt_sha256": c.prompt_sha256,
                         "prompt_version": c.prompt_version,
-                        "created_at": c.created_at.isoformat()
-                        if c.created_at
-                        else None,
+                        "created_at": c.created_at.isoformat() if c.created_at else None,
                     }
                     for c in calls
                 ],
@@ -429,9 +408,7 @@ def build_router(
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "get_feedback_chat failed unexpectedly (id=%s)", feedback_id
-            )
+            logger.exception("get_feedback_chat failed unexpectedly (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",
@@ -651,9 +628,7 @@ def build_router(
                     payload=body,
                 )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             session.commit()
             session.refresh(feedback)
             return service.to_read(feedback, sign_urls=True)
@@ -694,9 +669,7 @@ def build_router(
                     admin_user_id=current_user.user_id,
                 )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             session.commit()
             session.refresh(feedback)
             return service.to_read(feedback, sign_urls=True)
@@ -727,7 +700,6 @@ def build_router(
         """Admin soft-delete: sets ``deleted_at`` + ``deleted_by_role=ADMIN``
         and records a forensic ``feedback_admin_action`` row. Reversible
         via POST /{id}/restore. Use DELETE /{id} for permanent removal."""
-        from feedback_widget.models import DeletedByRole
 
         try:
             service = FeedbackService(
@@ -743,16 +715,12 @@ def build_router(
                     role=DeletedByRole.ADMIN,
                 )
             except FeedbackNotFoundError as exc:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
-                ) from exc
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
             session.commit()
         except HTTPException:
             raise
         except Exception as exc:
-            logger.exception(
-                "admin_soft_delete_feedback failed (id=%s)", feedback_id
-            )
+            logger.exception("admin_soft_delete_feedback failed (id=%s)", feedback_id)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Internal server error.",

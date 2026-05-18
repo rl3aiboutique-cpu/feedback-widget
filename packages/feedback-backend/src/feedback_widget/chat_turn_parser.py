@@ -155,8 +155,9 @@ def parse_turn_response(raw: str) -> dict[str, Any]:
     # the repair loop can re-prompt. Importing locally avoids a circular
     # import (chat_schemas → models → exceptions).
     if isinstance(synthesis, dict):
-        from feedback_widget.chat_schemas import ChatSynthesis
         from pydantic import ValidationError as _ValidationError
+
+        from feedback_widget.chat_schemas import ChatSynthesis
 
         try:
             validated = ChatSynthesis.model_validate(synthesis)

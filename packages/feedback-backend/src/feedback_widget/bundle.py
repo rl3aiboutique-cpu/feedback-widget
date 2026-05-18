@@ -134,7 +134,7 @@ def _render_readme(
         "> `metadata.json` file contains the technical context (route,",
         "> viewport, console + network tail, app version + git sha).",
         "> Read every file in this archive — `ticket.md`, `triage.md`,",
-        f"> `attachments/*` (user-uploaded wireframes, logs, notes).",
+        "> `attachments/*` (user-uploaded wireframes, logs, notes).",
         chat_hint,
         f"> Return a plan and concrete patches against the codebase at "
         f"{repo_url or '(repo URL not configured)'}.",
@@ -143,7 +143,7 @@ def _render_readme(
         "",
         f"- **Type**: {fb.type.value if fb.type else '(undetermined)'}",
         f"- **Severity**: {fb.severity.value if fb.severity else '(unset)'}",
-        f"- **Status**: {(_STATUS_LABEL.get(fb.ticket_status, fb.ticket_status.value) if fb.ticket_status else '(unset)')}",
+        f"- **Status**: {(_STATUS_LABEL.get(fb.ticket_status, fb.ticket_status.value) if fb.ticket_status else '(unset)')}",  # noqa: E501
         f"- **Title**: {fb.title or '(no title)'}",
         f"- **Submitter**: {submitter_email} ({submitter_role})",
         f"- **Created**: {_fmt_dt(fb.created_at)}",
@@ -206,9 +206,7 @@ def _render_triage(fb: Feedback) -> str:
     """
     ticket_status = fb.ticket_status
     status_value = ticket_status.value if ticket_status else "(unset)"
-    status_label = (
-        _STATUS_LABEL.get(ticket_status, status_value) if ticket_status else status_value
-    )
+    status_label = _STATUS_LABEL.get(ticket_status, status_value) if ticket_status else status_value
     lines: list[str] = [
         "# Triage",
         "",
@@ -237,15 +235,12 @@ def _render_chat_transcript(messages: list[dict[str, Any]]) -> str:
         if msg.get("role") == "assistant":
             covered = msg.get("covered")
             if isinstance(covered, dict) and covered:
-                covered_summary = ", ".join(
-                    f"{k}={v:.1f}" for k, v in covered.items()
-                )
+                covered_summary = ", ".join(f"{k}={v:.1f}" for k, v in covered.items())
                 lines.append(f"_coverage: {covered_summary}_")
             inferred = msg.get("inferred")
             if isinstance(inferred, dict) and inferred:
                 lines.append(
-                    f"_inferred: type={inferred.get('type')} "
-                    f"severity={inferred.get('severity')}_"
+                    f"_inferred: type={inferred.get('type')} severity={inferred.get('severity')}_"
                 )
             lines.append("")
     return "\n".join(lines)
@@ -427,9 +422,7 @@ def _serialise_feedback_row(fb: Feedback) -> str:
             "git_commit_sha": fb.git_commit_sha,
             "user_agent": fb.user_agent,
             "ticket_code": fb.ticket_code,
-            "chat_session_id": str(fb.id)
-            if fb.messages
-            else None,
+            "chat_session_id": str(fb.id) if fb.messages else None,
             "synthesis_json": fb.synthesis_json,
             "created_at": _fmt_dt(fb.created_at),
             "updated_at": _fmt_dt(fb.updated_at),
@@ -472,9 +465,7 @@ def build_feedback_bundle(
         archive.writestr("ticket.md", _render_ticket(fb))
         archive.writestr("triage.md", _render_triage(fb))
         archive.writestr("feedback.json", _serialise_feedback_row(fb))
-        archive.writestr(
-            "metadata.json", json.dumps(metadata, indent=2, default=str)
-        )
+        archive.writestr("metadata.json", json.dumps(metadata, indent=2, default=str))
 
         # Auto-captured screenshot — first SCREENSHOT-kind attachment.
         screenshot_attachment = next(
@@ -548,9 +539,7 @@ def build_feedback_bundle(
         )
         archive.writestr(
             "raw/network_errors_tail.json",
-            json.dumps(
-                metadata.get("network_errors_tail") or [], indent=2, default=str
-            ),
+            json.dumps(metadata.get("network_errors_tail") or [], indent=2, default=str),
         )
 
     buffer.seek(0)

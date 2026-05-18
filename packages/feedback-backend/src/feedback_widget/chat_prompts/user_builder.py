@@ -140,9 +140,7 @@ def build_user_message(
         flips this to true and we append a hard instruction telling
         the model to emit ``mode="synthesize"`` on this turn.
     """
-    system_content = format_capture_system_prompt(
-        brand=brand, glossary=glossary, language=language
-    )
+    system_content = format_capture_system_prompt(brand=brand, glossary=glossary, language=language)
     if force_synthesize:
         system_content += (
             "\n\nFORCED INSTRUCTION FOR THIS TURN: the turn cap or the "
@@ -202,9 +200,7 @@ def _build_user_message(
     """
     context_block = _format_auto_context_block(auto_context) if auto_context else ""
     text_block = (
-        f"<auto_context>\n{context_block}\n</auto_context>\n\n{text}"
-        if context_block
-        else text
+        f"<auto_context>\n{context_block}\n</auto_context>\n\n{text}" if context_block else text
     )
     if screenshot is None:
         return {"role": "user", "content": text_block}
@@ -215,9 +211,7 @@ def _build_user_message(
             {
                 "type": "image_url",
                 "image_url": {
-                    "url": (
-                        f"data:{screenshot.mime_type};base64,{screenshot.bytes_b64}"
-                    ),
+                    "url": (f"data:{screenshot.mime_type};base64,{screenshot.bytes_b64}"),
                 },
             },
         ],

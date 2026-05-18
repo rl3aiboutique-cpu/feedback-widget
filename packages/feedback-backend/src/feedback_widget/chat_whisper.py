@@ -64,10 +64,7 @@ def _is_hallucination(text: str) -> bool:
     t = text.strip()
     if not t:
         return True
-    for pat in _HALLUCINATION_PATTERNS:
-        if pat.search(t):
-            return True
-    return False
+    return any(pat.search(t) for pat in _HALLUCINATION_PATTERNS)
 
 
 class WhisperConfigError(RuntimeError):
@@ -169,7 +166,7 @@ def _normalise_language_hint(raw: str | None) -> str | None:
 async def transcribe_audio(
     audio_bytes: bytes,
     *,
-    content_type: str,  # noqa: ARG001 — accepted for API symmetry; SDK infers codec from filename
+    content_type: str,
     filename: str = "audio.webm",
     language_hint: str | None = None,
     glossary: dict[str, str] | None = None,

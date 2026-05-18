@@ -201,4 +201,3 @@ def run_migrations(database_url: str | None = None) -> None:
     from feedback_widget.cli import run_migrations as _impl
 
     _impl(database_url=database_url)
-
