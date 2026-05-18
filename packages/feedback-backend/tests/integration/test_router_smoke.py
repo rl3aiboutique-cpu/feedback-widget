@@ -1,26 +1,49 @@
 """End-to-end smoke through the actual router + service + Postgres.
 
 Skipped if Postgres isn't reachable (see integration/conftest.py).
+
+Under the unified schema (2026-05-16) the legacy ``POST /feedback`` direct-
+create endpoint was removed — tickets are now created via the chat flow
+(``POST /feedback/chat/sessions`` → confirm). The smoke tests below seed
+rows directly through the engine and exercise the remaining endpoints
+(GET, PATCH /status, DELETE).
 """
 
 from __future__ import annotations
 
-import json
+import uuid
+from typing import Any
 
 from fastapi.testclient import TestClient
+from feedback_widget.models import Feedback, FeedbackStatus, FeedbackType
+from sqlalchemy.engine import Engine
+from sqlmodel import Session
+
+_TEST_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
+_TEST_ADMIN_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 
 
-def _create_payload(**overrides: object) -> str:
-    base: dict[str, object] = {
-        "type": "bug",
+def _seed(engine: Engine, **overrides: Any) -> uuid.UUID:
+    base: dict[str, Any] = {
+        "tenant_id": None,
+        "user_id": _TEST_USER_ID,
+        "type": FeedbackType.BUG,
+        "status": FeedbackStatus.OPEN,
         "title": "Smoke test",
         "description": "Open app, click button, observe.",
         "expected_outcome": "Button should not crash the page.",
         "url_captured": "http://localhost/sandbox",
         "metadata_bundle": {"viewport": "1280x720"},
+        "auto_context": {"url": "http://localhost/sandbox", "route": "/"},
+        "ticket_code": f"FB-2026-{uuid.uuid4().int % 10000:04d}",
     }
     base.update(overrides)
-    return json.dumps(base)
+    with Session(engine) as s:
+        row = Feedback(**base)
+        s.add(row)
+        s.commit()
+        s.refresh(row)
+        return row.id
 
 
 def test_health_endpoint(client: TestClient) -> None:
@@ -31,25 +54,9 @@ def test_health_endpoint(client: TestClient) -> None:
     assert "version" in body
 
 
-def test_unauthenticated_create_returns_401(client: TestClient) -> None:
-    resp = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload())},
-    )
+def test_unauthenticated_list_returns_401(client: TestClient) -> None:
+    resp = client.get("/feedback")
     assert resp.status_code == 401
-
-
-def test_create_bug_as_staff_returns_201(client: TestClient) -> None:
-    resp = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload())},
-        headers={"X-Test-Role": "staff"},
-    )
-    assert resp.status_code == 201, resp.text
-    body = resp.json()
-    assert body["title"] == "Smoke test"
-    assert body["type"] == "bug"
-    assert body["ticket_code"].startswith("FB-")
 
 
 def test_list_requires_admin(client: TestClient) -> None:
@@ -62,21 +69,9 @@ def test_list_requires_admin(client: TestClient) -> None:
     assert r2.json()["count"] == 0
 
 
-def test_list_mine_returns_only_caller_rows(client: TestClient) -> None:
-    # staff submits one
-    r = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload(title="mine-1"))},
-        headers={"X-Test-Role": "staff"},
-    )
-    assert r.status_code == 201
-    # admin submits one
-    r2 = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload(title="admin-1"))},
-        headers={"X-Test-Role": "admin"},
-    )
-    assert r2.status_code == 201
+def test_list_mine_returns_only_caller_rows(client: TestClient, engine: Engine) -> None:
+    _seed(engine, user_id=_TEST_USER_ID, title="mine-1")
+    _seed(engine, user_id=_TEST_ADMIN_ID, title="admin-1")
 
     mine_staff = client.get("/feedback/mine", headers={"X-Test-Role": "staff"})
     assert mine_staff.status_code == 200
@@ -89,25 +84,19 @@ def test_list_mine_returns_only_caller_rows(client: TestClient) -> None:
     assert titles_admin == ["admin-1"]
 
 
-def test_admin_status_transition_new_to_done(client: TestClient) -> None:
-    created = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload(title="lifecycle"))},
-        headers={"X-Test-Role": "staff"},
-    )
-    assert created.status_code == 201
-    fid = created.json()["id"]
+def test_admin_status_transition_open_to_resolved(client: TestClient, engine: Engine) -> None:
+    fid = _seed(engine, title="lifecycle")
 
-    # NEW -> TRIAGED
+    # OPEN -> IN_REVIEW
     r1 = client.patch(
         f"/feedback/{fid}/status",
-        json={"status": "triaged", "triage_note": "queued"},
+        json={"status": "in_review", "triage_note": "queued"},
         headers={"X-Test-Role": "admin"},
     )
-    assert r1.status_code == 200
-    assert r1.json()["status"] == "triaged"
+    assert r1.status_code == 200, r1.text
+    assert r1.json()["status"] == "in_review"
 
-    # TRIAGED -> IN_PROGRESS
+    # IN_REVIEW -> IN_PROGRESS
     r2 = client.patch(
         f"/feedback/{fid}/status",
         json={"status": "in_progress"},
@@ -115,23 +104,18 @@ def test_admin_status_transition_new_to_done(client: TestClient) -> None:
     )
     assert r2.status_code == 200
 
-    # IN_PROGRESS -> DONE
+    # IN_PROGRESS -> RESOLVED
     r3 = client.patch(
         f"/feedback/{fid}/status",
-        json={"status": "done", "triage_note": "fixed"},
+        json={"status": "resolved", "triage_note": "fixed"},
         headers={"X-Test-Role": "admin"},
     )
     assert r3.status_code == 200
-    assert r3.json()["status"] == "done"
+    assert r3.json()["status"] == "resolved"
 
 
-def test_delete_only_admin(client: TestClient) -> None:
-    created = client.post(
-        "/feedback",
-        files={"payload": (None, _create_payload(title="delete-me"))},
-        headers={"X-Test-Role": "staff"},
-    )
-    fid = created.json()["id"]
+def test_delete_only_admin(client: TestClient, engine: Engine) -> None:
+    fid = _seed(engine, title="delete-me")
 
     # staff cannot delete
     r1 = client.delete(f"/feedback/{fid}", headers={"X-Test-Role": "staff"})

@@ -25,7 +25,7 @@ def test_post_chat_session_capture_returns_session_id(client) -> None:
     body = resp.json()
     assert "session_id" in body
     uuid.UUID(body["session_id"])  # validates UUID format
-    assert body["greeting"] == "Cuéntame qué tienes en mente."
+    assert body["greeting"] == "What would you like to change or improve?"
     assert body["resume_available"] is False
 
 

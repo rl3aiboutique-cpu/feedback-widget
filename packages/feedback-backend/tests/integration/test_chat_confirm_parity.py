@@ -294,6 +294,7 @@ def test_confirm_raises_rate_limit_error_when_cap_exceeded(engine) -> None:
                     description="seeded",
                     url_captured="https://example.com",
                     metadata_bundle={},
+                    auto_context={"url": "https://example.com", "route": "/"},
                     ticket_code=f"FB-2026-{9000 + i:04d}",
                 )
             )
@@ -350,6 +351,7 @@ def test_confirm_router_returns_429_when_rate_limit_raised(
                     description="seeded",
                     url_captured="https://example.com",
                     metadata_bundle={},
+                    auto_context={"url": "https://example.com", "route": "/"},
                     ticket_code=f"FB-2026-{9100 + i:04d}",
                 )
             )
@@ -496,7 +498,7 @@ def test_confirm_uploads_screenshot_to_storage_and_creates_attachment_row(
         from sqlmodel import select as _select
 
         rows = s.exec(
-            _select(FeedbackAttachment).where(FeedbackAttachment.feedback_id == feedback_id)
+            _select(FeedbackAttachment).where(FeedbackAttachment.ticket_id == feedback_id)
         ).all()
         assert len(rows) == 1
         attachment = rows[0]

@@ -107,8 +107,15 @@ def _migrate_once(engine: Engine, database_url: str) -> Generator[None, Any, Non
 def _truncate_each_test(engine: Engine) -> Generator[None, Any, None]:
     yield
     with engine.begin() as conn:
-        # feedback_chat_session first so its FK to feedback resolves via CASCADE.
-        conn.execute(text("TRUNCATE feedback_chat_session, feedback_attachment, feedback CASCADE"))
+        # Under the unified schema (2026-05-16) chat session + feedback collapsed
+        # into a single ``feedback_ticket`` table. Truncate it plus the dependent
+        # tables; CASCADE handles the FKs.
+        conn.execute(
+            text(
+                "TRUNCATE feedback_ticket, feedback_attachment, "
+                "feedback_chat_call, feedback_admin_action CASCADE"
+            )
+        )
 
 
 _TEST_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")

@@ -38,7 +38,7 @@ def test_start_session_capture_mode(db_session: Session) -> None:
     )
 
     assert resp.session_id is not None
-    assert resp.greeting == "Cuéntame qué tienes en mente."
+    assert resp.greeting == "What would you like to change or improve?"
     assert resp.resume_available is False
 
     rows = db_session.exec(select(FeedbackChatSession)).all()
