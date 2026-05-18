@@ -26,7 +26,7 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -41,7 +41,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session
+from sqlmodel import Session, col
 
 from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.chat_models import FeedbackChatSession
@@ -66,18 +66,18 @@ from feedback_widget.chat_service import (
     SynthesisAlreadyConfirmedError,
     SynthesisVersionNotFoundError,
 )
-from feedback_widget.email.render import build_feedback_email
-from feedback_widget.exceptions import FeedbackRateLimitExceededError
-from feedback_widget.helpers import enqueue_notification
-from feedback_widget.models import Feedback as FeedbackModel
 from feedback_widget.chat_whisper import (
     WhisperConfigError,
     WhisperTranscriptionError,
     transcribe_audio,
 )
 from feedback_widget.deps import WidgetDependencies
+from feedback_widget.email.render import build_feedback_email
+from feedback_widget.exceptions import FeedbackRateLimitExceededError
+from feedback_widget.helpers import enqueue_notification
 from feedback_widget.llm import build_provider
 from feedback_widget.llm.protocol import LLMAttachment, LLMProvider
+from feedback_widget.models import Feedback as FeedbackModel
 from feedback_widget.models import FeedbackAttachment
 from feedback_widget.settings import FeedbackSettings
 from feedback_widget.storage import StorageBackend
@@ -186,7 +186,7 @@ def _load_ticket_attachments(
         db.exec(
             _select(FeedbackAttachment)
             .where(FeedbackAttachment.ticket_id == chat_session.id)
-            .order_by(FeedbackAttachment.created_at.asc())  # type: ignore[arg-type]
+            .order_by(col(FeedbackAttachment.created_at).asc())
         ).all()
     )
     out: list[LLMAttachment] = []
@@ -201,7 +201,7 @@ def _load_ticket_attachments(
             )
             continue
         ct = row.content_type or "application/octet-stream"
-        kind: str
+        kind: Literal["image", "pdf", "text"]
         if ct.startswith("image/"):
             kind = "image"
         elif ct == "application/pdf":
@@ -210,7 +210,7 @@ def _load_ticket_attachments(
             kind = "text"
         out.append(
             LLMAttachment(
-                kind=kind,  # type: ignore[arg-type]
+                kind=kind,
                 filename=row.filename or f"{row.id}",
                 mime_type=ct,
                 bytes_b64=base64.b64encode(blob).decode("ascii"),
@@ -379,11 +379,7 @@ def build_chat_router(
         # Ownership check — 404 to avoid leaking session existence to
         # users from a different tenant / user_id.
         row = db.get(FeedbackChatSession, session_id)
-        if (
-            row is None
-            or row.user_id != user.user_id
-            or row.tenant_id != user.tenant_id
-        ):
+        if row is None or row.user_id != user.user_id or row.tenant_id != user.tenant_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="chat session not found",
@@ -444,18 +440,13 @@ def build_chat_router(
                 existing = db.exec(
                     _select_screenshot(FeedbackAttachment)
                     .where(FeedbackAttachment.ticket_id == session_id)
-                    .where(
-                        FeedbackAttachment.kind
-                        == FeedbackAttachmentKind.SCREENSHOT
-                    )
+                    .where(FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT)
                     .limit(1)
                 ).first()
                 if existing is None:
                     import base64 as _b64
 
-                    raw_bytes = _b64.b64decode(
-                        payload.screenshot_b64, validate=True
-                    )
+                    raw_bytes = _b64.b64decode(payload.screenshot_b64, validate=True)
                     cap = settings.MAX_SCREENSHOT_BYTES
                     if 0 < len(raw_bytes) <= cap:
                         upload_feedback_attachment(
@@ -464,8 +455,7 @@ def build_chat_router(
                             feedback_id=session_id,
                             tenant_id=row.tenant_id,
                             content=raw_bytes,
-                            content_type=payload.screenshot_content_type
-                            or "image/png",
+                            content_type=payload.screenshot_content_type or "image/png",
                             filename=None,
                             kind=FeedbackAttachmentKind.SCREENSHOT,
                             width=None,
@@ -473,7 +463,7 @@ def build_chat_router(
                             settings=settings,
                         )
                         db.commit()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 # Never let a screenshot-persist failure tank the
                 # chat turn — the user still gets to send the message.
                 logger.exception(
@@ -492,18 +482,14 @@ def build_chat_router(
         glossary_raw = row.glossary_snapshot
         glossary: dict[str, str] | None
         if isinstance(glossary_raw, dict):
-            glossary = {
-                str(k): str(v) for k, v in glossary_raw.items() if isinstance(v, str)
-            }
+            glossary = {str(k): str(v) for k, v in glossary_raw.items() if isinstance(v, str)}
         elif settings.glossary_dict:
             glossary = dict(settings.glossary_dict)
         else:
             glossary = None
         brand = settings.BRAND_NAME
         forbidden_words = [
-            w.strip()
-            for w in (settings.ITER_FORBIDDEN_WORDS or "").split(",")
-            if w.strip()
+            w.strip() for w in (settings.ITER_FORBIDDEN_WORDS or "").split(",") if w.strip()
         ]
         # Multimodal payload assembly (2026-05-16 fix). Strategy A:
         # decode the inline screenshot the FE ships per turn (fresh
@@ -520,14 +506,10 @@ def build_chat_router(
         else:
             # Fallback to whatever the auto_context carries — usually
             # only after confirm; harmless during chat when None.
-            legacy_shot = _load_screenshot_attachment(
-                db=db, storage=storage, chat_session=row
-            )
+            legacy_shot = _load_screenshot_attachment(db=db, storage=storage, chat_session=row)
             if legacy_shot is not None:
                 attachments.append(legacy_shot)
-        attachments.extend(
-            _load_ticket_attachments(db=db, storage=storage, chat_session=row)
-        )
+        attachments.extend(_load_ticket_attachments(db=db, storage=storage, chat_session=row))
         # Pass the first attachment as ``screenshot`` for back-compat
         # with run_turn's signature; the rest ride along on a separate
         # kwarg the service exposes (added in this fix).
@@ -666,7 +648,7 @@ def build_chat_router(
                 screenshot_ct: str | None = None
                 screenshot_row = db.exec(
                     _select_attachment(FeedbackAttachment)
-                    .where(FeedbackAttachment.feedback_id == feedback_id)
+                    .where(FeedbackAttachment.ticket_id == feedback_id)
                     .where(FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT)
                 ).first()
                 if screenshot_row is not None:
@@ -701,13 +683,9 @@ def build_chat_router(
                 )
         except Exception:
             # Email enqueue must NEVER block confirm — log and swallow.
-            logger.exception(
-                "chat confirm email enqueue failed: feedback=%s", feedback_id
-            )
+            logger.exception("chat confirm email enqueue failed: feedback=%s", feedback_id)
 
-        return ConfirmChatSessionResponse(
-            feedback_id=feedback_id, ticket_code=ticket_code
-        )
+        return ConfirmChatSessionResponse(feedback_id=feedback_id, ticket_code=ticket_code)
 
     # ── S5b: user soft-delete (2026-05-16 unification) ──────────────
     #
@@ -738,11 +716,11 @@ def build_chat_router(
         # Ownership check first — ``get`` already validates tenant.
         try:
             row = feedback_service.get(session_id)
-        except Exception:
+        except Exception as err:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="ticket not found",
-            )
+            ) from err
         if row.user_id != user.user_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -799,7 +777,7 @@ def build_chat_router(
     def approve_synthesis_version(
         session_id: uuid.UUID,
         synthesis_ts: str,
-        payload: ApproveSynthesisRequest = ApproveSynthesisRequest(),  # noqa: B008
+        payload: ApproveSynthesisRequest = ApproveSynthesisRequest(),
         user: CurrentUserSnapshot = UserDep,
         db: Session = SessionDep,
     ) -> SynthesisCardResponse:
@@ -861,8 +839,7 @@ def build_chat_router(
             # this branch should be unreachable. Logged to catch any
             # future race where the two steps drift apart.
             logger.error(
-                "approve+confirm raced: synthesis_json missing after approve "
-                "(session=%s ts=%s)",
+                "approve+confirm raced: synthesis_json missing after approve (session=%s ts=%s)",
                 session_id,
                 synthesis_ts,
             )
@@ -968,11 +945,7 @@ def build_chat_router(
         """
         # Ownership check — 404 to avoid leaking session existence.
         row = db.get(FeedbackChatSession, session_id)
-        if (
-            row is None
-            or row.user_id != user.user_id
-            or row.tenant_id != user.tenant_id
-        ):
+        if row is None or row.user_id != user.user_id or row.tenant_id != user.tenant_id:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="chat session not found",
@@ -995,11 +968,7 @@ def build_chat_router(
         glossary_raw = row.glossary_snapshot
         glossary: dict[str, str] | None
         if isinstance(glossary_raw, dict):
-            glossary = {
-                str(k): str(v)
-                for k, v in glossary_raw.items()
-                if isinstance(v, str)
-            }
+            glossary = {str(k): str(v) for k, v in glossary_raw.items() if isinstance(v, str)}
         else:
             glossary = None
 
@@ -1093,13 +1062,9 @@ def build_chat_router(
         #    leaking the existence of someone else's id).
         ticket = db.get(FeedbackChatSession, session_id)
         if ticket is None or ticket.user_id != user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found")
         if ticket.deleted_at is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found")
 
         # 2. Count enforcement BEFORE reading the upload — cheap fail.
         existing_count = db.exec(
@@ -1169,9 +1134,7 @@ def build_chat_router(
 
         ticket = db.get(FeedbackChatSession, session_id)
         if ticket is None or ticket.user_id != user.user_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ticket not found")
         att = db.get(FeedbackAttachment, attachment_id)
         if att is None or att.ticket_id != session_id:
             raise HTTPException(
@@ -1180,7 +1143,7 @@ def build_chat_router(
         # Best-effort S3 cleanup; DB row goes regardless.
         try:
             storage_backend.delete(att.object_key, bucket=att.bucket)
-        except Exception:  # noqa: BLE001
+        except Exception:
             logger.warning(
                 "chat attachment S3 delete failed: bucket=%s key=%s",
                 att.bucket,

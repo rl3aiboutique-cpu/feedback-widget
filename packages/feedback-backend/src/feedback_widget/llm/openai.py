@@ -14,7 +14,7 @@ import asyncio
 import base64
 from collections.abc import AsyncIterator
 
-from openai import AsyncOpenAI  # type: ignore[import-untyped]
+from openai import AsyncOpenAI
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -74,6 +74,8 @@ def _sampling_kwargs(model: str) -> dict[str, float]:
     if _is_new_api_model(model):
         return {}
     return {"temperature": 0.2, "top_p": 0.95}
+
+
 _OPENAI_PRICES_USD_PER_M: dict[str, tuple[float, float]] = {
     "gpt-5-nano": (0.05, 0.40),
     "gpt-5-mini": (0.25, 2.00),
@@ -182,9 +184,7 @@ class OpenAIProvider:
         self._settings = settings
         self._model = _resolve_model(settings)
         self._client = AsyncOpenAI(api_key=_resolve_api_key(settings))
-        self._reasoning_effort = _resolve_reasoning_effort(
-            self._model, settings.ITER_THINKING_MODE
-        )
+        self._reasoning_effort = _resolve_reasoning_effort(self._model, settings.ITER_THINKING_MODE)
         # Cached usage from the most recent stream call. OpenAI emits
         # the totals in the final chunk when ``stream_options.include_usage``
         # is set; we stash them here so :meth:`last_stream_usage` can
@@ -227,7 +227,7 @@ class OpenAIProvider:
             kwargs["reasoning_effort"] = self._reasoning_effort
         try:
             response = await asyncio.wait_for(
-                self._client.chat.completions.create(**kwargs),
+                self._client.chat.completions.create(**kwargs),  # type: ignore[call-overload]
                 timeout=timeout_seconds,
             )
         except BaseException as exc:
@@ -274,7 +274,7 @@ class OpenAIProvider:
         if self._reasoning_effort is not None:
             kwargs["reasoning_effort"] = self._reasoning_effort
         try:
-            stream = await self._client.chat.completions.create(**kwargs)
+            stream = await self._client.chat.completions.create(**kwargs)  # type: ignore[call-overload]
             async for chunk in stream:
                 # ``chunk.usage`` is populated only on the final chunk
                 # when ``include_usage`` is set. Cache it for the
@@ -283,9 +283,7 @@ class OpenAIProvider:
                 if usage is not None:
                     self._last_stream_usage = LLMUsage(
                         input_tokens=int(getattr(usage, "prompt_tokens", 0) or 0),
-                        output_tokens=int(
-                            getattr(usage, "completion_tokens", 0) or 0
-                        ),
+                        output_tokens=int(getattr(usage, "completion_tokens", 0) or 0),
                     )
                 if not chunk.choices:
                     continue

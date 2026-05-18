@@ -35,7 +35,6 @@ from feedback_widget.models import (
     FeedbackAttachment,
     FeedbackAttachmentKind,
     FeedbackStatus,
-    FeedbackTicket,
     FeedbackType,
 )
 from feedback_widget.redaction import redact_bundle, redact_string
@@ -587,10 +586,7 @@ class FeedbackService:
 def _screenshot_object_key(feedback_id: uuid.UUID) -> str:
     """``feedback/yyyy/mm/dd/{feedback_id}/{uuid}.png``."""
     now = datetime.now(UTC)
-    return (
-        f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
-        f"{feedback_id}/{uuid.uuid4()}.png"
-    )
+    return f"feedback/{now.year:04d}/{now.month:02d}/{now.day:02d}/{feedback_id}/{uuid.uuid4()}.png"
 
 
 def _attachment_object_key(feedback_id: uuid.UUID, safe_filename: str) -> str:
@@ -665,9 +661,7 @@ def check_user_rate_limit(
         return
     oldest = session.exec(oldest_stmt).one()
     if oldest is None:
-        raise FeedbackRateLimitExceededError(
-            retry_after_seconds=int(window.total_seconds())
-        )
+        raise FeedbackRateLimitExceededError(retry_after_seconds=int(window.total_seconds()))
     retry_after = int((oldest + window - now).total_seconds())
     raise FeedbackRateLimitExceededError(retry_after_seconds=max(retry_after, 1))
 

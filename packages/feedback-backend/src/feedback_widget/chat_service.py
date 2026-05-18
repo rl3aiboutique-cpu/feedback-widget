@@ -55,9 +55,7 @@ from feedback_widget.llm.protocol import (
     LLMProvider,
     LLMProviderError,
 )
-from feedback_widget.scrubber import scrub_questions
 from feedback_widget.models import (
-    Feedback,
     FeedbackAttachment,
     FeedbackAttachmentKind,
     FeedbackSeverity,
@@ -65,6 +63,7 @@ from feedback_widget.models import (
     FeedbackType,
 )
 from feedback_widget.redaction import redact_bundle, redact_string
+from feedback_widget.scrubber import scrub_questions
 from feedback_widget.service import (
     check_user_rate_limit,
     generate_ticket_code,
@@ -96,6 +95,7 @@ def _build_attachments_list(
     if extras:
         out.extend(extras)
     return out
+
 
 # UI cap for resume-prompt preview; matches D-014 "last message preview".
 _PREVIEW_MAX_LEN = 80
@@ -357,13 +357,9 @@ class ChatService:
 
         # ── D-003 — force synthesize when budget exhausted or
         # coverage already crossed the threshold on a prior turn.
-        prior_user_turns = sum(
-            1 for m in msgs if isinstance(m, dict) and m.get("role") == "user"
-        )
+        prior_user_turns = sum(1 for m in msgs if isinstance(m, dict) and m.get("role") == "user")
         prior_coverage_total = _last_coverage_total(msgs)
-        force_synth = (
-            prior_user_turns >= max_turns or prior_coverage_total >= coverage_threshold
-        )
+        force_synth = prior_user_turns >= max_turns or prior_coverage_total >= coverage_threshold
 
         # Sprint B / capture_v3: pass the detected language so the LLM
         # replies in the user's tongue. Falls back to "the user's
@@ -414,7 +410,7 @@ class ChatService:
             if callable(harvester):
                 try:
                     usage = harvester()
-                except Exception:  # noqa: BLE001
+                except Exception:
                     usage = None
             input_tokens = int(getattr(usage, "input_tokens", 0) or 0) if usage else 0
             output_tokens = int(getattr(usage, "output_tokens", 0) or 0) if usage else 0
@@ -431,7 +427,7 @@ class ChatService:
             if callable(estimator) and usage is not None:
                 try:
                     cost_usd = estimator(usage)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     cost_usd = None
 
             row_call = FeedbackChatCall(
@@ -464,7 +460,7 @@ class ChatService:
                     row.total_output_tokens,
                     model_id,
                 )
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             row.model_id_pinned = model_id
             row.model_provider = model_provider_slug
@@ -549,9 +545,7 @@ class ChatService:
                 # The whole reply was dropped (density ≥ 50% jargon).
                 # We keep the original text so the turn still has a
                 # user-visible message, but log the scrub action.
-                logger.warning(
-                    "chat reply hit drop threshold; keeping original text but logging"
-                )
+                logger.warning("chat reply hit drop threshold; keeping original text but logging")
         parsed_scrubbed = {**parsed, "reply": scrubbed_reply}
 
         # ── Persist assistant turn ───────────────────────────────────
@@ -651,17 +645,11 @@ class ChatService:
             ChatSessionMissingSynthesisError — no synthesis available.
         """
         chat_row = session.get(FeedbackChatSession, chat_session_id)
-        if (
-            chat_row is None
-            or chat_row.user_id != user_id
-            or chat_row.tenant_id != tenant_id
-        ):
+        if chat_row is None or chat_row.user_id != user_id or chat_row.tenant_id != tenant_id:
             raise ChatSessionNotFoundError(str(chat_session_id))
 
         synthesis = (
-            synthesis_override
-            if synthesis_override is not None
-            else chat_row.synthesis_json
+            synthesis_override if synthesis_override is not None else chat_row.synthesis_json
         )
         if not isinstance(synthesis, dict) or not synthesis:
             raise ChatSessionMissingSynthesisError(str(chat_session_id))
@@ -709,9 +697,7 @@ class ChatService:
         # blobs before they hit the database.
         title = redact_string(title_raw)[:_FEEDBACK_TITLE_MAX]
         description = redact_string(description_raw)
-        expected_outcome = (
-            redact_string(expected_outcome_raw) if expected_outcome_raw else None
-        )
+        expected_outcome = redact_string(expected_outcome_raw) if expected_outcome_raw else None
         redacted_auto = redact_bundle(chat_row.auto_context or {})
         redacted_synthesis = redact_bundle(synthesis)
 
@@ -727,9 +713,7 @@ class ChatService:
         url_raw = str(redacted_auto.get("url") or "")
         url_captured = url_raw[:_FEEDBACK_URL_MAX] or "about:blank"
         route_raw = redacted_auto.get("route")
-        route_name = (
-            str(route_raw)[:_FEEDBACK_ROUTE_MAX] if isinstance(route_raw, str) else None
-        )
+        route_name = str(route_raw)[:_FEEDBACK_ROUTE_MAX] if isinstance(route_raw, str) else None
         app_version = _opt_str(redacted_auto.get("app_version"), 64)
         git_commit_sha = _opt_str(redacted_auto.get("git_commit_sha"), 40)
         user_agent = _opt_str(redacted_auto.get("user_agent"), 512)
@@ -776,9 +760,7 @@ class ChatService:
         feedback.synthesis_json = redacted_synthesis
 
         if not feedback.ticket_code:
-            feedback.ticket_code = generate_ticket_code(
-                session, tenant_id=feedback_tenant
-            )
+            feedback.ticket_code = generate_ticket_code(session, tenant_id=feedback_tenant)
 
         # Bounded retry on UNIQUE collision against the per-tenant
         # ``ticket_code`` index — two confirms racing through the same
@@ -796,9 +778,7 @@ class ChatService:
                 attempts += 1
                 if attempts >= _TICKET_CODE_RETRIES:
                     raise
-                feedback.ticket_code = generate_ticket_code(
-                    session, tenant_id=feedback_tenant
-                )
+                feedback.ticket_code = generate_ticket_code(session, tenant_id=feedback_tenant)
 
         # Screenshot upload — at most ONE per ticket. The blob
         # auto-captured client-side at openSheet arrives base64-encoded
@@ -813,19 +793,13 @@ class ChatService:
         # AttachmentTray showed N duplicate thumbnails. We now check
         # for an existing kind=SCREENSHOT attachment first and skip
         # the upload entirely when one already exists.
-        if (
-            screenshot_b64
-            and storage is not None
-            and resolved_settings is not None
-        ):
+        if screenshot_b64 and storage is not None and resolved_settings is not None:
             from sqlmodel import select as _select_existing
 
             existing_screenshot = session.exec(
                 _select_existing(FeedbackAttachment)
                 .where(FeedbackAttachment.ticket_id == feedback.id)
-                .where(
-                    FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT
-                )
+                .where(FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT)
                 .limit(1)
             ).first()
             if existing_screenshot is not None:
@@ -895,11 +869,7 @@ class ChatService:
             ChatSessionNotFoundError — session missing or not owned.
         """
         chat_row = session.get(FeedbackChatSession, chat_session_id)
-        if (
-            chat_row is None
-            or chat_row.user_id != user_id
-            or chat_row.tenant_id != tenant_id
-        ):
+        if chat_row is None or chat_row.user_id != user_id or chat_row.tenant_id != tenant_id:
             raise ChatSessionNotFoundError(str(chat_session_id))
 
         now = datetime.now(UTC)
@@ -934,11 +904,7 @@ class ChatService:
             SynthesisVersionNotFoundError — no synthesis msg with that ts.
         """
         chat_row = session.get(FeedbackChatSession, chat_session_id)
-        if (
-            chat_row is None
-            or chat_row.user_id != user_id
-            or chat_row.tenant_id != tenant_id
-        ):
+        if chat_row is None or chat_row.user_id != user_id or chat_row.tenant_id != tenant_id:
             raise ChatSessionNotFoundError(str(chat_session_id))
 
         msgs = list(chat_row.messages or [])
@@ -988,11 +954,7 @@ class ChatService:
             SynthesisAlreadyConfirmedError.
         """
         chat_row = session.get(FeedbackChatSession, chat_session_id)
-        if (
-            chat_row is None
-            or chat_row.user_id != user_id
-            or chat_row.tenant_id != tenant_id
-        ):
+        if chat_row is None or chat_row.user_id != user_id or chat_row.tenant_id != tenant_id:
             raise ChatSessionNotFoundError(str(chat_session_id))
 
         msgs = list(chat_row.messages or [])
@@ -1126,11 +1088,7 @@ def _last_coverage_total(messages: list[dict[str, Any]]) -> float:
             continue
         covered = msg.get("covered")
         if isinstance(covered, dict):
-            return sum(
-                float(v)
-                for v in covered.values()
-                if isinstance(v, int | float)
-            )
+            return sum(float(v) for v in covered.values() if isinstance(v, int | float))
     return 0.0
 
 

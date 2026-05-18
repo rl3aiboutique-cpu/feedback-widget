@@ -25,7 +25,7 @@ def test_post_chat_session_capture_returns_session_id(client) -> None:
     body = resp.json()
     assert "session_id" in body
     uuid.UUID(body["session_id"])  # validates UUID format
-    assert body["greeting"] == "Cuéntame qué tienes en mente."
+    assert body["greeting"] == "What would you like to change or improve?"
     assert body["resume_available"] is False
 
 
@@ -39,10 +39,7 @@ def test_post_chat_session_refine_requires_feedback_id(client) -> None:
     assert resp.status_code == 422, resp.text
     # FastAPI default 422 payload shape — assert the message mentions feedback_id
     body = resp.json()
-    assert any(
-        "feedback_id" in str(item).lower()
-        for item in body.get("detail", [])
-    ), body
+    assert any("feedback_id" in str(item).lower() for item in body.get("detail", [])), body
 
 
 def test_get_in_progress_empty(client) -> None:

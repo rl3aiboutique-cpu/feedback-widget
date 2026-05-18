@@ -110,9 +110,7 @@ def _rewrite_with_glossary(text: str, glossary: dict[str, str]) -> str:
         return text
     keys_sorted = sorted(glossary.keys(), key=len, reverse=True)
     pattern = re.compile(
-        r"(?<![A-Za-z0-9])(?:"
-        + "|".join(re.escape(k) for k in keys_sorted)
-        + r")(?![A-Za-z0-9])",
+        r"(?<![A-Za-z0-9])(?:" + "|".join(re.escape(k) for k in keys_sorted) + r")(?![A-Za-z0-9])",
         re.IGNORECASE,
     )
 

@@ -80,7 +80,8 @@ def build_feedback_email(
     mentions them and points the reader at the bundle ZIP.
     """
     cfg = settings or get_settings()
-    type_label = _TYPE_LABELS.get(feedback.type.value, feedback.type.value.upper())
+    type_value = feedback.type.value if feedback.type else "feedback"
+    type_label = _TYPE_LABELS.get(type_value, type_value.upper())
     brand = cfg.BRAND_NAME or "Feedback"
     subject = f"[{brand} Feedback] [{type_label}] {feedback.title}"
 

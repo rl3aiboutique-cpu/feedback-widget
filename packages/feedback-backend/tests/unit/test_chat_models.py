@@ -23,7 +23,6 @@ def test_chat_session_defaults() -> None:
     assert session.status == ChatSessionStatus.OPEN
     assert session.messages == []
     assert session.synthesis_json is None
-    assert session.feedback_id is None
     assert session.detected_language is None
     assert isinstance(session.created_at, datetime)
 

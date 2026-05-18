@@ -36,15 +36,21 @@ _SEVERITY = ("blocker", "major", "minor", "idea")
 def upgrade() -> None:
     op.execute(
         "CREATE TYPE chat_session_mode AS ENUM "
-        + "(" + ", ".join(f"'{v}'" for v in _CHAT_MODE) + ")"
+        + "("
+        + ", ".join(f"'{v}'" for v in _CHAT_MODE)
+        + ")"
     )
     op.execute(
         "CREATE TYPE chat_session_status AS ENUM "
-        + "(" + ", ".join(f"'{v}'" for v in _CHAT_STATUS) + ")"
+        + "("
+        + ", ".join(f"'{v}'" for v in _CHAT_STATUS)
+        + ")"
     )
     op.execute(
         "CREATE TYPE feedback_severity AS ENUM "
-        + "(" + ", ".join(f"'{v}'" for v in _SEVERITY) + ")"
+        + "("
+        + ", ".join(f"'{v}'" for v in _SEVERITY)
+        + ")"
     )
 
     op.create_table(

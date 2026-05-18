@@ -73,9 +73,7 @@ def _seed_session(
         return row.id
 
 
-def test_confirm_redacts_jwt_bearer_in_synthesis_and_metadata(
-    client, engine
-) -> None:
+def test_confirm_redacts_jwt_bearer_in_synthesis_and_metadata(client, engine) -> None:
     """Phase 1 / A1 — every free-text field plus metadata_bundle and
     synthesis_json are scrubbed by redact_string / redact_bundle so a
     JWT or Bearer token that the user pasted in chat never reaches the
@@ -144,9 +142,7 @@ def test_confirm_redacts_jwt_bearer_in_synthesis_and_metadata(
         assert "access_token=sk_live_5678" not in fb.url_captured
 
 
-def test_confirm_persists_element_metadata_to_dedicated_columns(
-    client, engine
-) -> None:
+def test_confirm_persists_element_metadata_to_dedicated_columns(client, engine) -> None:
     """Phase 2 / A4 — when the user locked an element before opening the
     chat, auto_context.element_* is promoted to the feedback row's
     dedicated columns so admin queries that filter on element_selector
@@ -193,9 +189,7 @@ def test_confirm_persists_element_metadata_to_dedicated_columns(
         assert fb.metadata_bundle["element_selector"] == "#save-btn"
 
 
-def test_confirm_enqueues_email_notification(
-    client, engine, settings, monkeypatch
-) -> None:
+def test_confirm_enqueues_email_notification(client, engine, settings, monkeypatch) -> None:
     """Phase 4 / A2 — chat confirm enqueues an SMTP send to
     FEEDBACK_NOTIFY_EMAILS just like legacy POST /feedback. Patch
     send_email to capture the kwargs without hitting a real MTA."""
@@ -295,11 +289,12 @@ def test_confirm_raises_rate_limit_error_when_cap_exceeded(engine) -> None:
                     tenant_id=None,
                     user_id=_STAFF_USER_ID,
                     type=FeedbackType.BUG,
-                    status=FeedbackStatus.NEW,
+                    status=FeedbackStatus.OPEN,
                     title=f"Existing row {i}",
                     description="seeded",
                     url_captured="https://example.com",
                     metadata_bundle={},
+                    auto_context={"url": "https://example.com", "route": "/"},
                     ticket_code=f"FB-2026-{9000 + i:04d}",
                 )
             )
@@ -351,11 +346,12 @@ def test_confirm_router_returns_429_when_rate_limit_raised(
                     tenant_id=None,
                     user_id=_STAFF_USER_ID,
                     type=FeedbackType.BUG,
-                    status=FeedbackStatus.NEW,
+                    status=FeedbackStatus.OPEN,
                     title=f"Existing row {i}",
                     description="seeded",
                     url_captured="https://example.com",
                     metadata_bundle={},
+                    auto_context={"url": "https://example.com", "route": "/"},
                     ticket_code=f"FB-2026-{9100 + i:04d}",
                 )
             )
@@ -492,7 +488,9 @@ def test_confirm_uploads_screenshot_to_storage_and_creates_attachment_row(
     matching_keys = [
         k for k in fake_storage.objects if str(feedback_id) in k and k.endswith(".png")
     ]
-    assert len(matching_keys) == 1, f"expected 1 screenshot object, got {len(matching_keys)} — keys: {list(fake_storage.objects)}"
+    assert len(matching_keys) == 1, (
+        f"expected 1 screenshot object, got {len(matching_keys)} — keys: {list(fake_storage.objects)}"  # noqa: E501
+    )
     assert fake_storage.objects[matching_keys[0]] == png_bytes
 
     # FeedbackAttachment row created
@@ -500,7 +498,7 @@ def test_confirm_uploads_screenshot_to_storage_and_creates_attachment_row(
         from sqlmodel import select as _select
 
         rows = s.exec(
-            _select(FeedbackAttachment).where(FeedbackAttachment.feedback_id == feedback_id)
+            _select(FeedbackAttachment).where(FeedbackAttachment.ticket_id == feedback_id)
         ).all()
         assert len(rows) == 1
         attachment = rows[0]
@@ -551,9 +549,7 @@ def test_confirm_succeeds_without_screenshot_when_capture_failed(
         assert "screenshot_attachment_id" not in (fb.metadata_bundle or {})
 
 
-def test_confirm_leaves_element_columns_null_when_no_locked_element(
-    client, engine
-) -> None:
+def test_confirm_leaves_element_columns_null_when_no_locked_element(client, engine) -> None:
     """Whole-page capture (no element locked) leaves element_* columns
     NULL — mirrors the legacy behavior where the element block is
     optional in FeedbackCreatePayload."""

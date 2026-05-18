@@ -10,6 +10,8 @@ session creation rather than mid-stream.
 
 from __future__ import annotations
 
+from typing import cast
+
 from ..settings import FeedbackSettings
 from .fake import FakeLLMProvider
 from .protocol import LLMProvider
@@ -30,9 +32,12 @@ def build_provider(settings: FeedbackSettings) -> LLMProvider:
     holds onto it for the lifetime of one iteration request.
     Adapters are stateless across requests so this is safe.
     """
+    # Concrete providers satisfy the Protocol structurally; mypy --strict
+    # still flags the implicit conversion, so we cast() at the return
+    # boundary to make the intent explicit without inheritance noise.
     provider_name = settings.ITER_PROVIDER
     if provider_name == "fake":
-        return FakeLLMProvider()
+        return cast(LLMProvider, FakeLLMProvider())
 
     if provider_name == "gemini":
         try:
@@ -43,7 +48,7 @@ def build_provider(settings: FeedbackSettings) -> LLMProvider:
                 "installed. Add the extra: "
                 "pip install 'rl3-feedback-widget[iter-gemini]'"
             ) from exc
-        return GeminiProvider(settings)
+        return cast(LLMProvider, GeminiProvider(settings))
 
     if provider_name == "claude":
         try:
@@ -54,7 +59,7 @@ def build_provider(settings: FeedbackSettings) -> LLMProvider:
                 "installed. Add the extra: "
                 "pip install 'rl3-feedback-widget[iter-anthropic]'"
             ) from exc
-        return ClaudeProvider(settings)
+        return cast(LLMProvider, ClaudeProvider(settings))
 
     if provider_name == "openai":
         try:
@@ -65,7 +70,7 @@ def build_provider(settings: FeedbackSettings) -> LLMProvider:
                 "installed. Add the extra: "
                 "pip install 'rl3-feedback-widget[iter-openai]'"
             ) from exc
-        return OpenAIProvider(settings)
+        return cast(LLMProvider, OpenAIProvider(settings))
 
     # Settings already type-narrows to the four valid options, but a
     # belt-and-braces guard keeps mypy happy and makes future adds explicit.

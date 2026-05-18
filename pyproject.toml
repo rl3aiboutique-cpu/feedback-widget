@@ -34,6 +34,11 @@ ignore = [
     # FastAPI dependency injection idiom — local Dep handles are PascalCase
     # by convention so the route signature reads `param = SessionDep`.
     "N806",
+    # We intentionally use `×` (U+00D7 MULTIPLICATION SIGN) in docstrings
+    # and comments for mathematical notation (e.g. "admin × user × LLM",
+    # "4× headroom"). Replacing with ASCII `x` loses semantic clarity.
+    "RUF002",
+    "RUF003",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -72,20 +77,9 @@ module = [
     "feedback_widget.service",
     "feedback_widget.router",
     "feedback_widget.adapters.*",
-    # Iterate-with-AI module — same SQLModel-driven `.where(Col == x)`
-    # idiom as the original service/router, plus optional-extra LLM
-    # SDKs that may not be installed at type-check time.
-    "feedback_widget.iter_service",
-    "feedback_widget.iter_service_versions",
-    "feedback_widget.iter_router",
-    "feedback_widget.iter_rate_limit",
-    "feedback_widget.iter_packager",
-    "feedback_widget.iter_sse",
-    "feedback_widget.iter_llm.*",
-    # v0.4.1 added an iter ZIP-injection path here that uses the same
-    # SQLModel idiom (`.where(Col == val)`, `.order_by(Col.desc())`).
-    # Group with the rest of the iter modules so we don't sprinkle
-    # `# type: ignore` across the file.
+    # SQLModel-driven `.where(Col == x)` + `.order_by(Col.desc())` patterns
+    # plus boto3/jose downstream types — relax the strict-mode noise that
+    # is structurally fine at runtime.
     "feedback_widget.bundle",
 ]
 warn_unused_ignores = false

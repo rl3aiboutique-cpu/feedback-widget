@@ -64,10 +64,7 @@ def _is_hallucination(text: str) -> bool:
     t = text.strip()
     if not t:
         return True
-    for pat in _HALLUCINATION_PATTERNS:
-        if pat.search(t):
-            return True
-    return False
+    return any(pat.search(t) for pat in _HALLUCINATION_PATTERNS)
 
 
 class WhisperConfigError(RuntimeError):
@@ -169,7 +166,7 @@ def _normalise_language_hint(raw: str | None) -> str | None:
 async def transcribe_audio(
     audio_bytes: bytes,
     *,
-    content_type: str,  # noqa: ARG001 — accepted for API symmetry; SDK infers codec from filename
+    content_type: str,
     filename: str = "audio.webm",
     language_hint: str | None = None,
     glossary: dict[str, str] | None = None,
@@ -251,7 +248,7 @@ async def transcribe_audio(
         # response_format="verbose_json" so we get .language alongside
         # .text. temperature=0 makes the decoder deterministic, which
         # also reduces the hallucination rate on quiet audio.
-        resp = await client.audio.transcriptions.create(
+        resp = await client.audio.transcriptions.create(  # type: ignore[call-overload]
             model="whisper-1",
             file=buf,
             language=iso_hint or None,

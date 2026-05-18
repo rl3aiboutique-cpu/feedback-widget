@@ -14,7 +14,7 @@ import asyncio
 import base64
 from collections.abc import AsyncIterator
 
-from anthropic import AsyncAnthropic  # type: ignore[import-untyped]
+from anthropic import AsyncAnthropic
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -158,7 +158,7 @@ class ClaudeProvider:
                     messages=[
                         {
                             "role": "user",
-                            "content": _build_user_content(user_prompt, attachments),
+                            "content": _build_user_content(user_prompt, attachments),  # type: ignore[typeddict-item]
                         }
                     ],
                 ),
@@ -206,7 +206,7 @@ class ClaudeProvider:
                 messages=[
                     {
                         "role": "user",
-                        "content": _build_user_content(user_prompt, attachments),
+                        "content": _build_user_content(user_prompt, attachments),  # type: ignore[typeddict-item]
                     }
                 ],
             ) as stream:
@@ -222,14 +222,10 @@ class ClaudeProvider:
                     usage = getattr(final, "usage", None)
                     if usage is not None:
                         self._last_stream_usage = LLMUsage(
-                            input_tokens=int(
-                                getattr(usage, "input_tokens", 0) or 0
-                            ),
-                            output_tokens=int(
-                                getattr(usage, "output_tokens", 0) or 0
-                            ),
+                            input_tokens=int(getattr(usage, "input_tokens", 0) or 0),
+                            output_tokens=int(getattr(usage, "output_tokens", 0) or 0),
                         )
-                except Exception:  # noqa: BLE001
+                except Exception:
                     # Token harvest is best-effort — never break the
                     # stream because the totals call failed.
                     pass

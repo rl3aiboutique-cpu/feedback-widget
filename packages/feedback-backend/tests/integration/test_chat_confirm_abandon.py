@@ -79,9 +79,7 @@ def _seed_session(
         return row.id
 
 
-def test_confirm_creates_feedback_row_and_returns_ticket_code(
-    client, engine
-) -> None:
+def test_confirm_creates_feedback_row_and_returns_ticket_code(client, engine) -> None:
     sid = _seed_session(
         engine,
         user_id=_STAFF_USER_ID,
@@ -114,23 +112,22 @@ def test_confirm_creates_feedback_row_and_returns_ticket_code(
         assert fb.expected_outcome == "Persistir mis cambios sin perder contexto."
         assert fb.synthesis_json is not None
         assert fb.synthesis_json["title"] == _canned_synthesis()["title"]
-        assert fb.chat_session_id == sid
+        # Under the unified schema the chat session IS the ticket — same row, same id.
+        assert fb.id == sid
         assert fb.url_captured == "https://example.com/edit"
         assert fb.route_name == "/edit"
         assert fb.app_version == "v1.2.3"
         assert fb.ticket_code == body["ticket_code"]
 
-        # And the chat session is flipped to confirmed with the link.
+        # Under the unified schema the chat session IS the ticket — same row.
         chat = s.get(FeedbackChatSession, sid)
         assert chat is not None
         assert chat.status == ChatSessionStatus.CONFIRMED
-        assert chat.feedback_id == feedback_id
+        assert chat.id == feedback_id
         assert chat.confirmed_at is not None
 
 
-def test_confirm_uses_synthesis_override_when_provided(
-    client, engine
-) -> None:
+def test_confirm_uses_synthesis_override_when_provided(client, engine) -> None:
     """Override replaces the persisted synthesis — fields on the row
     come from the override, not the chat session's snapshot."""
     sid = _seed_session(
@@ -192,10 +189,12 @@ def test_confirm_404_for_unowned_session(client, engine) -> None:
     )
     assert resp.status_code == 404, resp.text
 
-    # And no feedback row was created.
+    # Under the unified schema the chat session row IS the ticket row;
+    # the only row is the seeded session and it was not confirmed.
     with Session(engine) as s:
         rows = s.exec(select(Feedback)).all()
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0].confirmed_at is None
 
 
 def test_confirm_422_when_no_synthesis(client, engine) -> None:
@@ -224,7 +223,8 @@ def test_confirm_422_when_no_synthesis(client, engine) -> None:
         assert chat is not None
         assert chat.status == ChatSessionStatus.AWAITING_CONFIRM
         rows = s.exec(select(Feedback)).all()
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0].confirmed_at is None
 
 
 def test_abandon_marks_session_abandoned(client, engine) -> None:
@@ -247,9 +247,11 @@ def test_abandon_marks_session_abandoned(client, engine) -> None:
         assert chat is not None
         assert chat.status == ChatSessionStatus.ABANDONED
         assert chat.abandoned_at is not None
-        # No feedback row was created.
+        # Under the unified schema the chat session row IS the ticket row;
+        # the only row is the seeded session, now in ABANDONED status.
         rows = s.exec(select(Feedback)).all()
-        assert rows == []
+        assert len(rows) == 1
+        assert rows[0].status == ChatSessionStatus.ABANDONED
 
 
 def test_abandon_404_for_unowned_session(client, engine) -> None:

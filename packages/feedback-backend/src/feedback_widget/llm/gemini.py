@@ -19,8 +19,8 @@ import base64
 import logging
 from collections.abc import AsyncIterator
 
-from google import genai  # type: ignore[import-untyped]
-from google.genai import types as gtypes  # type: ignore[import-untyped]
+from google import genai
+from google.genai import types as gtypes
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -165,7 +165,7 @@ def _build_config(
     }
     if not is_gemma:
         cfg_kwargs["response_mime_type"] = "application/json"
-    return gtypes.GenerateContentConfig(**cfg_kwargs)  # type: ignore[arg-type]
+    return gtypes.GenerateContentConfig(**cfg_kwargs)
 
 
 def _wrap_provider_error(exc: BaseException) -> LLMProviderError:
@@ -290,9 +290,7 @@ class GeminiProvider:
             return None
         nxt = self._chain[idx + 1]
         # User-friendly Spanish reason — surfaced in the SSE banner.
-        readable_reason = reason or (
-            f"Saturación temporal en {after}; cambiando a {nxt}."
-        )
+        readable_reason = reason or (f"Saturación temporal en {after}; cambiando a {nxt}.")
         self._fallback_queue.append((after, nxt, readable_reason))
         self._model = nxt
         return nxt
@@ -514,12 +512,8 @@ class GeminiProvider:
                     # the cache always up-to-date.
                     usage_meta = getattr(chunk, "usage_metadata", None)
                     if usage_meta is not None:
-                        prompt_tokens = int(
-                            getattr(usage_meta, "prompt_token_count", 0) or 0
-                        )
-                        out_tokens = int(
-                            getattr(usage_meta, "candidates_token_count", 0) or 0
-                        )
+                        prompt_tokens = int(getattr(usage_meta, "prompt_token_count", 0) or 0)
+                        out_tokens = int(getattr(usage_meta, "candidates_token_count", 0) or 0)
                         if prompt_tokens or out_tokens:
                             self._last_stream_usage = LLMUsage(
                                 input_tokens=prompt_tokens,
