@@ -203,9 +203,7 @@ def test_list_in_progress_filters_by_user_and_tenant(db_session: Session) -> Non
     )
     db_session.commit()
 
-    result = svc.list_in_progress(
-        session=db_session, tenant_id=tenant_a, user_id=user
-    )
+    result = svc.list_in_progress(session=db_session, tenant_id=tenant_a, user_id=user)
 
     assert len(result.sessions) == 1
     assert result.sessions[0].mode == "capture"

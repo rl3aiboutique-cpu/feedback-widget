@@ -79,9 +79,7 @@ def _seed_session(
         return row.id
 
 
-def test_confirm_creates_feedback_row_and_returns_ticket_code(
-    client, engine
-) -> None:
+def test_confirm_creates_feedback_row_and_returns_ticket_code(client, engine) -> None:
     sid = _seed_session(
         engine,
         user_id=_STAFF_USER_ID,
@@ -128,9 +126,7 @@ def test_confirm_creates_feedback_row_and_returns_ticket_code(
         assert chat.confirmed_at is not None
 
 
-def test_confirm_uses_synthesis_override_when_provided(
-    client, engine
-) -> None:
+def test_confirm_uses_synthesis_override_when_provided(client, engine) -> None:
     """Override replaces the persisted synthesis — fields on the row
     come from the override, not the chat session's snapshot."""
     sid = _seed_session(

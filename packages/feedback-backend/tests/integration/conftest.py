@@ -108,9 +108,7 @@ def _truncate_each_test(engine: Engine) -> Generator[None, Any, None]:
     yield
     with engine.begin() as conn:
         # feedback_chat_session first so its FK to feedback resolves via CASCADE.
-        conn.execute(
-            text("TRUNCATE feedback_chat_session, feedback_attachment, feedback CASCADE")
-        )
+        conn.execute(text("TRUNCATE feedback_chat_session, feedback_attachment, feedback CASCADE"))
 
 
 _TEST_USER_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")

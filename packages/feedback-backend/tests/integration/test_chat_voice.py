@@ -94,9 +94,7 @@ def test_voice_returns_transcript_with_mocked_whisper(
             lang="es",
         )
 
-    monkeypatch.setattr(
-        "feedback_widget.chat_router.transcribe_audio", _fake_transcribe
-    )
+    monkeypatch.setattr("feedback_widget.chat_router.transcribe_audio", _fake_transcribe)
 
     fake_audio = b"\x00" * 1024  # 1KB of dummy bytes — well under cap
     files = {"audio": ("clip.webm", io.BytesIO(fake_audio), "audio/webm")}
@@ -127,9 +125,7 @@ def test_voice_returns_transcript_with_mocked_whisper(
         assert chat.detected_language == "es"
 
 
-def test_voice_413_when_audio_too_large(
-    client, engine, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_voice_413_when_audio_too_large(client, engine, monkeypatch: pytest.MonkeyPatch) -> None:
     """A blob bigger than the 5MB cap is rejected before the SDK is
     reached. The patched Whisper helper MUST NOT be invoked."""
     sid = _seed_session(engine, user_id=_STAFF_USER_ID)
@@ -140,9 +136,7 @@ def test_voice_413_when_audio_too_large(
         invoked["count"] += 1
         return WhisperTranscript(transcript="should not be reached", lang="es")
 
-    monkeypatch.setattr(
-        "feedback_widget.chat_router.transcribe_audio", _fake_transcribe
-    )
+    monkeypatch.setattr("feedback_widget.chat_router.transcribe_audio", _fake_transcribe)
 
     too_big = b"\x00" * (5_000_001)  # one byte over the cap
     files = {"audio": ("clip.webm", io.BytesIO(too_big), "audio/webm")}
@@ -157,9 +151,7 @@ def test_voice_413_when_audio_too_large(
     assert invoked["count"] == 0, "Whisper SDK must not be invoked when 413"
 
 
-def test_voice_404_for_unowned_session(
-    client, engine, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_voice_404_for_unowned_session(client, engine, monkeypatch: pytest.MonkeyPatch) -> None:
     """Admin owns the session → staff (different user_id) gets 404. No
     audio touches the SDK — ownership check fires first."""
     sid = _seed_session(engine, user_id=_ADMIN_USER_ID)
@@ -170,9 +162,7 @@ def test_voice_404_for_unowned_session(
         invoked["count"] += 1
         return WhisperTranscript(transcript="leaked", lang="en")
 
-    monkeypatch.setattr(
-        "feedback_widget.chat_router.transcribe_audio", _fake_transcribe
-    )
+    monkeypatch.setattr("feedback_widget.chat_router.transcribe_audio", _fake_transcribe)
 
     files = {"audio": ("clip.webm", io.BytesIO(b"\x00" * 128), "audio/webm")}
 
