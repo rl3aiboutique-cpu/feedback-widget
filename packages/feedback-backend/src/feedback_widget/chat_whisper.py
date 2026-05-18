@@ -248,7 +248,7 @@ async def transcribe_audio(
         # response_format="verbose_json" so we get .language alongside
         # .text. temperature=0 makes the decoder deterministic, which
         # also reduces the hallucination rate on quiet audio.
-        resp = await client.audio.transcriptions.create(
+        resp = await client.audio.transcriptions.create(  # type: ignore[call-overload]
             model="whisper-1",
             file=buf,
             language=iso_hint or None,

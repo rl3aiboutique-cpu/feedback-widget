@@ -457,7 +457,7 @@ class FeedbackAttachment(SQLModel, table=True):
 
     created_at: datetime | None = Field(
         default_factory=_utc_now,
-        sa_type=DateTime(timezone=True),
+        sa_column=Column(DateTime(timezone=True), nullable=True),
     )
 
 

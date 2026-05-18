@@ -26,7 +26,7 @@ import logging
 import time
 import uuid
 from collections.abc import AsyncIterator, Callable
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import (
     APIRouter,
@@ -41,7 +41,7 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from sqlmodel import Session
+from sqlmodel import Session, col
 
 from feedback_widget.auth import CurrentUserSnapshot
 from feedback_widget.chat_models import FeedbackChatSession
@@ -186,7 +186,7 @@ def _load_ticket_attachments(
         db.exec(
             _select(FeedbackAttachment)
             .where(FeedbackAttachment.ticket_id == chat_session.id)
-            .order_by(FeedbackAttachment.created_at.asc())  # type: ignore[arg-type]
+            .order_by(col(FeedbackAttachment.created_at).asc())
         ).all()
     )
     out: list[LLMAttachment] = []
@@ -201,7 +201,7 @@ def _load_ticket_attachments(
             )
             continue
         ct = row.content_type or "application/octet-stream"
-        kind: str
+        kind: Literal["image", "pdf", "text"]
         if ct.startswith("image/"):
             kind = "image"
         elif ct == "application/pdf":
@@ -210,7 +210,7 @@ def _load_ticket_attachments(
             kind = "text"
         out.append(
             LLMAttachment(
-                kind=kind,  # type: ignore[arg-type]
+                kind=kind,
                 filename=row.filename or f"{row.id}",
                 mime_type=ct,
                 bytes_b64=base64.b64encode(blob).decode("ascii"),
@@ -648,7 +648,7 @@ def build_chat_router(
                 screenshot_ct: str | None = None
                 screenshot_row = db.exec(
                     _select_attachment(FeedbackAttachment)
-                    .where(FeedbackAttachment.feedback_id == feedback_id)
+                    .where(FeedbackAttachment.ticket_id == feedback_id)
                     .where(FeedbackAttachment.kind == FeedbackAttachmentKind.SCREENSHOT)
                 ).first()
                 if screenshot_row is not None:

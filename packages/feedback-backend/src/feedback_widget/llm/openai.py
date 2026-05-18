@@ -14,7 +14,7 @@ import asyncio
 import base64
 from collections.abc import AsyncIterator
 
-from openai import AsyncOpenAI  # type: ignore[import-untyped]
+from openai import AsyncOpenAI
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -227,7 +227,7 @@ class OpenAIProvider:
             kwargs["reasoning_effort"] = self._reasoning_effort
         try:
             response = await asyncio.wait_for(
-                self._client.chat.completions.create(**kwargs),
+                self._client.chat.completions.create(**kwargs),  # type: ignore[call-overload]
                 timeout=timeout_seconds,
             )
         except BaseException as exc:
@@ -274,7 +274,7 @@ class OpenAIProvider:
         if self._reasoning_effort is not None:
             kwargs["reasoning_effort"] = self._reasoning_effort
         try:
-            stream = await self._client.chat.completions.create(**kwargs)
+            stream = await self._client.chat.completions.create(**kwargs)  # type: ignore[call-overload]
             async for chunk in stream:
                 # ``chunk.usage`` is populated only on the final chunk
                 # when ``include_usage`` is set. Cache it for the

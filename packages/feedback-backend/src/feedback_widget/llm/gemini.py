@@ -19,8 +19,8 @@ import base64
 import logging
 from collections.abc import AsyncIterator
 
-from google import genai  # type: ignore[import-untyped]
-from google.genai import types as gtypes  # type: ignore[import-untyped]
+from google import genai
+from google.genai import types as gtypes
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -165,7 +165,7 @@ def _build_config(
     }
     if not is_gemma:
         cfg_kwargs["response_mime_type"] = "application/json"
-    return gtypes.GenerateContentConfig(**cfg_kwargs)  # type: ignore[arg-type]
+    return gtypes.GenerateContentConfig(**cfg_kwargs)
 
 
 def _wrap_provider_error(exc: BaseException) -> LLMProviderError:

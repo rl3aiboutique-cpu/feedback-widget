@@ -14,7 +14,7 @@ import asyncio
 import base64
 from collections.abc import AsyncIterator
 
-from anthropic import AsyncAnthropic  # type: ignore[import-untyped]
+from anthropic import AsyncAnthropic
 
 from ..settings import FeedbackSettings
 from .protocol import (
@@ -158,7 +158,7 @@ class ClaudeProvider:
                     messages=[
                         {
                             "role": "user",
-                            "content": _build_user_content(user_prompt, attachments),
+                            "content": _build_user_content(user_prompt, attachments),  # type: ignore[typeddict-item]
                         }
                     ],
                 ),
@@ -206,7 +206,7 @@ class ClaudeProvider:
                 messages=[
                     {
                         "role": "user",
-                        "content": _build_user_content(user_prompt, attachments),
+                        "content": _build_user_content(user_prompt, attachments),  # type: ignore[typeddict-item]
                     }
                 ],
             ) as stream:
