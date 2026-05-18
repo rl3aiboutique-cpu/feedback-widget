@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-05-18
+
+### Fixed
+
+- **`__version__` drift**: el símbolo `feedback_widget.__version__`
+  estaba hardcoded a `"1.0.0"` en `__init__.py` y no se bumpeó durante
+  el release de v1.1.0, así que los consumidores que leían el atributo
+  veían 1.0.0 mientras que la metadata del paquete reportaba 1.1.0
+  correctamente. Ahora se deriva en runtime con
+  `importlib.metadata.version("rl3-feedback-widget")` — un solo source
+  of truth (`pyproject.toml`), sin posibilidad de drift en futuros
+  releases.
+
 ## [1.1.0] — 2026-05-17
 
 ### Added

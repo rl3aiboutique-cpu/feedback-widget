@@ -1416,7 +1416,7 @@ wheels = [
 
 [[package]]
 name = "rl3-feedback-widget"
-version = "1.1.0"
+version = "1.1.1"
 source = { editable = "packages/feedback-backend" }
 dependencies = [
     { name = "aiosmtplib" },
