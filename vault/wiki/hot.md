@@ -36,10 +36,22 @@ stack. 14/14 tasks, evidence in `specs/001-feedback-email-notifications/quicksta
   password change).
 - Spec-kit installed (`.specify/` + 10 speckit skills, constitution v1.0.0) — kept UNTRACKED by
   owner decision, do not commit.
-- Chat-first v1.0.0 shell-hybrid shipped earlier (S3F etc.) — see log.md 2026-05-13/14 entries.
+- Chat-first shell-hybrid shipped (S3F): OLD chrome (header + tabs Nuevo/Mis feedbacks +
+  CAPTURE picker + footer) preserved verbatim; form fields replaced by chat (ChatTimeline +
+  Composer + SynthesisCard). Bottom buttons state-driven: hidden during discovery,
+  [↺ Sigamos iterando] + [✓ Confirmar] con synthesis visible.
+- LLM arquitectura: single call per turn. LangGraph diferido a v1.1+ solo si métricas breach.
+- Workflow E2E: feedback-widget repo → git push branch → CBP repins lockfile → `make rebuild`
+  → :3001 sirve nueva UI.
+- Chat-first roadmap (era "Next: S5 → S5b → S3E → S4 → S7"): ALL SHIPPED since — confirm +
+  abandon endpoints live, comments module live, voice/Whisper live (`chat_whisper.py`), legacy
+  POST removed in the 2026-05-16 unification. See log.md.
+- Visual issues conocidos (no bloquean, polish pendiente): greeting bubble se renderiza con
+  estilo button; botón flotante "RL3 Feedback" sigue visible encima del Sheet abierto.
 
 ## Decisión master
 - [[2026-05-13_feedback-widget-v1-redesign]] — 22 decisiones grilled
+- [[../../docs/specs/2026-05-14-feedback-widget-shell-hybrid-design]] — spec shell-hybrid
 - Spec 001 clarification: reuse existing SMTP config (superseded an initial OAuth answer)
 
 ## Stack dev
