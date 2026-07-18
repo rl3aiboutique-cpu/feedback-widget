@@ -15,6 +15,24 @@ Append-only. New entries at the TOP.
 
 ---
 
+## 2026-07-18 (later) — Spec 001 SHIPPED: real email live from admin@rl3.dev
+
+- CBP full stack run locally (backend :8002, frontend :3001); login + widget chat + confirm
+  driven via UI and API (cookie auth + CSRF double-submit + fake LLM provider — both CBP LLM
+  keys are dead: Gemini 400, OpenAI 401 → rotate).
+- Credential saga: vault app password dead (Google acct password changed May 30 revokes app
+  passwords) → new one minted for admin@rl3.dev (Workspace mailbox!) → SMTP AUTH OK →
+  FB-2026-0005 email DELIVERED to omar.purefreight@gmail.com + r.novasvilla@gmail.com, From
+  admin@rl3.dev. Spec FR-003 satisfied literally.
+- FR-011 proven 3× on real host: 535 BadCredentials logged distinguishably, submissions never
+  affected.
+- bw CLI convention learned from rl3-infra-vps: item value = notes verbatim, org-scoped, exact
+  name (`vault_pull_env.sh`); CBP `scripts/fetch-smtp-secret.sh` now follows it.
+- Local artifacts in capellai-ai-crm (uncommitted): gmail-smtp + fake-llm compose overrides,
+  fetch-smtp-secret.sh.
+- OPEN: store admin@rl3.dev app password in a properly-named vault item; VPS Vaultwarden mail
+  still broken (rl3aiboutique app password dead); CBP LLM keys rotation.
+
 ## 2026-07-18 — Spec-kit installed + spec 001 (email notifications) verified
 
 - Spec-kit init (`.specify/` + speckit-* skills); constitution v1.0.0 ratified (non-regression,
