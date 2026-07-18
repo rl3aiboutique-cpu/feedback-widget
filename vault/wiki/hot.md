@@ -2,7 +2,7 @@
 type: meta
 title: "Hot Cache"
 created: 2026-05-13
-updated: 2026-05-14
+updated: 2026-07-18
 tags:
   - meta
   - hot
@@ -12,30 +12,35 @@ status: developing
 # Recent Context
 
 ## Last Updated
-2026-05-14. S3F shell-hybrid IMPLEMENTED + deployed to CBP. Visual smoke green via agent-browser.
+2026-07-18. Spec-kit installed; spec 001 (feedback email notifications) verified in sandbox —
+feature was ALREADY SHIPPED, only config + verification needed.
 
 ## Key Recent Facts
-- Redesign chat-first v1.0.0 — shell-hybrid: OLD chrome (header + tabs Nuevo/Mis feedbacks + CAPTURE picker + footer) preserved verbatim; form fields replaced by chat (ChatTimeline + Composer + SynthesisCard).
-- Bottom buttons state-driven: hidden during discovery; [↺ Sigamos iterando] + [✓ Confirmar] when synthesis visible.
-- LLM arquitectura: single call per turn (Gemini-flash). LangGraph diferido a v1.1+ solo si métricas breach.
-- Workflow E2E: feedback-widget repo → git push branch → CBP repins lockfile → `make rebuild` → :3001 sirve nueva UI.
+- Spec-kit (GitHub Specify) installed: `.specify/` + 10 `speckit-*` skills. Constitution v1.0.0
+  ratified (`.specify/memory/constitution.md`) — Principle I: non-regression, shipped code wins.
+- Spec 001 `specs/001-feedback-email-notifications/`: notify omar.purefreight@gmail.com +
+  r.novasvilla@gmail.com from admin@rl3.dev on new feedback. Code scan: pipeline already shipped
+  (`enqueue_notification` + `build_feedback_email` + `FEEDBACK_NOTIFY_EMAILS` CSV). Zero code
+  changes; sandbox e2e verified (MailHog): 1 confirm = 1 email, mail-down never breaks
+  submission, env-only enable/disable/re-address. Pending: prod config in CBP (provider SMTP
+  relay for rl3.dev, API key as SMTP_PASSWORD) + smoke (T005-T007, T010).
+- FIXED defect: hatchling ≥1.27 broke wheel build (duplicate force-include in
+  `packages/feedback-backend/pyproject.toml`) — force-include block removed, wheel verified.
+- OPEN defects (chip filed): sandbox-host docker logs swallow app output (no PYTHONUNBUFFERED);
+  mailer `smtplib.SMTP()` has no timeout (outage hangs background thread ~2 min).
+- Sandbox real ports: backend :9200, frontend :9201, MailHog :8226, postgres :5440. LLM keys
+  absent → use `FEEDBACK_ITER_PROVIDER=fake` (synthesizes on user turn 3).
 
 ## Decisión master
 - [[2026-05-13_feedback-widget-v1-redesign]] — 22 decisiones grilled
-- [[../../docs/specs/2026-05-14-feedback-widget-shell-hybrid-design]] — spec shell-hybrid
-
-## Stack dev
-- `agent-browser` 0.27.0 global + Chrome 148 (ojos del agente, refs `@e1`)
-- CBP local: backend :8002, frontend :3001
-- CBP db: cbp-postgres :5433 user cbp_user db compliance_brain_dev
-- Real Gemini wiring: `GEMINI_API_KEY` en `apps/sandbox-host/.env`; CBP backend ya tiene su key en infra `.env`
+- Spec 001 clarification: reuse existing SMTP config (superseded OAuth/Gmail first answer)
 
 ## Active Threads
-- S3F shipped en commit `ed85564`, branch `feedback/lehidalgo/feedback-optimizations`, pushed remote.
-- CBP frontend lockfile pin actualizado a ed85564, rebuild + redeploy hecho. Smoke browser ✅.
-- Visual issues conocidos (no bloquean): greeting bubble se renderiza con estilo button; botón flotante "RL3 Feedback" sigue visible encima del Sheet abierto. Diferidos a polish slice.
-- Next: S5 (backend confirm + abandon endpoints) → S5b (frontend wire confirm) → S3E (comments inline) → S4 (voice Whisper) → S7 (cleanup legacy + v1.0.0 ship).
+- Ship spec 001: operator provisions rl3.dev mail relay → env block in CBP → prod smoke
+  (tasks T005-T007 + optional T010 in `specs/001-feedback-email-notifications/tasks.md`).
+- Follow-up chip: sandbox log visibility + SMTP timeout hardening.
+- Prior thread (S5/S3E/S4/S7 chat-first slices) unchanged.
 
 ## Resume hints
-- Implementación: "Sigue con S5 — POST /chat/sessions/{sid}/confirm crea feedback row real + S5b wire frontend."
-- Visual polish: "fix greeting bubble como assistant chat bubble no button, y ocultar floating button cuando Sheet abierto."
+- "Ejecuta T005-T007 de spec 001" once the mail provider API key exists.
+- Everything verified is evidenced in `specs/001-feedback-email-notifications/quickstart.md` § C.
