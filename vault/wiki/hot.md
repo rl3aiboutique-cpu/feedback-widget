@@ -12,8 +12,8 @@ status: developing
 # Recent Context
 
 ## Last Updated
-2026-07-18. Spec-kit installed; spec 001 (feedback email notifications) verified in sandbox —
-feature was ALREADY SHIPPED, only config + verification needed.
+2026-07-18. Spec 001 SHIPPED end-to-end: real notification email delivered from admin@rl3.dev
+(Google Workspace app password) to both team inboxes via the local CBP stack. All 14 tasks done.
 
 ## Key Recent Facts
 - Spec-kit (GitHub Specify) installed: `.specify/` + 10 `speckit-*` skills. Constitution v1.0.0
