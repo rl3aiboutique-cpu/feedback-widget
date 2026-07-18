@@ -15,6 +15,19 @@ Append-only. New entries at the TOP.
 
 ---
 
+## 2026-07-18 — Spec-kit installed + spec 001 (email notifications) verified
+
+- Spec-kit init (`.specify/` + speckit-* skills); constitution v1.0.0 ratified (non-regression,
+  host-CRM alignment).
+- Spec 001 feedback-email-notifications: full speckit flow (specify → clarify → plan → tasks →
+  implement). Finding: notification pipeline already shipped — zero code changes, config-only.
+- Sandbox e2e green: 1 confirm = 1 MailHog email (contract match, screenshot attached); mail-down
+  submission unaffected (FB-2026-0002); empty NOTIFY_EMAILS no-op (FB-2026-0003); env re-address
+  (FB-2026-0004). Compose defaults restored.
+- Fixed: hatchling ≥1.27 duplicate force-include wheel break → [[2026-07-18_hatchling-duplicate-force-include]].
+- Open chip: sandbox log visibility + mailer SMTP timeout → [[2026-07-18_sandbox-log-visibility-smtp-timeout]].
+- Pending operator: rl3.dev mail relay + CBP env block + prod smoke (T005-T007).
+
 ## 2026-05-13 — S1 implemented (chat-first redesign foundation)
 
 - Migration 0007_chat_first_schema applied: 3 enums (chat_session_mode, chat_session_status, feedback_severity) + feedback_chat_session table (14 cols) + ALTER feedback for synthesis_json/severity/chat_session_id.
