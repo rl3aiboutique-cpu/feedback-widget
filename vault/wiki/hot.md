@@ -42,6 +42,14 @@ stack. 14/14 tasks, evidence in `specs/001-feedback-email-notifications/quicksta
 - [[2026-05-13_feedback-widget-v1-redesign]] — 22 decisiones grilled
 - Spec 001 clarification: reuse existing SMTP config (superseded an initial OAuth answer)
 
+## Stack dev
+- CBP local: backend :8002, frontend :3001; db cbp-postgres :5433 user cbp_user db
+  compliance_brain_dev. Dev login: admin@capellai.dev (seeded fixture).
+- `agent-browser` 0.27.0 global + Chrome 148 (ojos del agente, refs `@e1`).
+- LLM keys: the old note "Gemini wired in sandbox/.env + CBP infra .env" is OBSOLETE — sandbox
+  has no keys and CBP's are dead (Gemini 400 / OpenAI 401, verified 2026-07-18). Fake provider
+  everywhere until rotated.
+
 ## Active Threads
 - rl3-infra-vps: branch `chore/omar-machado/vaultwarden-smtp-admin-rl3` pushed (template SMTP
   sender → admin@rl3.dev); PR pending creation/merge.
