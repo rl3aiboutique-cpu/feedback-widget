@@ -36,9 +36,14 @@ status: developing
 - Spec 001 clarification: reuse existing SMTP config (superseded OAuth/Gmail first answer)
 
 ## Active Threads
-- Ship spec 001: operator provisions rl3.dev mail relay → env block in CBP → prod smoke
-  (tasks T005-T007 + optional T010 in `specs/001-feedback-email-notifications/tasks.md`).
-- Follow-up chip: sandbox log visibility + SMTP timeout hardening.
+- Spec 001 COMPLETE (14/14 tasks, evidence in quickstart § C). Delivery = admin@rl3.dev
+  Workspace app password; CBP local overrides: `docker-compose.gmail-smtp.override.yml` +
+  `docker-compose.fake-llm.override.yml` + `scripts/fetch-smtp-secret.sh` (uncommitted).
+- Follow-ups: (1) vault item for admin@rl3.dev app password (old item name = rl3aiboutique
+  Vaultwarden cred); (2) VPS Vaultwarden outgoing mail broken — rl3aiboutique app password died
+  May 30; (3) CBP LLM keys dead (Gemini 400 / OpenAI 401) — rotate to restore real chat;
+  (4) chip: sandbox log visibility + mailer SMTP timeout; (5) commits pending approval in both
+  repos.
 - Prior thread (S5/S3E/S4/S7 chat-first slices) unchanged.
 
 ## Resume hints
