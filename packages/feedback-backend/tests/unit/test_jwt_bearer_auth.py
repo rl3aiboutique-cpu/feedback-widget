@@ -5,11 +5,11 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
+import jwt
 import pytest
 from fastapi import Request
 from feedback_widget.adapters import JWTBearerAuth
 from feedback_widget.auth import FeedbackAuthAdapter
-from jose import jwt
 
 SECRET = "test-secret-please-rotate"
 USER_UUID = uuid.UUID("11111111-1111-1111-1111-111111111111")
