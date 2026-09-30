@@ -22,9 +22,14 @@ import os
 import uuid
 from typing import Any
 
+import jwt
 from fastapi import Request
-from jose import jwt
-from jose.exceptions import ExpiredSignatureError, JWTClaimsError, JWTError
+from jwt.exceptions import (
+    ExpiredSignatureError,
+    InvalidAudienceError,
+    InvalidIssuerError,
+    InvalidTokenError,
+)
 
 from feedback_widget.auth import CurrentUserSnapshot
 
@@ -145,12 +150,12 @@ class JWTBearerAuth:
             # being on by default.
             logger.info("feedback_widget jwt rejected: reason=expired alg=%s", self._algorithm)
             return None
-        except JWTClaimsError as exc:
+        except (InvalidAudienceError, InvalidIssuerError) as exc:
             # INFO: claim shape mismatch points at host misconfig (issuer,
             # audience, etc.) — operator-debuggable.
             logger.info("feedback_widget jwt rejected: reason=claims detail=%s", exc)
             return None
-        except JWTError as exc:
+        except InvalidTokenError as exc:
             # DEBUG (not INFO) — signature/format mismatch is
             # attacker-controllable (spray garbage at /feedback/*).
             # Demote to DEBUG to prevent log amplification under scan.
